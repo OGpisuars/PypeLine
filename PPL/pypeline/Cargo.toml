@@ -8,6 +8,7 @@ description = "A cozy GBA-style factory game where your factory runs on real Pyt
 [dependencies]
 bevy = "0.19.1"
 bevy_egui = "0.42.0"
+dirs = "7"
 rustpython-vm = { version = "0.6.0", default-features = false, features = ["compiler"] }
 
 # Fast iteration: optimize dependencies in debug builds, keep our code quick to compile.

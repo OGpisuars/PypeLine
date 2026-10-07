@@ -1,0 +1,64 @@
+name: Windows build
+
+# Builds PypeLine.exe on every push to main and publishes it as the
+# "latest" pre-release, so the newest build is always one download away:
+# https://github.com/OGpisuars/PypeLine/releases/tag/latest
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only the newest push matters; cancel older builds still running.
+concurrency:
+  group: windows-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Build PypeLine.exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: PPL/pypeline
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # The toolchain version comes from rust-toolchain.toml.
+      - name: Install Rust
+        run: rustup show
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: PPL/pypeline
+          key: release
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        run: |
+          mkdir -p dist/PypeLine
+          cp target/release/pypeline.exe dist/PypeLine/PypeLine.exe
+          cp ../../LICENSE dist/PypeLine/LICENSE.txt
+          cp ASSET_LICENSES.md dist/PypeLine/
+          cp assets/fonts/JetBrainsMono-OFL.txt dist/PypeLine/
+          cd dist && 7z a -tzip PypeLine-windows.zip PypeLine > /dev/null
+
+      - name: Publish as the "latest" pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest dist/PypeLine-windows.zip \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Latest build (${GITHUB_SHA::7})" \
+            --notes "Automatic Windows build of the newest commit on main. Unzip and run PypeLine.exe. Your scripts are saved in %APPDATA%\\PypeLine."

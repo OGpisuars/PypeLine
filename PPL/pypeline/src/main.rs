@@ -1,3 +1,6 @@
+// Release builds on Windows open no extra console window behind the game.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use bevy::prelude::*;
 use pypeline::{
     PypelinePlugin,
