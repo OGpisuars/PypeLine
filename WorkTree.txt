@@ -1,0 +1,197 @@
+pypipeline/
+|
++-- Cargo.toml                    # Rust deps (bevy, bevy_egui, rustpython, serde, ron)
++-- Cargo.lock
++-- rust-toolchain.toml           # Pin Rust version
++-- README.md                     # Overview, sample, build, roadmap
++-- LICENSE                       # MIT (code)
++-- CONTRIBUTING.md
++-- CHANGELOG.md
++-- ASSET_LICENSES.md             # Every font/sound/crate license
++-- PLAYTEST.md                   # Notes from each playtest
++-- game_concept.txt              # Master design blueprint
++-- ROADMAP.txt                   # Master roadmap
++-- .gitignore
+|
++-- .github/
+|   +-- workflows/
+|       +-- ci.yml                # Build, test, clippy, fmt
+|       +-- release.yml           # Package Win/Linux/macOS builds
+|
++-- assets/
+|   +-- sprites/
+|   |   +-- tiles/                # 16x16 ground, plots, sky, auto-tile edges
+|   |   +-- machines/             # Miner, smelter, generator, terminal
+|   |   +-- conveyors/            # Belt frames, curves, splitters
+|   |   +-- items/                # Ore, plates, gears
+|   |   +-- train/                # Cargo train + station
+|   |   +-- wires/                # Wire segments and data pulses
+|   |   +-- ui/                   # Polaroid frame, buttons, run arrow
+|   |   +-- fx/                   # Steam, sparks, overheating
+|   |   +-- creatures/            # Moths, crickets, etc. (original art)
+|   |   +-- microchips/           # Chip sprites + port indicators
+|   +-- fonts/                    # Pixel fonts; mono MUST include block + box-drawing glyphs
+|   +-- audio/
+|   |   +-- music/                # GBA-style synth/wavetable layers (stems)
+|   |   +-- sfx/                  # Clicks, belts, whistles, errors
+|   |   +-- jingles/              # Boot chime, unlock stings
+|   +-- themes/                   # Terminal skins (original designs)
+|   |   +-- indigo_dusk/
+|   |   +-- ember/
+|   |   +-- glasswork/
+|   |   +-- mint_cart/
+|   +-- palettes/
+|   |   +-- master.pal            # Master GBA-style palette (source of truth)
+|   |   +-- tilesets/             # Per-tileset 16-color palettes
+|   +-- shaders/
+|   |   +-- lcd_grid.wgsl         # Optional GBA LCD pixel-grid look
+|   |   +-- gba_color.wgsl        # Optional GBA screen color correction
+|   +-- data/                     # Data-driven content
+|       +-- recipes.ron
+|       +-- machines.ron
+|       +-- creatures.ron         # Species, habitats, behaviors
+|       +-- snippets/             # Starter templates (per chapter)
+|       |   +-- miner_to_smelter.ron
+|       |   +-- sensor_listener.ron
+|       |   +-- tick_loop.ron
+|       |   +-- ascii_progress_bar.ron
+|       +-- contracts/            # Campaign quotas
+|       |   +-- ch01_variables.ron
+|       |   +-- ch02_strings.ron
+|       |   +-- ch03_for_loops.ron
+|       |   +-- ch04_while_loops.ron
+|       +-- manual/               # Engineering Manual chapters
+|           +-- ch01_variables.md
+|           +-- ch02_strings.md
+|           +-- ch03_for_loops.md
+|           +-- ch04_while_loops.md
+|
++-- python_runtime/
+|   +-- stdlib/                   # In-game modules exposed to players
+|   |   +-- auto.py               # conveyors, machines placement API
+|   |   +-- power.py              # generators, grid connections
+|   |   +-- sensors.py            # sensor.read(), events
+|   |   +-- blueprints.py         # Reusable module helpers
+|   |   +-- console.py            # console.color(), console.clear()
+|   |   +-- micro.py              # micro.read(), micro.set_output()
+|   |   +-- display.py            # display.set_pixel(), clear(), fill()
+|   |   +-- clock.py              # clock.time_of_day()
+|   |   +-- stats.py              # stats.ipm(), steam(), bottlenecks()
+|   +-- stubs/                    # .pyi files for editor autocomplete
+|   |   +-- auto.pyi
+|   |   +-- power.pyi
+|   |   +-- sensors.pyi
+|   |   +-- console.pyi
+|   |   +-- micro.pyi
+|   |   +-- display.pyi
+|   |   +-- clock.pyi
+|   |   +-- stats.pyi
+|   +-- user_scripts/             # Player saves
+|       +-- main.py               # Entry point
+|       +-- blueprints/           # Player-made reusable modules
+|       +-- carts/                # Cartridge modules (cart_mining.py ...)
+|       +-- chips/                # Micro-scripts flashed to chips
+|
++-- src/
+|   +-- main.rs                   # App entry, plugin registration
+|   +-- lib.rs
+|   |
+|   +-- engine/                   # Rendering and UI
+|   |   +-- mod.rs
+|   |   +-- camera.rs             # Pixel-perfect camera + scaling
+|   |   +-- grid.rs               # Tile grid and coordinates
+|   |   +-- renderer.rs           # Sprite/animation systems
+|   |   +-- floating_plot.rs      # Island bobbing, parallax
+|   |   +-- wires.rs              # Wire drawing + data pulses
+|   |   +-- shaders.rs            # LCD grid / color-correction toggle
+|   |   +-- wildlife.rs           # Cosmetic creatures (render-side only)
+|   |   +-- splash.rs             # Boot animation
+|   |   +-- themes.rs             # Terminal skin loader
+|   |   +-- daynight_palette.rs   # Palette shift (render only)
+|   |   +-- ui/
+|   |       +-- mod.rs
+|   |       +-- polaroid.rs       # Hover snapshot UI
+|   |       +-- editor.rs         # egui code editor, highlighting
+|   |       +-- autocomplete.rs
+|   |       +-- console.rs        # Output console (monospace grid, sanitized)
+|   |       +-- manual.rs         # Engineering Manual viewer
+|   |       +-- run_button.rs     # Run / Stop arrow
+|   |       +-- time_dials.rs     # Pause/play/speed/step controls
+|   |       +-- debugger.rs       # Line stepping + variable watch
+|   |       +-- stats_panel.rs    # IPM, steam, bottleneck dashboard
+|   |       +-- snippets.rs       # Snippet menu, chapter-gated
+|   |
+|   +-- factory/                  # Simulation
+|   |   +-- mod.rs
+|   |   +-- tick.rs               # Fixed 20 Hz simulation loop
+|   |   +-- conveyors.rs
+|   |   +-- machines.rs           # Miner, smelter, assembler
+|   |   +-- items.rs
+|   |   +-- power.rs              # Steam generators, grid
+|   |   +-- failures.rs           # Overheat, spills, halts
+|   |   +-- microchips.rs         # Chip placement, ports, flashing
+|   |   +-- thermal.rs            # Boiler heat + cooling (integer math)
+|   |   +-- daynight.rs           # Tick-based time of day
+|   |   +-- display_panel.rs      # LED matrix state + render data
+|   |   +-- stats.rs              # Throughput/bottleneck tracking
+|   |   +-- train.rs              # Cargo train + trading
+|   |
+|   +-- scripting/                # Python bridge
+|   |   +-- mod.rs
+|   |   +-- runtime.rs            # RustPython setup and lifecycle
+|   |   +-- sandbox.rs            # AST allowlist, import rules
+|   |   +-- budget.rs             # Steam / step budget
+|   |   +-- bindings.rs           # Rust functions exposed to auto.*
+|   |   +-- scheduler.rs          # main(), tick(), on_event
+|   |   +-- reconcile.rs          # Hot-reload diff: create/update/remove
+|   |   +-- errors.rs             # Line-error mapping and highlight
+|   |   +-- micro.rs              # Micro-script runtime, tiny budgets
+|   |   +-- cartridges.rs         # Slots, module loading, import graph
+|   |   +-- trace.rs              # Line-execution hook for debugger
+|   |
+|   +-- progression/
+|   |   +-- mod.rs
+|   |   +-- economy.rs            # Currency, prices
+|   |   +-- contracts.rs          # Quotas + concept requirements
+|   |   +-- manual_unlocks.rs     # Chapter unlock logic
+|   |   +-- scoring.rs            # Throughput, steam, line count
+|   |   +-- saves.rs              # Save/load, versioning
+|   |
+|   +-- audio/
+|   |   +-- mod.rs
+|   |   +-- adaptive_music.rs     # Layers tied to throughput
+|   |   +-- sfx.rs
+|   |
+|   +-- settings/
+|       +-- mod.rs
+|       +-- accessibility.rs      # Colorblind, font scale, motion
+|       +-- keybinds.rs
+|
++-- tests/
+|   +-- sandbox_tests.rs          # Forbidden code must be rejected
+|   +-- console_sanitize_tests.rs # Escape codes / control chars stripped
+|   +-- determinism_tests.rs      # Same script + seed = same result
+|   +-- budget_tests.rs           # Infinite loops get capped
+|   +-- micro_budget_tests.rs     # Chip budgets + fixed ordering
+|   +-- wildlife_isolation_tests.rs  # Creatures never change sim hash
+|   +-- contract_tests.rs         # Quota validation
+|   +-- golden_solutions/         # Passing script per contract (CI)
+|   +-- manual_examples_tests.rs  # Runs every tutorial code sample
+|   +-- cross_os_replay_tests.rs  # State-hash match on Win/Linux/macOS
+|   +-- fuzz/                     # Sandbox escape corpus
+|   +-- bench/                    # Performance benchmarks
+|   +-- fixtures/
+|       +-- scripts/              # Good and malicious sample scripts
+|
++-- docs/
+|   +-- API.md                    # auto / power / sensors reference
+|   +-- ARCHITECTURE.md           # Systems overview
+|   +-- SANDBOX.md                # Security model
+|   +-- DECISIONS.md              # Log of locked design decisions
+|   +-- CONTENT_GUIDE.md          # How to add chapters/contracts
+|   +-- ART_STYLE.md              # Master palette, 16x16 grid, shading + outline rules
+|   +-- images/                   # Screenshots / GIFs for README
+|
++-- tools/
+    +-- pack_assets.rs            # Sprite atlas packer
+    +-- validate_content.rs       # Checks contracts/manual data
