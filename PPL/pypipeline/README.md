@@ -1,3 +1,0 @@
-# pypipeline
-
-TODO: describe pypipeline.
