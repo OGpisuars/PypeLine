@@ -181,6 +181,6 @@ Please read `CONTRIBUTING.md` before opening a pull request.
 ## 📜 License and Credits
 
 - **Code:** MIT. See [`LICENSE`](LICENSE).
-- **Assets:** see [`ASSET_LICENSES.md`](ASSET_LICENSES.md) for the license of each font, sound, and image.
+
 
 PyPipeline is an independent project. It is not affiliated with or endorsed by Nintendo, Game Freak, or the Python Software Foundation. The GBA-inspired look is a style reference only, and all art, music, and names are original. "Python" is a trademark of the Python Software Foundation.
