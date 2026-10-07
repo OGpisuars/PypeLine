@@ -2,5 +2,17 @@
 name = "pypeline"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "A cozy GBA-style factory game where your factory runs on real Python."
 
 [dependencies]
+bevy = "0.19.1"
+bevy_egui = "0.42.0"
+rustpython-vm = { version = "0.6.0", default-features = false, features = ["compiler"] }
+
+# Fast iteration: optimize dependencies in debug builds, keep our code quick to compile.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
