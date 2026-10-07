@@ -152,10 +152,10 @@ fn install_import_guard(vm: &VirtualMachine) -> PyResult<()> {
                 return Err(vm.new_type_error("__import__() missing module name"));
             };
             let name = name.str(vm)?;
+            // Names that are not valid UTF-8 fall through as "" and are refused.
             let top_level = name
-                .to_string()
-                .split('.')
-                .next()
+                .to_str()
+                .and_then(|n| n.split('.').next())
                 .unwrap_or_default()
                 .to_owned();
             if ALLOWED_MODULES.contains(&top_level.as_str()) {
