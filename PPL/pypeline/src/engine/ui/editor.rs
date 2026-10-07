@@ -5,20 +5,11 @@ use bevy_egui::{EguiContexts, egui};
 
 use crate::scripting::{ErrorLine, PendingRun};
 
+use super::help::HelpState;
 use super::{palette, rgb};
 
-const STARTER_SCRIPT: &str = "\
-# Welcome to PypeLine! Press Run to execute this script.
-name = \"PypeLine\"
-print(f\"Hello from {name}!\")
-
-for i in range(1, 6):
-    print(\"#\" * i)
-
-# Try an infinite loop: it runs out of steam instead of freezing.
-# while True:
-#     pass
-";
+/// The first script a new player sees: the roadmap's canonical sample.
+const STARTER_SCRIPT: &str = crate::scripting::CANONICAL_SAMPLE;
 
 #[derive(Resource)]
 pub struct EditorState {
@@ -38,6 +29,7 @@ pub fn editor_window(
     mut state: ResMut<EditorState>,
     mut pending: ResMut<PendingRun>,
     error_line: Res<ErrorLine>,
+    mut help: ResMut<HelpState>,
 ) -> Result {
     egui::Window::new("main.py")
         .default_pos(egui::pos2(16.0, 48.0))
@@ -48,6 +40,9 @@ pub fn editor_window(
                 let run = ui.add_enabled(!queued, egui::Button::new("▶ Run"));
                 if run.clicked() {
                     pending.0 = Some(state.source.clone());
+                }
+                if ui.button("? Help (F1)").clicked() {
+                    help.open = !help.open;
                 }
                 if let Some(line) = error_line.0 {
                     ui.colored_label(rgb(palette::UI_ERROR), format!("problem on line {line}"));
@@ -78,6 +73,6 @@ mod tests {
     fn starter_script_runs() {
         let report = ScriptRuntime::new().run(STARTER_SCRIPT, DEPLOY_BUDGET);
         assert_eq!(report.outcome, RunOutcome::Finished, "{:?}", report.output);
-        assert_eq!(report.output[0], "Hello from PypeLine!");
+        assert!(report.plan.is_some_and(|plan| !plan.machines.is_empty()));
     }
 }

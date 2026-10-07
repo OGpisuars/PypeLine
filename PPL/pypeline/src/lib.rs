@@ -20,9 +20,11 @@ impl Plugin for PypelinePlugin {
             })
             .add_plugins((
                 factory::SimPlugin,
+                factory::FactoryPlugin,
                 scripting::ScriptingPlugin,
                 engine::camera::PixelCameraPlugin,
                 engine::grid::GridPlugin,
+                engine::renderer::FactoryRenderPlugin,
                 engine::ui::UiPlugin,
             ));
     }

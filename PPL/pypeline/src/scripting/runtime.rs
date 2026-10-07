@@ -13,7 +13,9 @@ use rustpython_vm::{
     compiler::Mode, function::FuncArgs,
 };
 
+use super::bindings::{self, ModuleTable};
 use super::budget::Budget;
+use super::commands::BuildPlan;
 use super::hooks;
 
 /// Max characters kept from a single `print()` call.
@@ -42,12 +44,17 @@ pub struct RunReport {
     pub outcome: RunOutcome,
     pub steps_used: u64,
     pub steps_limit: u64,
+    /// What the script asked to build. Only present if it finished, so a
+    /// failed run can never change the factory.
+    pub plan: Option<BuildPlan>,
 }
 
 pub struct ScriptRuntime {
     interpreter: Interpreter,
     budget: Rc<Budget>,
     output: Rc<RefCell<Vec<String>>>,
+    plan: Rc<RefCell<BuildPlan>>,
+    modules: Rc<RefCell<ModuleTable>>,
 }
 
 impl ScriptRuntime {
@@ -60,10 +67,11 @@ impl ScriptRuntime {
 
         let budget = Rc::new(Budget::default());
         let output = Rc::new(RefCell::new(Vec::new()));
+        let modules = Rc::new(RefCell::new(ModuleTable::new()));
 
         interpreter.enter(|vm| {
             install_print(vm, output.clone()).expect("failed to install print()");
-            install_import_guard(vm).expect("failed to install the import guard");
+            install_import_guard(vm, modules.clone()).expect("failed to install the import guard");
             hooks::install(vm, budget.clone()).expect("failed to install the step hook");
         });
 
@@ -71,6 +79,8 @@ impl ScriptRuntime {
             interpreter,
             budget,
             output,
+            plan: Rc::new(RefCell::new(BuildPlan::default())),
+            modules,
         }
     }
 
@@ -78,8 +88,13 @@ impl ScriptRuntime {
     pub fn run(&self, source: &str, step_limit: u64) -> RunReport {
         self.output.borrow_mut().clear();
         self.budget.reset(step_limit);
+        *self.plan.borrow_mut() = BuildPlan::default();
 
         let outcome = self.interpreter.enter(|vm| {
+            match bindings::build_modules(vm, &self.plan) {
+                Ok(table) => *self.modules.borrow_mut() = table,
+                Err(exc) => return error_outcome(vm, &exc),
+            }
             let code = match vm.compile(source, Mode::Exec, "main.py") {
                 Ok(code) => code,
                 Err(err) => {
@@ -97,8 +112,10 @@ impl ScriptRuntime {
             }
         });
 
+        let plan = (outcome == RunOutcome::Finished).then(|| self.plan.take());
         RunReport {
             output: std::mem::take(&mut *self.output.borrow_mut()),
+            plan,
             outcome,
             steps_used: self.budget.used(),
             steps_limit: self.budget.limit(),
@@ -138,13 +155,12 @@ fn install_print(vm: &VirtualMachine, output: Rc<RefCell<Vec<String>>>) -> PyRes
     vm.builtins.set_attr("print", print, vm)
 }
 
-/// Replace `builtins.__import__` so only allowlisted modules can be imported.
+/// Replace `builtins.__import__` so scripts can only import the game modules.
 ///
 /// Even without the stdlib, RustPython has built-in modules like `sys`, and
 /// `sys.settrace(None)` would switch off the step budget. Every `import`
 /// statement goes through `builtins.__import__`, so this closes that door.
-fn install_import_guard(vm: &VirtualMachine) -> PyResult<()> {
-    let original = vm.builtins.get_attr("__import__", vm)?;
+fn install_import_guard(vm: &VirtualMachine, modules: Rc<RefCell<ModuleTable>>) -> PyResult<()> {
     let guard = vm.new_function(
         "__import__",
         move |args: FuncArgs, vm: &VirtualMachine| -> PyResult {
@@ -153,27 +169,30 @@ fn install_import_guard(vm: &VirtualMachine) -> PyResult<()> {
             };
             let name = name.str(vm)?;
             // Names that are not valid UTF-8 fall through as "" and are refused.
-            let top_level = name
-                .to_str()
-                .and_then(|n| n.split('.').next())
-                .unwrap_or_default()
-                .to_owned();
-            if ALLOWED_MODULES.contains(&top_level.as_str()) {
-                original.call(args, vm)
-            } else {
-                Err(vm.new_import_error(
-                    format!("module '{top_level}' is not available in PypeLine"),
+            let full = name.to_str().unwrap_or_default().to_owned();
+            let top_level = full.split('.').next().unwrap_or_default().to_owned();
+            // `from a.b import c` wants the module a.b itself; `import a.b`
+            // binds the top-level module a.
+            let fromlist = args
+                .args
+                .get(3)
+                .or_else(|| args.kwargs.get("fromlist"))
+                .map(|list| list.clone().try_to_bool(vm))
+                .transpose()?
+                .unwrap_or(false);
+            let modules = modules.borrow();
+            match (modules.get(&full), modules.get(&top_level)) {
+                (Some(module), _) if fromlist => Ok(module.clone()),
+                (Some(_), Some(top)) => Ok(top.clone()),
+                _ => Err(vm.new_import_error(
+                    format!("module '{full}' is not available in PypeLine"),
                     name,
-                ))
+                )),
             }
         },
     );
     vm.builtins.set_attr("__import__", guard, vm)
 }
-
-/// Modules a player script may import. Game modules (auto, power, ...) are
-/// added here as they are built (roadmap Part 1, SANDBOX STRATEGY).
-const ALLOWED_MODULES: &[&str] = &[];
 
 /// Keep console output safe: no control characters or escape codes, and a
 /// capped line length (roadmap: ASCII DASHBOARDS / sandbox output cap).

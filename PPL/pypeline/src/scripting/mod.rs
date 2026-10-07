@@ -1,14 +1,32 @@
 //! Python bridge: runs player scripts inside the simulation tick.
 
+pub mod bindings;
 pub mod budget;
+pub mod commands;
 pub mod hooks;
+pub mod reconcile;
 pub mod runtime;
 
 use bevy::prelude::*;
 
-use crate::factory::{SimSet, SimTick};
+use crate::factory::{Factory, PendingBuild, SimSet, SimTick};
 use budget::DEPLOY_BUDGET;
 use runtime::{RunOutcome, ScriptRuntime};
+
+/// The roadmap's CANONICAL SAMPLE (Part 1): the README sample and the Phase 1
+/// exit test. Keep all three in sync.
+pub const CANONICAL_SAMPLE: &str = r#"from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+for x in range(1, 5):
+    conveyors.place(x=x, y=0, dir="east")
+machines.place("smelter", name="smelter_1", x=5, y=0)
+
+power.connect(generator="steam_1",
+              to=["miner_1", "smelter_1"])
+"#;
 
 /// Script source waiting to run on the next tick. The editor's Run button
 /// fills this; scripts only ever run on a tick boundary.
@@ -71,6 +89,8 @@ fn run_pending_script(
     mut pending: ResMut<PendingRun>,
     mut console: ResMut<Console>,
     mut error_line: ResMut<ErrorLine>,
+    mut build: ResMut<PendingBuild>,
+    mut factory: ResMut<Factory>,
     tick: Res<SimTick>,
 ) {
     let Some(source) = pending.0.take() else {
@@ -85,6 +105,10 @@ fn run_pending_script(
 
     let at = |line: Option<usize>| line.map(|l| format!(" (line {l})")).unwrap_or_default();
     error_line.0 = None;
+    // Any failed run halts the belts until the next good Run (roadmap:
+    // ERROR HANDLING). The factory layout itself is left untouched.
+    factory.halted = report.outcome != RunOutcome::Finished;
+    build.0 = report.plan;
     match report.outcome {
         RunOutcome::Finished => console.push(
             ConsoleKind::Info,
@@ -96,6 +120,7 @@ fn run_pending_script(
         RunOutcome::Error { line, message } => {
             error_line.0 = line;
             console.push(ConsoleKind::Error, format!("Error{}: {message}", at(line)));
+            console.push(ConsoleKind::Error, "Belts halted until the next good Run.");
         }
         RunOutcome::OutOfSteam { line } => {
             error_line.0 = line;

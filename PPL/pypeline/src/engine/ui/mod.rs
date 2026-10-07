@@ -1,11 +1,12 @@
 //! egui-based UI: code editor, console, and the debug overlay.
 //!
-//! egui draws at window resolution, not inside the 480x320 canvas. Phase 0
-//! styles it with the FireRed-style palette; the pixel font and integer
-//! pixels_per_point come once a licensed pixel font is added to assets/fonts.
+//! egui draws at window resolution, not inside the 480x320 canvas. It is
+//! styled with the FireRed-style palette and uses JetBrains Mono for all text
+//! (see ASSET_LICENSES.md).
 
 pub mod console;
 pub mod editor;
+pub mod help;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -13,9 +14,10 @@ use bevy::{
 };
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
-use crate::factory::SimTick;
+use crate::factory::items::ItemKind;
+use crate::factory::{Factory, SimTick};
 
-use super::camera::PixelScale;
+use super::camera::{HoveredTile, PixelScale};
 use super::palette;
 
 pub struct UiPlugin;
@@ -24,12 +26,15 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
             .init_resource::<editor::EditorState>()
+            .init_resource::<help::HelpState>()
+            .add_systems(Update, help::toggle_help)
             .add_systems(
                 EguiPrimaryContextPass,
                 (
                     apply_theme,
                     editor::editor_window,
                     console::console_window,
+                    help::help_window,
                     debug_overlay,
                 )
                     .chain(),
@@ -57,6 +62,22 @@ fn apply_theme(mut contexts: EguiContexts, mut applied: Local<bool>) -> Result {
     visuals.window_corner_radius = egui::CornerRadius::same(8);
     visuals.window_shadow = egui::Shadow::NONE;
     ctx.set_visuals(visuals);
+
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "jetbrains_mono".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+            "../../../assets/fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
+        ))),
+    );
+    for family in [egui::FontFamily::Monospace, egui::FontFamily::Proportional] {
+        fonts
+            .families
+            .entry(family)
+            .or_default()
+            .insert(0, "jetbrains_mono".to_owned());
+    }
+    ctx.set_fonts(fonts);
     *applied = true;
     Ok(())
 }
@@ -65,6 +86,8 @@ fn debug_overlay(
     mut contexts: EguiContexts,
     tick: Res<SimTick>,
     scale: Res<PixelScale>,
+    factory: Res<Factory>,
+    hovered: Res<HoveredTile>,
     diagnostics: Res<DiagnosticsStore>,
 ) -> Result {
     let fps = diagnostics
@@ -75,12 +98,27 @@ fn debug_overlay(
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 8.0))
         .interactable(false)
         .show(contexts.ctx_mut()?, |ui| {
-            ui.label(
-                egui::RichText::new(format!("tick {}  |  {fps:.0} fps  |  {}x", tick.0, scale.0))
-                    .monospace()
-                    .color(egui::Color32::WHITE)
-                    .background_color(egui::Color32::from_black_alpha(140)),
-            );
+            let status = if factory.halted { "  |  HALTED" } else { "" };
+            let lines = [
+                format!("tick {}  |  {fps:.0} fps  |  {}x{status}", tick.0, scale.0),
+                format!(
+                    "ore mined {}  |  plates made {}",
+                    factory.produced(ItemKind::IronOre),
+                    factory.produced(ItemKind::IronPlate)
+                ),
+                match hovered.0 {
+                    Some(pos) => format!("mouse on tile x={}, y={}", pos.x, pos.y),
+                    None => "point at the island to see x and y".to_owned(),
+                },
+            ];
+            for line in lines {
+                ui.label(
+                    egui::RichText::new(line)
+                        .monospace()
+                        .color(egui::Color32::WHITE)
+                        .background_color(egui::Color32::from_black_alpha(140)),
+                );
+            }
         });
     Ok(())
 }

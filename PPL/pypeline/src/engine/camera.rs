@@ -12,9 +12,11 @@ use bevy::{
     },
     window::PrimaryWindow,
 };
-use bevy_egui::PrimaryEguiContext;
+use bevy_egui::{EguiContexts, EguiPrimaryContextPass, PrimaryEguiContext};
 
+use super::grid::world_to_plot;
 use super::palette;
+use crate::factory::Pos;
 
 pub const RES_WIDTH: u32 = 480;
 pub const RES_HEIGHT: u32 = 320;
@@ -28,6 +30,10 @@ pub const SCREEN_LAYER: RenderLayers = RenderLayers::layer(1);
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct PixelScale(pub u32);
 
+/// The plot tile under the mouse (None when off the plot or over a window).
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct HoveredTile(pub Option<Pos>);
+
 #[derive(Component)]
 struct ScreenCamera;
 
@@ -37,8 +43,11 @@ impl Plugin for PixelCameraPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PixelScale(1))
             .insert_resource(ClearColor(palette::LETTERBOX))
+            .init_resource::<HoveredTile>()
             .add_systems(Startup, setup_cameras)
-            .add_systems(Update, fit_canvas);
+            .add_systems(Update, fit_canvas)
+            // Runs in the egui pass so it can ask whether the mouse is over a window.
+            .add_systems(EguiPrimaryContextPass, track_hovered_tile);
     }
 }
 
@@ -104,4 +113,25 @@ fn fit_canvas(
     if scale.0 != factor {
         scale.0 = factor;
     }
+}
+
+fn track_hovered_tile(
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform), With<ScreenCamera>>,
+    mut contexts: EguiContexts,
+    mut hovered: ResMut<HoveredTile>,
+) -> Result {
+    let over_ui = contexts.ctx_mut()?.is_pointer_over_egui();
+    let (camera, transform) = *camera;
+    // The canvas sprite is 480x320 world units at the origin, so the screen
+    // camera's world space is the same as the game canvas's world space.
+    let tile = window
+        .cursor_position()
+        .filter(|_| !over_ui)
+        .and_then(|cursor| camera.viewport_to_world_2d(transform, cursor).ok())
+        .and_then(world_to_plot);
+    if hovered.0 != tile {
+        hovered.0 = tile;
+    }
+    Ok(())
 }

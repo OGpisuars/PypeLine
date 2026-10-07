@@ -6,6 +6,34 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Phase 1, first factory
+
+### The simulation is plain Rust data, not ECS entities
+`factory::Factory` is one Bevy resource holding `BTreeMap`s of belts and machines. `Factory::step()` advances it one tick. The renderer reads it and draws sprites; it never writes back.
+
+**Why:** the sim can be stepped and tested with no window or Bevy app (the Phase 1 exit test runs this way), iteration order is fixed so results are deterministic, and later the state hash, saves and replays are just this struct. If large factories get slow, optimize inside `Factory` (lane segments, sleeping machines) without touching scripts or rendering.
+
+### Coordinates
+Scripts use plot coordinates: `(0, 0)` is the bottom-left buildable tile, x grows east, y grows north, and the buildable area is 16x10. Directions are `"north"`, `"east"`, `"south"` and `"west"`. Machines output east unless given `dir=`.
+
+### Build plan, then reconcile (command queue + hot-reload)
+Python calls (`conveyors.place`, `machines.place`, `power.connect`) record into a `BuildPlan` and are checked immediately, so mistakes (off the plot, two things on one tile, unknown names) raise a `ValueError` on the exact line. Only a run that finishes produces a plan, and the plan is applied on the next tick in `SimSet::Factory`.
+
+Reconcile is **declarative**: the plan describes the whole factory. Belts are matched by tile, machines by name. Unchanged things keep their items, turned belts keep their items, and anything missing from the script is removed, with its items returned to the station inventory. A consequence worth teaching early: a script with no build calls (just `print(1)`) removes the whole factory.
+
+A failed run (error or out of steam) halts the belts and leaves the layout untouched.
+
+### Placeholder art is drawn in code
+`engine/sprites.rs` holds 16x16 sprites as character grids (one character per pixel, colors from a small key). Belts have 8 animation frames, chosen by `factory.ticks % 8`, so the chevrons move exactly with the items and freeze when the factory halts.
+
+### Editor font: JetBrains Mono
+Chosen by the project owner instead of a pixel font, for the code editor and console. Bundled as the Nerd Font "Mono" build under the SIL Open Font License; see `ASSET_LICENSES.md`. Pixel lettering for in-world text can still come later.
+
+### Phase 1 numbers (tune in playtests)
+Belts move 1 px per tick (1.25 tiles/s) with items at least 8 px apart. A miner makes one ore every 2 s and a smelter one plate every 3 s; both hold up to 10 items in and out. Any machine connected to a steam generator is powered; generators have no fuel or capacity limit yet.
+
+---
+
 ## 2026-10-07: Phase 0 foundation
 
 ### Pinned versions
