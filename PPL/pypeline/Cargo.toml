@@ -1,5 +1,5 @@
 [package]
-name = "pypipeline"
+name = "pypeline"
 version = "0.1.0"
 edition = "2024"
 

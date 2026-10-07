@@ -1,0 +1,970 @@
+==============================================================
+PYPELINE - OFFICIAL ROADMAP
+==============================================================
+This file picks ONE best option for every open decision, then
+lays out the build order phase by phase. The project tree is
+at the bottom.
+
+
+==============================================================
+PART 1 - FINAL DECISIONS
+==============================================================
+
+ENGINE             : Bevy (Rust, ECS)
+  Why: factories are thousands of similar entities (belts,
+  machines, items). ECS handles that well, and Bevy gives you
+  rendering, input, audio, and asset loading out of the box.
+
+RENDERING          : Pixel-perfect, 480x320 internal target
+  - Render the world at a fixed 480x320 (exactly 2x the GBA's
+    240x160, same 3:2 shape) and upscale by INTEGER factors
+    only, nearest-neighbor. Pick the largest factor that fits:
+    2x 960x640 (768p laptops, Steam Deck), 3x 1440x960 (1080p),
+    4x 1920x1280 (1440p), 6x 2880x1920 (4K). Letterbox the
+    leftover space.
+  - Why not 512x320: it is 16:10, not a clean multiple of the
+    GBA screen, and breaks the 3:2 framing. 480x320 it is.
+  - Why not native 240x160: too small to fit a code editor,
+    the plot, and the manual at once. 480x320 gives room.
+
+ART DIRECTION      : GBA 16-bit "FireRed" style (REPLACES 8-bit)
+  - View: top-down 3/4 perspective, like FireRed overworld.
+  - Grid: 16x16 tiles. Machines are 1x1, 2x2, or 3x3 tiles.
+  - Palettes: GBA-style limited palettes, 15 colors + transparent
+    per sprite/tileset (max 16 colors each). Keep a master
+    palette file so everything stays cohesive.
+  - Shading: flat color ramps (3-4 shades per material), a
+    1px dark outline on sprites, a consistent top-left light
+    source, NO dithering, NO gradients, NO anti-aliasing.
+  - Animation: 2-4 frame loops (belts, steam, gears, wire
+    pulses). Small, readable, cheap to author.
+  - Tilesets: grass/stone/metal floor variants with auto-tile
+    edges so floating plots look clean on any shape.
+  - UI: FireRed-style dialogue boxes and menus (rounded
+    border, cream fill, dark text) for the manual, polaroid
+    popups, and contract screens.
+  - Palette mood: bright, saturated, cozy. Sky blues, grass
+    greens, warm brass/copper for steam machinery, one accent
+    color per wire type for readability.
+
+SCRIPT RUNTIME     : RustPython (REPLACES PyO3 + CPython)
+  Why: CPython is not sandboxable and cannot be stepped
+  deterministically. RustPython is pure Rust, easy to embed,
+  and keeps saves portable.
+  Trade-off: some stdlib/perf gaps. Acceptable, because the
+  game only exposes a small, curated Python subset anyway.
+  KEY RISK: RustPython has no built-in instruction counter.
+  The step budget, the watchdog interrupt, and the line
+  debugger all need ONE per-instruction hook in the VM
+  (scripting/hooks.rs; may need a small RustPython patch).
+  Build and prove that hook in Phase 0, before anything else
+  depends on it.
+  Fallback: if RustPython blocks you, write a tiny custom
+  Python-subset interpreter for the game (loops, functions,
+  lists, dicts) - fully deterministic and easy to teach.
+
+SANDBOX STRATEGY   : Three layers
+  1. Static check: parse the script AST before running and
+     reject forbidden nodes/names (open, eval, exec,
+     __import__, dunder access, os/sys/subprocess imports).
+  2. Import allowlist: only game modules and a few safe stdlib
+     bits. Full list:
+       auto (conveyors, machines), power, sensors, console,
+       clock, stats, display, blueprints, math
+     - micro is importable ONLY inside chip micro-scripts, and
+       chip scripts can import nothing else.
+     - Modules unlock with their feature/chapter; importing a
+       locked module gives a friendly "not unlocked yet" error.
+     - math is backed by a pure-Rust libm, never the OS C math
+       library (see Determinism).
+  3. Step budget: every statement/call costs "steam" (counted
+     by the instruction hook). See SCRIPT EXECUTION for what
+     happens when the budget runs out.
+
+SIMULATION MODEL   : Fixed tick (20 ticks/sec), decoupled
+  from rendering. Scripts run inside the tick, on the sim
+  thread. Script API calls (auto.*, power.*, ...) do not touch
+  the ECS world directly: they push commands into a queue that
+  is applied at the end of the tick, in call order. Same
+  script + same seed = same result, always. Enables saves,
+  replays, and fair contract scoring.
+
+SCRIPT EXECUTION   : Build once, operate every tick
+  - main.py = BUILD. It runs once per Run to place and wire
+    things. Only main.py (and the carts it imports) may call
+    placement APIs (conveyors.place, machines.place, ...).
+    It gets a one-shot "deploy budget" (much larger than the
+    per-tick budget).
+  - def tick() = OPERATE. Optional. Called every tick under the
+    per-tick budget. It may read sensors/stats and control
+    machines (toggle, set recipe, set valve), but calling a
+    placement API here is a friendly error ("build calls go
+    in main.py"). This keeps hot-reload reconciling simple.
+  - on_event handlers = OPERATE, same rules as tick().
+  - Generators (taught in chapter 10): if tick() contains
+    yield, the engine creates the generator once and advances
+    it to the next yield each tick. That is how a player
+    spreads long work across ticks on purpose. Generators are
+    native Python, so this needs no VM suspension tricks.
+  - Budget overrun: the engine never "pauses mid-line". If a
+    tick() or handler runs out of steam, it is stopped at that
+    point for this tick (work done so far stays done) and the
+    boiler gains heat. Overrunning several ticks in a row
+    overheats the boiler (see ERROR HANDLING). Fix: write
+    cheaper code or spread work with yield.
+  This teaches functions, state, events, and generators in
+  the same order as the manual.
+
+HOT-RELOAD ON RUN  : LOCKED
+  - Pressing Run swaps in the new script WITHOUT wiping the
+    factory floor, so iteration stays fast.
+  - Rule that makes this work: build calls are IDEMPOTENT.
+    Every placement call has a stable identity: machines use a
+    name (machines.place("miner", name="miner_1", ...)),
+    conveyors use their tile (conveyors.place(x=3, y=0,
+    dir="east")). On reload the engine RECONCILES main.py's
+    build calls against the factory: new calls create, changed
+    calls update, and calls that disappeared are removed.
+    Without this, re-running would duplicate machines.
+  - Reconcile is TRANSACTIONAL: it is applied only if main.py
+    finishes without error. A syntax error, exception, or
+    blown deploy budget leaves the old layout untouched, so a
+    half-broken script can never delete half the factory.
+  - Items on removed belts/machines go back to the station
+    inventory. They are never silently lost.
+  - Reload happens on a tick boundary, so determinism holds.
+  - Script-local variables reset on reload; factory state
+    (items on belts, boiler heat, power levels) persists.
+  - Add a "Clean Run" option for a full factory reset.
+
+MULTIPLAYER        : NONE. Strictly singleplayer.
+  - No netcode, ever. Sharing is async only (blueprint files,
+    Workshop, leaderboards of deterministic replays).
+
+CODE EDITOR        : bevy_egui (egui)
+  - Gives text input, scrolling, multi-line, and window
+    management for free.
+  - Syntax highlighting + error-line highlight: egui TextEdit
+    custom layouter (or the egui_code_editor crate).
+  - Autocomplete for auto.* is still custom work (small popup
+    fed by python_runtime/stubs/*.pyi).
+  - Style it with the GBA pixel font and the master palette to
+    match the FireRed dialogue-box look.
+  - CAVEAT: egui draws at window resolution, not inside the
+    480x320 pixel target. Fix: set pixels_per_point to the
+    same integer scale as the game, use a pixel font at its
+    native size multiples, and disable egui font smoothing /
+    use nearest sampling. Prototype this in Phase 0.
+
+TIME DIALS +       : LOCKED (merges with the earlier debugger idea)
+  DEBUGGER
+  - Controls: Pause, Play, 1x/2x/4x, Step One Tick. Cheap to
+    build because the sim already runs on a fixed 20 Hz tick.
+  - Hot-reload while paused is allowed; the new script takes
+    effect on the next tick you step to.
+  - Phase 3 adds a LINE debugger: step one script line, watch
+    variables, see which line is running. It reuses the
+    per-instruction hook from Phase 0 (scripting/hooks.rs ->
+    trace.rs); budget the UI and pause/resume as real work, it
+    is harder than tick stepping.
+
+FACTORY ANALYTICS  : LOCKED
+  - In-game dashboard: items per minute (IPM), steam use,
+    machine uptime, and bottleneck highlighting (the belt or
+    machine that is starving or blocked glows).
+  - Also exposed to code: stats.ipm("gear"), stats.steam(),
+    stats.bottlenecks(). Players learn dicts/lists by using
+    real data, and contracts can require reading it.
+  - Naming: the in-game feature is called "stats", NOT
+    "telemetry", so it is never confused with the opt-in
+    crash reporting in the bulletproofing list.
+
+SNIPPETS           : LOCKED, with a teaching guardrail
+  - Editor menu/shortcut inserts editable boilerplate
+    (miner-to-smelter row, sensor event listener, tick loop).
+  - Guardrail: a snippet unlocks only AFTER its manual chapter
+    is completed, so it saves typing but never skips learning.
+    Experienced coders who use skip-ahead (a short check per
+    chapter) complete those chapters, so their snippets unlock
+    too. No separate rule needed.
+    Inserted code is plain, commented, and fully editable.
+  - Snippets are data files, and player blueprints can be
+    saved into the same menu.
+
+DAY / NIGHT +      : LOCKED
+  THERMAL
+  - Day/night is driven by the SIM TICK COUNTER, never the
+    wall clock, so it stays deterministic and replayable.
+    The visual palette shift is render-only; the gameplay
+    effect (boilers run hotter by day, cooler by night) uses
+    integer math in factory/thermal.rs.
+  - Make it learnable, not punishing: expose clock.time_of_day()
+    and boiler.temp so scripts can PLAN (if/else, thresholds,
+    scheduling). Show a forecast bar in the UI.
+  - Thermal contracts need tick() or events to react over time,
+    so they come after chapter 9 (Events and sensors).
+  - Overheat = the visible failure states already designed
+    (halt, spill). Add a "relaxed thermal" option for newcomers.
+  - Palette-based shifts only (swap the master palette ramp),
+    which keeps the GBA look. Honor the reduced-motion setting.
+
+TERMINAL THEMES    : LOCKED (cosmetic, low priority)
+  - Unlockable border skins for the editor/UI frame.
+  - IP RULE: use ORIGINAL skin names and designs. Do not
+    recreate Nintendo shell colorways, names, or logos
+    (no "Spice Orange", no NES-edition shell). Use names like
+    Indigo Dusk, Ember, Glasswork, Mint Cart, Gold Gear.
+  - Themes are data files (palette + frame sprites), so more
+    can be added later without code changes.
+
+LED MATRIX PANELS  : LOCKED (Phase 4, scoped small)
+  - Display blocks, 8x8 and 16x16, set from Python:
+    display.set_pixel(x, y, color), display.clear(),
+    display.fill(). Colors come from the master palette only.
+  - Sandbox/sim rules: bounds-checked coords, each call costs
+    steam (so a full redraw is a real optimization problem),
+    deterministic, no raw image uploads.
+  - Great for nested loops and 2D lists: progress bars,
+    sensor dashboards, throughput graphs, patterns.
+  - Mini-games are a STRETCH goal (needs an input API). Do
+    not promise them until dashboards ship.
+
+CARTRIDGES         : LOCKED (module system, file-based underneath)
+  - A cartridge is a normal .py module in user_scripts/carts/
+    shown in-game as a physical cart you slot into a terminal.
+    main.py imports cartridges, and slotting/importing draws
+    the wires (this reuses the import-wire feature).
+  - Unlocks with the Imports chapter so it teaches real
+    modules, not a game-only concept.
+  - Terminals have a limited number of slots (upgradeable),
+    giving a light inventory puzzle. Keep it gentle: players
+    can always view and edit the underlying file.
+  - Hot-reload works per cartridge: reconcile only the module
+    that changed. Track the import graph to reload dependents.
+  - NAMING: do not call them "Game Boy cartridges" (Nintendo
+    trademark). Use an original name such as "Paks" or "Carts".
+
+BOOT SPLASH        : LOCKED
+  - Original 16-bit startup animation (e.g. gold PYPELINE
+    lettering over a starry sky, steam whistle chime).
+  - Under ~3 seconds, skippable with any key, option to
+    disable on load. Do not imitate Nintendo's logo drop or
+    startup jingle.
+
+MICRO-CHIPS        : LOCKED (Phase 4, mid-to-late game unlock)
+  (EDGE COMPUTING)
+  - Tiny chips placed on sorters, valves, and robot arms run
+    small local micro-scripts, so players learn edge vs
+    central logic as a real architecture choice.
+  - IMPORTANT FIX: chips do NOT escape the tick. They run
+    INSIDE the same fixed 20 Hz tick, in a fixed order (by chip
+    ID), each with its own tiny step budget (e.g. 20 steps).
+    The "speed" is low latency: a chip reacts in the same tick
+    an item arrives, while the mainframe may take several ticks
+    or be over budget. This keeps determinism intact.
+  - Restricted API: chips only see a small micro.* module
+    (read port, set output, local variables). micro is the
+    only import allowed, and there is no access to the main
+    factory API.
+  - Programmed by the main script ("flashing"): chip.flash(
+    "sort_by_color") loads a file from user_scripts/chips/.
+    Reflashing is the hot-reload path for chips.
+  - Costs: chips cost currency and a steam trickle, and the
+    number of chips is capped per plot.
+  - PERFORMANCE: do NOT give each chip its own interpreter.
+    One shared VM runs all chips; each chip is just a compiled
+    code object (shared per micro-script file) plus a tiny
+    state dict. Benchmark 500 chips before shipping. If that
+    is still too slow, run chips on the custom Python-subset
+    interpreter (the runtime plan B) - micro-scripts are tiny
+    and have no imports, so this is a cheap switch.
+  - Contracts teach the trade-off: "sort 200 items/min where
+    the mainframe alone cannot keep up".
+
+WILDLIFE           : LOCKED (cosmetic only, never affects the sim)
+  - Original GBA-style creatures: steam-moths near warm
+    boilers, copper-crickets near data wires, etc. They scatter
+    on overheating and settle when the grid is healthy.
+  - HARD RULE: wildlife is render-side only. It READS sim state
+    but never writes to it, uses its own cosmetic RNG, and is
+    excluded from the state hash and replays. Otherwise it
+    would break determinism.
+  - Never blocks placement or gets in the way of the UI.
+    Cap creature count; options to hide wildlife / reduce motion.
+  - Pair color cues with behavior and shape (not color alone)
+    for accessibility.
+  - IP RULE: original creature designs only, nothing that
+    resembles Pokemon or other existing monsters.
+  - Doubles as soft feedback: a calm island means a healthy
+    factory. Optional "Field Guide" page in the manual that
+    fills in as you see each species.
+
+ASCII DASHBOARDS   : LOCKED (cheap, high charm, keep in scope)
+  - Python strings already do the heavy lifting. Players use
+    "#" * n, f-strings, str.ljust(), str.join(), etc. to draw
+    progress bars, banners, and success art in the console.
+  - The real work is the CONSOLE, not the language:
+      * fixed monospace cell grid (e.g. 8x8 px cells)
+      * a custom pixel font that includes block and box-drawing
+        glyphs (full/half blocks, shades, single/double lines),
+        otherwise ASCII art looks broken
+      * palette-limited color via console.color("green") or a
+        color= argument, NOT raw ANSI escape codes
+  - SANITIZE all output: strip control characters and raw
+    escape sequences, cap line length and lines per tick, keep
+    a ring buffer for scrollback, restrict to a safe Unicode
+    range (no bidi/invisible characters).
+  - Output costs a little steam per call, so spamming the
+    console is an optimization problem like everything else.
+  - NEW MANUAL CHAPTER: "Strings and f-strings" (right after
+    Variables). Players get instant visual payoff from code,
+    which makes beginners want to keep going.
+  - Chapter 2 contracts use plain print() only (progress bars,
+    banners), since functions and events are not taught yet.
+  - Rewards: finishing a contract fires an on_contract_complete
+    event. A default banner always shows. From chapter 9
+    (Events) on, if the player defines a handler, THEIR ASCII
+    banner prints instead (star, robot face, whatever). Pairs
+    well with LED panels as two dashboard styles.
+
+ERROR HANDLING     : Visible, physical failure
+  Every error highlights the exact line in the editor.
+  - Syntax error or exception in main.py
+        -> the new script is NOT applied (reconcile skipped),
+           belts halt until the next good Run.
+  - Exception in tick() or an event handler
+        -> a conveyor next to the terminal spills items and
+           that function stops being called until the next Run.
+  - Budget overrun (slow code or infinite loop)
+        -> the boiler heats up; several overruns in a row
+           overheat it and the factory halts. An infinite loop
+           always overruns, so it always overheats.
+
+SAVE FORMAT        : RON (human readable) + player scripts
+  stored as plain .py files. Every save file carries a version
+  number from the very first format, with migration code.
+
+CANONICAL SAMPLE   : The one script used by the README and the
+  Phase 1 exit test. It must stay runnable at all times (CI
+  runs it headless):
+
+    from auto import conveyors, machines
+    import power
+
+    machines.place("steam_generator", name="steam_1", x=0, y=2)
+    machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+    for x in range(1, 5):
+        conveyors.place(x=x, y=0, dir="east")
+    machines.place("smelter", name="smelter_1", x=5, y=0)
+
+    power.connect(generator="steam_1",
+                  to=["miner_1", "smelter_1"])
+
+  Module layout this locks in: auto = build APIs (conveyors,
+  machines); power = a separate top-level module.
+
+CONTENT FORMAT     : Chapters, contracts, and recipes as data
+  files (RON/TOML) in assets/data/, so you can add content
+  without recompiling.
+
+PLATFORMS          : Windows, Linux, macOS - all three at launch.
+  - CI builds all three from Phase 0 so nothing drifts.
+  - macOS needs signing/notarization; budget time for it.
+  - Web (WASM) build stays a stretch goal.
+
+LICENSE            : MIT for code, separate license for assets.
+
+
+==============================================================
+PART 2 - ROADMAP
+==============================================================
+Week numbers assume roughly full-time work. Treat them as
+relative sizes, not deadlines. Items marked (Part 4 X) come
+from the bulletproofing checklist; each checklist item lives
+in exactly one phase.
+
+--------------------------------------------------------------
+PHASE 0 - FOUNDATION (Week 1-3)
+--------------------------------------------------------------
+Goal: a window, a loop, and a Python line that runs - and
+proof that the two riskiest pieces (VM hook, egui look) work.
+  [ ] Cargo project with Bevy; window + pixel-perfect camera
+  [ ] Fixed 20 Hz simulation tick separated from render
+  [ ] Explicit Bevy system sets for the sim (fixed order)
+  [ ] 16x16 tile grid + placeholder sprites (GBA palette)
+  [ ] Lock the master palette + art style sheet (ART_STYLE.md)
+  [ ] Embed RustPython; run "print('hello')" from the game
+  [ ] SPIKE: per-instruction hook in RustPython that can
+      count steps and stop a script (hooks.rs). If this
+      fails, switch to the plan B interpreter NOW.
+  [ ] Fixed Python hash seed; math module on pure-Rust libm
+  [ ] bevy_egui editor prototype: pixel font, integer scale,
+      palette styling (proves the retro look works)
+  [ ] CI matrix: Windows, Linux, macOS
+  [ ] Git LFS for sprites/audio; protected main branch
+  [ ] docs/DECISIONS.md started (copy Part 1 into it)
+  [ ] Basic logging/debug overlay (tick count, FPS)
+Exit test: pressing Run executes a script and prints to an
+in-game console, AND a "while True: pass" script is stopped
+by the step budget without freezing the game.
+
+--------------------------------------------------------------
+PHASE 1 - MVP: FIRST AUTOMATED FACTORY (Week 4-8)
+--------------------------------------------------------------
+Goal: one script builds a working belt line.
+  [ ] auto API v0: conveyors.place(), machines.place()
+  [ ] Conveyors move items (modelled as lane segments, not
+      one entity per item); one miner; one smelter
+  [ ] Steam generator (a machine) + power.connect()
+  [ ] Script command queue: API calls applied at end of tick
+  [ ] egui code editor (typing, scrolling, save/load,
+      syntax highlighting, error-line highlight)
+  [ ] Script files saved with atomic writes; autosave on Run
+      (Part 4 A)
+  [ ] Output console: monospace grid, print() capture,
+      wrapping, scrollback ring buffer, sanitized output,
+      output cap per tick
+  [ ] Run arrow with hot-reload + Stop + Clean Run
+  [ ] Reconcile system: stable IDs, diff on run,
+      transactional (only applied if main.py succeeds)
+  [ ] Build vs operate rule: placement calls only in main.py
+  [ ] Error mapping: highlight the broken line, halt belts
+  [ ] Step budget v1: deploy budget for main.py, per-tick
+      budget for tick(); overrun -> boiler heat
+  [ ] Sandbox v1 (Part 4 B): static AST check, import
+      allowlist, whitelisted builtins only, recursion limit,
+      memory caps, watchdog interrupt flag
+  [ ] Start the sandbox escape corpus (tests/fuzz)
+  [ ] Headless sim mode (no window) (Part 4 E)
+  [ ] State hash + determinism test; cross-OS replay hash
+      check in CI (Part 4 C)
+  [ ] Reload test: running the same script twice = same state
+Exit test: the CANONICAL SAMPLE (Part 1) runs and produces
+iron plates, both in the game and headless in CI.
+
+--------------------------------------------------------------
+PHASE 2 - ALPHA: THE GAME FEEL (Week 9-14)
+--------------------------------------------------------------
+Goal: it looks and feels like PypeLine.
+  [ ] Floating plot visuals (bobbing island, parallax sky)
+  [ ] Polaroid hover UI with live machine stats
+  [ ] Import-driven wires: "from auto import conveyors" draws
+      color-coded wires between terminals
+  [ ] Animated data pulses on wires
+  [ ] Failure states: overheating boiler, item spill
+  [ ] Cargo train arrives, buys output, pays currency
+  [ ] Basic GBA-style music loop + SFX
+  [ ] Save/load game state: versioned RON + migrations,
+      atomic writes, rolling backups, autosave every N min,
+      crash recovery on restart (Part 4 A)
+  [ ] Time Dials v1: pause, play, 1x/2x/4x, step one tick
+  [ ] Boot splash animation + original chime (skippable)
+  [ ] Wildlife v0: one species (steam-moths) reacting to
+      boiler state, for the vertical slice
+  [ ] All UI text in string tables from here on (Part 4 H)
+  [ ] Benchmark suite in CI + first profiling pass (Part 4 D)
+  [ ] Weekly playable build + PLAYTEST.md notes start
+Exit test: a stranger can play 30 minutes and understand
+what is happening without being told. This is the vertical
+slice: if it is not fun yet, fix that before Phase 3.
+
+--------------------------------------------------------------
+PHASE 3A - BETA: THE TEACHING LOOP (Week 15-21)
+--------------------------------------------------------------
+Goal: a beginner can learn chapters 1-7 inside the game.
+  [ ] Engineering Manual UI with unlockable chapters
+  [ ] Chapter order (each one only uses what came before):
+        1. Variables and calls
+        2. Strings and f-strings (console output)
+        3. for loops
+        4. Conditionals (if/else, comparisons)
+        5. while loops (needs conditions from ch. 4)
+        6. Functions
+        7. Lists and dicts
+        8. Imports and modules
+        9. Events and sensors
+       10. Generators / tick()
+  [ ] Console font with block + box-drawing glyphs
+  [ ] console.* module (color, clear)
+  [ ] Strings chapter + ASCII progress-bar / banner contracts
+      (plain print() only)
+  [ ] Contracts with concept requirements
+      (e.g. "100 gears using a for loop, under 20 lines")
+  [ ] Scoring: throughput, steam used, line count
+  [ ] on_contract_complete event + default success banner
+  [ ] Editor autocomplete for auto.* APIs
+  [ ] Friendly error messages (Part 4 F)
+  [ ] Hint ladder tied to the manual + stuck detection
+      (Part 4 F)
+  [ ] Snippet menu + starter templates, unlocked per chapter
+  [ ] Skip-ahead check for experienced coders (Part 4 F)
+  [ ] Golden solution per contract, run in CI (Part 4 E)
+  [ ] Every manual code example executed in CI (Part 4 E)
+  [ ] Content validator (Part 4 E)
+  [ ] Campaign: contracts for chapters 1-7
+  [ ] Playtest chapters 1-7 with true beginners (Part 4 F)
+Exit test: a beginner finishes chapters 1-7 and can write a
+for loop unaided.
+
+--------------------------------------------------------------
+PHASE 3B - BETA: DEPTH SYSTEMS (Week 22-28)
+--------------------------------------------------------------
+Goal: chapters 8-10 and the systems they unlock.
+  [ ] Line debugger: step one line, variable watch, current-
+      line marker (trace.rs, on the Phase 0 hook) (Part 4 F)
+  [ ] Stats dashboard: IPM, steam use, uptime, bottleneck glow
+  [ ] stats.* Python module (ipm, steam, bottlenecks)
+  [ ] Contracts that use stats.* (e.g. "keep IPM above 30")
+  [ ] Cartridge system (unlocks with ch. 8): slots, carts as
+      modules, per-module hot-reload, import-graph tracking
+  [ ] Events and sensors (ch. 9): on_event, sensors.*,
+      player-defined on_contract_complete banners
+  [ ] Generator tick() support (ch. 10)
+  [ ] Day/night cycle (palette shift) + thermal system
+  [ ] clock.* module + boiler temperature readouts
+  [ ] Contracts that need thermal planning (after ch. 9)
+  [ ] Campaign: contracts for chapters 8-10 (15 total+)
+  [ ] Playtest chapters 8-10 with true beginners
+Exit test: a beginner finishes the campaign and can use
+functions, lists, and events unaided.
+
+--------------------------------------------------------------
+PHASE 4 - 1.0: SANDBOX, SHARING, POLISH (Week 29-40)
+--------------------------------------------------------------
+Goal: shippable.
+  [ ] Sandbox mode with all unlocks and bigger plots
+  [ ] Blueprint scripts: save functions as reusable modules
+  [ ] Import/export blueprints via files, treated as
+      untrusted: same sandbox + "review before run" (Part 4 B)
+  [ ] GBA LCD-grid / color-correction visual toggle
+  [ ] Terminal themes (4-5 original skins, unlockable)
+  [ ] LED matrix panels + display.* module (8x8, then 16x16)
+  [ ] Stretch: input API + mini-games for LED panels
+  [ ] Micro-chips: placement, ports, flash(), micro.* module
+  [ ] Chip runtime: one shared VM, shared code objects, tiny
+      budgets, fixed order
+  [ ] Edge-computing contracts (sorting, valve control)
+  [ ] Benchmark: 500 chips at target frame rate
+  [ ] More wildlife species + Field Guide manual page
+  [ ] Wildlife options: hide / reduce motion
+  [ ] Adaptive audio layers tied to throughput
+  [ ] Accessibility: colorblind wire patterns, font scaling,
+      rebindable keys, reduced-motion option
+  [ ] Performance pass: hit the Part 4 D target
+  [ ] Harden the sandbox: full fuzz run of the escape corpus
+  [ ] Script history / undo across sessions (Part 4 A)
+  [ ] Opt-in, local-first crash reports (Part 4 H)
+  [ ] Steam Deck check + on-screen keyboard (Part 4 H)
+  [ ] Legal pass: asset licenses, trademark check (Part 4 G)
+  [ ] Tutorial pass, installers, macOS signing/notarization
+Exit test: 100 playtest hours with no sandbox escapes and no
+save corruption.
+
+--------------------------------------------------------------
+PHASE 5 - POST-LAUNCH
+--------------------------------------------------------------
+  [ ] Steam Workshop integration for scripts/blueprints
+  [ ] Leaderboards (deterministic replays make this fair)
+  [ ] Web (WASM) demo
+  [ ] Extra chapters: classes, error handling, algorithms
+  [ ] Mod support through the data-driven content folders
+
+
+==============================================================
+PART 3 - RISKS AND MITIGATIONS
+==============================================================
+  - Scope creep from "flavor" features -> FIRST CUTS if late:
+                             mini-games, extra themes, LED 16x16,
+                             extra creature species.
+                             Keep: day/night, cartridges, splash.
+  - Day/night unfairness  -> forecast UI, relaxed option, and
+                             tick-based (deterministic) timing.
+  - Cartridge friction    -> file-based underneath; slot limits
+                             tuned in playtests, never a chore.
+  - RustPython gaps       -> keep API surface tiny; have the
+                             custom-subset interpreter as plan B.
+  - No VM hook in         -> Phase 0 spike decides it early;
+    RustPython               switching to plan B in week 2 is
+                             cheap, in week 20 it is not.
+  - Schedule slip         -> Phase 3 is split into 3A/3B so the
+                             teaching loop ships before the depth
+                             systems. If late, 3B items move to
+                             Phase 4 before anything is cut.
+  - Sandbox escapes       -> AST check + import allowlist +
+                             step budget; fuzz the checker.
+  - Scope creep           -> do not start Phase N+1 until the
+                             Phase N exit test passes.
+  - Hot-reload bugs       -> idempotent API + stable IDs; test
+                             reload-twice = same state.
+  - egui vs pixel look    -> prototype in Phase 0; fallback is
+                             rendering the editor into the
+                             low-res target with a custom UI.
+  - Teaching vs. fun      -> playtest each chapter with true
+                             beginners before locking it.
+
+
+==============================================================
+PART 4 - BULLETPROOFING CHECKLIST
+==============================================================
+Nothing is truly bulletproof, but these close the gaps that
+usually sink projects like this. Each item is tagged with the
+phase that builds it [P0]-[P4]; the phase lists in Part 2
+are the source of truth for scheduling.
+
+--------------------------------------------------------------
+A. NEVER LOSE PLAYER WORK
+--------------------------------------------------------------
+  [ ] [P1] Atomic writes (write temp file, then rename) so a
+      crash mid-save cannot corrupt a file
+  [ ] [P1] Autosave scripts on Run
+  [ ] [P2] Autosave factory every N minutes
+  [ ] [P2] Rolling backups (keep last 10 saves + script
+      versions)
+  [ ] [P2] Save version number + migration code from the
+      first save format onward
+  [ ] [P2] Crash recovery: on restart, offer to restore last
+      state
+  [ ] [P4] Script history / undo across sessions
+
+--------------------------------------------------------------
+B. HARDEN THE SANDBOX (beyond AST + imports + budget)
+--------------------------------------------------------------
+  [ ] [P1] Watchdog: a separate thread times each tick's
+      script run and, if it takes too long in wall time, sets
+      an interrupt flag that the VM hook checks and stops the
+      script. (Rust cannot safely kill a thread, so stopping
+      must be cooperative.) This is a backstop for bugs in the
+      step budget only - it should never fire in normal play,
+      and when it does it is logged as an engine bug.
+  [ ] [P1] Memory cap: limit list/dict/string sizes and total
+      heap
+  [ ] [P1] Recursion depth limit
+  [ ] [P1] Output cap on print() so a loop cannot flood the
+      console
+  [ ] [P1] Expose ONLY whitelisted builtins (no getattr
+      tricks, no type/class introspection that reaches
+      internals)
+  [ ] [P1] Start a corpus of escape attempts; [P4] fuzz the
+      AST checker against it at scale
+  [ ] [P4] Treat shared blueprints/Workshop scripts as
+      untrusted: same sandbox, plus a "review before run"
+      prompt
+
+--------------------------------------------------------------
+C. DETERMINISM THAT SURVIVES ALL 3 OSes
+--------------------------------------------------------------
+  [ ] [P0] Seeded RNG owned by the sim; no wall-clock time in
+      logic
+  [ ] [P0] No HashMap iteration in sim code (use
+      BTreeMap/IndexMap)
+  [ ] [P0] Fixed system ordering in Bevy (explicit system sets)
+  [ ] [P0] Fixed Python string hash seed, so set iteration
+      order is the same on every run and every OS
+  [ ] [P0] Python math module backed by a pure-Rust libm, not
+      the OS C library (sin/exp/pow can differ by the last
+      bit between Windows, Linux, and macOS)
+  [ ] [P1] Prefer integers / fixed-point for simulation math;
+      floats only for rendering. Player code may use floats,
+      but values passed into the sim API are converted to
+      integers/fixed-point at the boundary
+  [ ] [P1] CI check: run a replay on Windows, Linux, and macOS
+      and compare a state hash every N ticks - must match
+      exactly
+
+--------------------------------------------------------------
+D. PERFORMANCE BUDGET
+--------------------------------------------------------------
+  [ ] [P2] Target: 60 FPS with 5,000+ machines and 50,000+ items
+      on a mid-range laptop, AT 4x speed (80 ticks/sec,
+      scripts included). Set the real number in Phase 2 and
+      enforce it from then on.
+  [ ] [P1] Model belts as lane segments, not one entity per
+      item
+  [ ] [P2] Sleep idle machines; update only what changed
+  [ ] [P2] Benchmark suite in CI; fail the build on big
+      regressions
+  [ ] [P2] Profile early with Tracy or Bevy diagnostics
+  (Speed controls are the Time Dials feature, Phase 2.)
+
+--------------------------------------------------------------
+E. TESTING THE GAME CONTENT, NOT JUST THE CODE
+--------------------------------------------------------------
+  [ ] [P1] Headless sim mode (no window) for automated runs
+  [ ] [P1] The canonical sample script runs headless in CI
+  [ ] [P3A] Every contract ships with a "golden solution"
+      script that must pass in CI - proves contracts are
+      beatable
+  [ ] [P3A] Every manual code example is executed in CI so
+      the tutorial can never contain broken code
+  [ ] [P3A] Content validator: broken IDs, missing sprites,
+      bad data
+  [ ] [P1+] Document the exact Python subset supported
+      (RustPython differs from CPython) and test it; grow the
+      doc as each chapter is written
+
+--------------------------------------------------------------
+F. BEGINNER-PROOF LEARNING
+--------------------------------------------------------------
+  [ ] [P3A] Friendly error messages: translate Python
+      tracebacks ("You used 'conveyer' - did you mean
+      'conveyors'?")
+  [ ] [P3B] Visual line debugger (see TIME DIALS + DEBUGGER;
+      also the best teaching feature in the game)
+  [ ] [P3A] Hint ladder: nudge -> bigger hint -> show solution
+  [ ] [P3A] Stuck detection: offer help after repeated failures
+  [ ] [P3A] Starter templates and a skip-ahead for experienced
+      coders
+  [ ] [P3A/P3B] Playtest each chapter with 5 true beginners
+      before lock
+
+--------------------------------------------------------------
+G. LEGAL AND IP SAFETY
+--------------------------------------------------------------
+  [ ] [ALWAYS] FireRed is a STYLE reference only. Draw
+      everything original; never copy, trace, or edit
+      Nintendo/Game Freak sprites, tiles, fonts, UI frames,
+      or music
+  [ ] [ALWAYS] Avoid Pokemon-like names, monsters, and UI
+      wording
+  [ ] [P0+] Track licenses for every font, sound, and crate
+      (ASSET_LICENSES.md) from the first asset added; use
+      only commercial-OK licenses
+  [ ] [P0+] Keep sources/credits for all third-party art or
+      audio
+  [ ] [P4] Check "PypeLine" for trademark conflicts, and
+      follow Python Software Foundation trademark guidelines
+      (do this earlier if you plan a public page or store
+      listing before 1.0)
+
+--------------------------------------------------------------
+H. PROJECT HEALTH
+--------------------------------------------------------------
+  [ ] [P2] Vertical slice: the Phase 2 exit test - one
+      polished experience to test fun before building more
+  [ ] [P0] Written cut list: features you will drop first if
+      late (start from Part 3 "FIRST CUTS")
+  [ ] [P0] Git LFS for sprites/audio; protected main branch
+  [ ] [P0] Decisions logged in docs/DECISIONS.md
+  [ ] [P2] Weekly playable build
+  [ ] [P2] Localization-ready: all text in string tables,
+      UTF-8, no hardcoded UI strings (before the manual and
+      contracts add lots of text)
+  [ ] [P2] Keep PLAYTEST.md with notes from every session
+  [ ] [P4] Opt-in, local-first crash reports (no hidden
+      telemetry)
+  [ ] [P4] Steam Deck / Linux handheld check (keyboard needed
+      for the editor - include an on-screen keyboard
+      fallback)
+
+
+==============================================================
+PART 5 - PROJECT FILE / FOLDER TREE
+==============================================================
+
+pypeline/
+|
++-- Cargo.toml                    # Rust deps (bevy, bevy_egui, rustpython, serde, ron)
++-- Cargo.lock
++-- rust-toolchain.toml           # Pin Rust version
++-- README.md                     # Overview, sample, build, roadmap
++-- LICENSE                       # MIT (code)
++-- CONTRIBUTING.md
++-- CHANGELOG.md
++-- ASSET_LICENSES.md             # Every font/sound/crate license
++-- PLAYTEST.md                  # Notes from each playtest
++-- game_concept.txt              # Master design blueprint
++-- ROADMAP.txt                   # This file
++-- .gitignore
+|
++-- .github/
+|   +-- workflows/
+|       +-- ci.yml                # Build, test, clippy, fmt
+|       +-- release.yml           # Package Win/Linux/macOS builds
+|
++-- assets/
+|   +-- sprites/
+|   |   +-- tiles/                # 16x16 ground, plots, sky, auto-tile edges
+|   |   +-- machines/             # Miner, smelter, generator, terminal
+|   |   +-- conveyors/            # Belt frames, curves, splitters
+|   |   +-- items/                # Ore, plates, gears
+|   |   +-- train/                # Cargo train + station
+|   |   +-- wires/                # Wire segments and data pulses
+|   |   +-- ui/                   # Polaroid frame, buttons, run arrow
+|   |   +-- fx/                   # Steam, sparks, overheating
+|   |   +-- creatures/            # Moths, crickets, etc. (original art)
+|   |   +-- microchips/           # Chip sprites + port indicators
+|   +-- fonts/                    # Pixel fonts; mono MUST include block + box-drawing glyphs
+|   +-- audio/
+|   |   +-- music/                # GBA-style synth/wavetable layers (stems)
+|   |   +-- sfx/                  # Clicks, belts, whistles, errors
+|   |   +-- jingles/              # Boot chime, unlock stings
+|   +-- themes/                   # Terminal skins (original designs)
+|   |   +-- indigo_dusk/
+|   |   +-- ember/
+|   |   +-- glasswork/
+|   |   +-- mint_cart/
+|   +-- palettes/
+|   |   +-- master.pal            # Master GBA-style palette (source of truth)
+|   |   +-- tilesets/             # Per-tileset 16-color palettes
+|   +-- shaders/
+|   |   +-- lcd_grid.wgsl         # Optional GBA LCD pixel-grid look
+|   |   +-- gba_color.wgsl        # Optional GBA screen color correction
+|   +-- data/                     # Data-driven content
+|       +-- recipes.ron
+|       +-- machines.ron
+|       +-- creatures.ron         # Species, habitats, behaviors
+|       +-- snippets/             # Starter templates (per chapter)
+|       |   +-- miner_to_smelter.ron
+|       |   +-- sensor_listener.ron
+|       |   +-- tick_loop.ron
+|       |   +-- ascii_progress_bar.ron
+|       +-- contracts/            # Campaign quotas
+|       |   +-- ch01_variables.ron
+|       |   +-- ch02_strings.ron
+|       |   +-- ch03_for_loops.ron
+|       |   +-- ch04_while_loops.ron
+|       +-- manual/               # Engineering Manual chapters
+|           +-- ch01_variables.md
+|           +-- ch02_strings.md
+|           +-- ch03_for_loops.md
+|           +-- ch04_while_loops.md
+|
++-- python_runtime/
+|   +-- stdlib/                   # In-game modules exposed to players
+|   |   +-- auto.py               # conveyors, machines placement API
+|   |   +-- power.py              # power.connect(), grid status (generators are machines)
+|   |   +-- sensors.py            # sensor.read(), events
+|   |   +-- blueprints.py         # Reusable module helpers
+|   |   +-- console.py            # console.color(), console.clear()
+|   |   +-- micro.py              # micro.read(), micro.set_output()
+|   |   +-- display.py            # display.set_pixel(), clear(), fill()
+|   |   +-- clock.py              # clock.time_of_day()
+|   |   +-- stats.py              # stats.ipm(), steam(), bottlenecks()
+|   +-- stubs/                    # .pyi files for editor autocomplete
+|   |   +-- auto.pyi
+|   |   +-- power.pyi
+|   |   +-- sensors.pyi
+|   |   +-- console.pyi
+|   |   +-- micro.pyi
+|   |   +-- display.pyi
+|   |   +-- clock.pyi
+|   |   +-- stats.pyi
+|   +-- user_scripts/             # Player saves
+|       +-- main.py               # Entry point
+|       +-- blueprints/           # Player-made reusable modules
+|       +-- carts/                # Cartridge modules (cart_mining.py ...)
+|       +-- chips/                # Micro-scripts flashed to chips
+|
++-- src/
+|   +-- main.rs                   # App entry, plugin registration
+|   +-- lib.rs
+|   +-- bin/
+|   |   +-- headless.rs           # Windowless sim runner (CI, replays, golden solutions)
+|   |
+|   +-- engine/                   # Rendering and UI
+|   |   +-- mod.rs
+|   |   +-- camera.rs             # Pixel-perfect camera + scaling
+|   |   +-- grid.rs               # Tile grid and coordinates
+|   |   +-- renderer.rs           # Sprite/animation systems
+|   |   +-- floating_plot.rs      # Island bobbing, parallax
+|   |   +-- wires.rs              # Wire drawing + data pulses
+|   |   +-- shaders.rs            # LCD grid / color-correction toggle
+|   |   +-- wildlife.rs           # Cosmetic creatures (render-side only)
+|   |   +-- splash.rs             # Boot animation
+|   |   +-- themes.rs             # Terminal skin loader
+|   |   +-- daynight_palette.rs   # Palette shift (render only)
+|   |   +-- ui/
+|   |       +-- mod.rs
+|   |       +-- polaroid.rs       # Hover snapshot UI
+|   |       +-- editor.rs         # egui code editor, highlighting
+|   |       +-- autocomplete.rs
+|   |       +-- console.rs        # Output console (monospace grid, sanitized)
+|   |       +-- manual.rs         # Engineering Manual viewer
+|   |       +-- run_button.rs     # Run / Stop arrow
+|   |       +-- time_dials.rs     # Pause/play/speed/step controls
+|   |       +-- debugger.rs       # Line stepping + variable watch
+|   |       +-- stats_panel.rs    # IPM, steam, bottleneck dashboard
+|   |       +-- snippets.rs       # Snippet menu, chapter-gated
+|   |
+|   +-- factory/                  # Simulation
+|   |   +-- mod.rs
+|   |   +-- tick.rs               # Fixed 20 Hz simulation loop
+|   |   +-- conveyors.rs
+|   |   +-- machines.rs           # Miner, smelter, assembler
+|   |   +-- items.rs
+|   |   +-- power.rs              # Steam generators, grid
+|   |   +-- failures.rs           # Overheat, spills, halts
+|   |   +-- microchips.rs         # Chip placement, ports, flashing
+|   |   +-- thermal.rs            # Boiler heat + cooling (integer math)
+|   |   +-- daynight.rs           # Tick-based time of day
+|   |   +-- display_panel.rs      # LED matrix state + render data
+|   |   +-- stats.rs              # Throughput/bottleneck tracking
+|   |   +-- train.rs              # Cargo train + trading
+|   |
+|   +-- scripting/                # Python bridge
+|   |   +-- mod.rs
+|   |   +-- runtime.rs            # RustPython setup and lifecycle (fixed hash seed)
+|   |   +-- hooks.rs              # Per-instruction VM hook (budget, watchdog, trace)
+|   |   +-- sandbox.rs            # AST allowlist, import rules
+|   |   +-- budget.rs             # Steam / step budget (deploy + per-tick)
+|   |   +-- watchdog.rs           # Wall-time backstop, sets interrupt flag
+|   |   +-- bindings.rs           # Rust functions exposed to auto.*, power.*, ...
+|   |   +-- commands.rs           # Script command queue, applied at end of tick
+|   |   +-- scheduler.rs          # main.py build, tick() / generator tick, on_event
+|   |   +-- reconcile.rs          # Hot-reload diff: create/update/remove
+|   |   +-- errors.rs             # Line-error mapping and highlight
+|   |   +-- micro.rs              # Micro-script runtime, tiny budgets
+|   |   +-- cartridges.rs         # Slots, module loading, import graph
+|   |   +-- trace.rs              # Line stepping + variable watch (uses hooks.rs)
+|   |
+|   +-- progression/
+|   |   +-- mod.rs
+|   |   +-- economy.rs            # Currency, prices
+|   |   +-- contracts.rs          # Quotas + concept requirements
+|   |   +-- manual_unlocks.rs     # Chapter unlock logic
+|   |   +-- scoring.rs            # Throughput, steam, line count
+|   |   +-- saves.rs              # Save/load, versioning
+|   |
+|   +-- audio/
+|   |   +-- mod.rs
+|   |   +-- adaptive_music.rs     # Layers tied to throughput
+|   |   +-- sfx.rs
+|   |
+|   +-- settings/
+|       +-- mod.rs
+|       +-- accessibility.rs      # Colorblind, font scale, motion
+|       +-- keybinds.rs
+|
++-- tests/
+|   +-- sandbox_tests.rs          # Forbidden code must be rejected
+|   +-- console_sanitize_tests.rs # Escape codes / control chars stripped
+|   +-- determinism_tests.rs      # Same script + seed = same result
+|   +-- budget_tests.rs           # Infinite loops get capped
+|   +-- reload_tests.rs           # Reload twice = same state; failed main.py changes nothing
+|   +-- micro_budget_tests.rs     # Chip budgets + fixed ordering
+|   +-- wildlife_isolation_tests.rs  # Creatures never change sim hash
+|   +-- contract_tests.rs         # Quota validation
+|   +-- golden_solutions/         # Passing script per contract (CI)
+|   +-- manual_examples_tests.rs  # Runs every tutorial code sample
+|   +-- cross_os_replay_tests.rs  # State-hash match on Win/Linux/macOS
+|   +-- fuzz/                     # Sandbox escape corpus
+|   +-- bench/                    # Performance benchmarks
+|   +-- fixtures/
+|       +-- scripts/              # Good and malicious sample scripts
+|
++-- docs/
+|   +-- API.md                    # auto / power / sensors reference
+|   +-- ARCHITECTURE.md           # Systems overview
+|   +-- SANDBOX.md                # Security model
+|   +-- DECISIONS.md              # Log of locked design decisions
+|   +-- CONTENT_GUIDE.md          # How to add chapters/contracts
+|   +-- ART_STYLE.md              # Master palette, 16x16 grid, shading + outline rules
+|   +-- images/                   # Screenshots / GIFs for README
+|
++-- tools/
+    +-- pack_assets.rs            # Sprite atlas packer
+    +-- validate_content.rs       # Checks contracts/manual data
+
+==============================================================
+END OF ROADMAP
+==============================================================

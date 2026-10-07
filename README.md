@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚂 PyPipeline
+# 🚂 PypeLine
 
 **Write real Python. Build mega-factories. Master software engineering.**
 
@@ -13,7 +13,7 @@ A cozy 16-bit, GBA-style industrial automation game where your factory runs on c
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 <!-- Replace with a real GIF once you have one -->
-<!-- ![PyPipeline gameplay](docs/images/gameplay.gif) -->
+<!-- ![PypeLine gameplay](docs/images/gameplay.gif) -->
 
 </div>
 
@@ -21,25 +21,31 @@ A cozy 16-bit, GBA-style industrial automation game where your factory runs on c
 
 ## 📖 About
 
-PyPipeline blends the code-driven automation of *Factorio* and *The Farmer Was Replaced* with the warm, colorful look of classic handheld RPG overworlds.
+PypeLine blends the code-driven automation of *Factorio* and *The Farmer Was Replaced* with the warm, colorful look of classic handheld RPG overworlds.
 
 You live on a floating industrial island. You don't place every machine by hand. Instead you write Python scripts that deploy equipment, wire terminals together, and manage steam power. Sell your output to the cargo train, unlock new chapters in your Engineering Manual, and use what you learn (loops, functions, imports) to build bigger and smarter factories.
 
-> **Project status:** PyPipeline is in early development. Features below marked **(planned)** are designed but not built yet. See the [Roadmap](#-roadmap).
+> **Project status:** PypeLine is in early development. Features below marked **(planned)** are designed but not built yet. See the [Roadmap](#-roadmap).
 
 ---
 
 ## 🕹️ A Taste of the Code
 
 ```python
-from auto import conveyors, power
+from auto import conveyors, machines
+import power
 
-# Lay a 5-tile conveyor line heading east
-for i in range(5):
-    conveyors.place(x=i, y=0, dir="east")
+# A steam generator and an iron miner
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
 
-# Hook up the steam generator
-power.connect(generator="steam_1")
+# Lay a conveyor line heading east into a smelter
+for x in range(1, 5):
+    conveyors.place(x=x, y=0, dir="east")
+machines.place("smelter", name="smelter_1", x=5, y=0)
+
+# Power the miner and smelter
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
 ```
 
 Hit the **Run** arrow and your factory comes to life. Change the script and run it again: your factory floor keeps its state, and the engine updates only what changed.
@@ -106,7 +112,7 @@ A **16-bit, GBA-inspired look**: top-down 3/4 view, 16x16 tiles, limited palette
 |-------|------|------------|
 | **0. Foundation** | Window, loop, Python runs | Bevy window, fixed tick, RustPython, egui editor prototype, 3-OS CI |
 | **1. MVP** | First automated factory | `auto` API, belts, miner, smelter, generator, editor, error highlighting |
-| **2. Alpha** | It feels like PyPipeline | Floating plots, polaroid UI, wires, cargo train, save/load, Time Dials, boot splash |
+| **2. Alpha** | It feels like PypeLine | Floating plots, polaroid UI, wires, cargo train, save/load, Time Dials, boot splash |
 | **3. Beta** | The learning loop works | Manual chapters, contracts, debugger, stats, snippets, day/night, cartridges |
 | **4. 1.0** | Shippable | Sandbox mode, blueprints, micro-chips, LED panels, themes, accessibility, polish |
 | **5. Post-launch** | Community | Workshop sharing, leaderboards, web demo, more chapters |
@@ -125,8 +131,8 @@ Each phase has an exit test that must pass before the next one begins.
 
 **Build and run**
 ```bash
-git clone https://github.com/<your-username>/pypipeline.git
-cd pypipeline
+git clone https://github.com/<your-username>/pypeline.git
+cd pypeline
 cargo run --release
 ```
 
@@ -140,7 +146,7 @@ cargo test
 ## 🗂️ Project Structure
 
 ```text
-pypipeline/
+pypeline/
 ├── Cargo.toml
 ├── README.md
 ├── assets/              # Sprites, fonts, palettes, audio, shaders, data
@@ -183,4 +189,4 @@ Please read `CONTRIBUTING.md` before opening a pull request.
 - **Code:** MIT. See [`LICENSE`](LICENSE).
 
 
-PyPipeline is an independent project. It is not affiliated with or endorsed by Nintendo, Game Freak, or the Python Software Foundation. The GBA-inspired look is a style reference only, and all art, music, and names are original. "Python" is a trademark of the Python Software Foundation.
+PypeLine is an independent project. It is not affiliated with or endorsed by Nintendo, Game Freak, or the Python Software Foundation. The GBA-inspired look is a style reference only, and all art, music, and names are original. "Python" is a trademark of the Python Software Foundation.

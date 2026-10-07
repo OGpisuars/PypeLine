@@ -1,6 +1,6 @@
-# Contributing to PyPipeline
+# Contributing to PypeLine
 
-Thanks for wanting to help! PyPipeline is a GBA-style factory game where players write real Python to automate their factories. This guide explains how to contribute without stepping on landmines.
+Thanks for wanting to help! PypeLine is a GBA-style factory game where players write real Python to automate their factories. This guide explains how to contribute without stepping on landmines.
 
 > **Status:** The project is in early development. Check the [Roadmap](README.md#-roadmap) to see which phase we are in, and open an issue before starting anything big.
 
@@ -79,8 +79,8 @@ Features that are cosmetic or flavor-only are lower priority and may be queued b
 
 **Get started**
 ```bash
-git clone https://github.com/<your-username>/pypipeline.git
-cd pypipeline
+git clone https://github.com/<your-username>/pypeline.git
+cd pypeline
 git lfs pull
 cargo run --release
 ```

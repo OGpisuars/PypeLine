@@ -1,4 +1,4 @@
-pypipeline/
+pypeline/
 |
 +-- Cargo.toml                    # Rust deps (bevy, bevy_egui, rustpython, serde, ron)
 +-- Cargo.lock
