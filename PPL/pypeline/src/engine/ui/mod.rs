@@ -7,6 +7,7 @@
 pub mod console;
 pub mod editor;
 pub mod help;
+pub mod highlight;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -27,7 +28,8 @@ impl Plugin for UiPlugin {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
             .init_resource::<editor::EditorState>()
             .init_resource::<help::HelpState>()
-            .add_systems(Update, help::toggle_help)
+            .add_systems(Startup, editor::load_script)
+            .add_systems(Update, (help::toggle_help, editor::autosave))
             .add_systems(
                 EguiPrimaryContextPass,
                 (

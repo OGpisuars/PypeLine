@@ -3,6 +3,7 @@
 pub mod bindings;
 pub mod budget;
 pub mod commands;
+pub mod files;
 pub mod hooks;
 pub mod reconcile;
 pub mod runtime;
