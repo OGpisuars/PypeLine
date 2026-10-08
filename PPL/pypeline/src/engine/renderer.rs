@@ -287,10 +287,16 @@ pub fn train_front_x(ticks: u64) -> Option<f32> {
 }
 
 fn move_train(
+    mut sounds: MessageWriter<crate::audio::SoundCue>,
+    mut was_visible: Local<bool>,
     factory: Res<Factory>,
     mut parts: Query<(&TrainPart, &mut Transform, &mut Visibility)>,
 ) {
     let front = train_front_x(factory.ticks);
+    if front.is_some() && !*was_visible {
+        sounds.write(crate::audio::SoundCue(crate::audio::sfx::Sfx::TrainWhistle));
+    }
+    *was_visible = front.is_some();
     for (part, mut transform, mut visibility) in &mut parts {
         match front {
             Some(x) => {

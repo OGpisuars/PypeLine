@@ -56,6 +56,7 @@ impl Plugin for UiPlugin {
 fn announce_sales(
     factory: Res<Factory>,
     mut console: ResMut<crate::scripting::Console>,
+    mut sounds: MessageWriter<crate::audio::SoundCue>,
     mut announced: Local<Option<u64>>,
 ) {
     let Some(sale) = &factory.last_sale else {
@@ -69,6 +70,9 @@ fn announce_sales(
     if *announced != Some(sale.tick) {
         *announced = Some(sale.tick);
         console.push(crate::scripting::ConsoleKind::Info, sale.summary());
+        if !sale.items.is_empty() {
+            sounds.write(crate::audio::SoundCue(crate::audio::sfx::Sfx::Sale));
+        }
     }
 }
 

@@ -8,7 +8,11 @@ use bevy_egui::{EguiContexts, egui};
 
 use crate::factory::tick::{SPEEDS, SimControl};
 
-pub fn time_dials(mut contexts: EguiContexts, mut control: ResMut<SimControl>) -> Result {
+pub fn time_dials(
+    mut contexts: EguiContexts,
+    mut control: ResMut<SimControl>,
+    mut audio: ResMut<crate::audio::AudioSettings>,
+) -> Result {
     let ctx = contexts.ctx_mut()?;
     egui::Area::new(egui::Id::new("time_dials"))
         .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 8.0))
@@ -38,6 +42,15 @@ pub fn time_dials(mut contexts: EguiContexts, mut control: ResMut<SimControl>) -
                         if button.clicked() && !selected {
                             control.speed = speed;
                         }
+                    }
+                    ui.separator();
+                    let speaker = if audio.muted { "🔇" } else { "🔊" };
+                    if ui
+                        .button(speaker)
+                        .on_hover_text("Sound on/off (M)")
+                        .clicked()
+                    {
+                        audio.muted = !audio.muted;
                     }
                 });
             });

@@ -12,6 +12,8 @@ pub mod sandbox;
 
 use bevy::prelude::*;
 
+use crate::audio::SoundCue;
+use crate::audio::sfx::Sfx;
 use crate::factory::{Factory, PendingBuild, SimSet, SimTick};
 use budget::DEPLOY_BUDGET;
 use runtime::{RunOutcome, ScriptRuntime};
@@ -108,6 +110,7 @@ fn run_pending_script(
     mut build: ResMut<PendingBuild>,
     mut factory: ResMut<Factory>,
     mut failure: ResMut<LastFailure>,
+    mut sounds: MessageWriter<SoundCue>,
     tick: Res<SimTick>,
 ) {
     let Some(source) = pending.0.take() else {
@@ -130,6 +133,11 @@ fn run_pending_script(
         RunOutcome::Error { .. } => LastFailure::Error,
         RunOutcome::OutOfSteam { .. } => LastFailure::OutOfSteam,
     };
+    sounds.write(SoundCue(match *failure {
+        LastFailure::None => Sfx::Run,
+        LastFailure::Error => Sfx::Error,
+        LastFailure::OutOfSteam => Sfx::Overheat,
+    }));
     build.0 = report.plan;
     match report.outcome {
         RunOutcome::Finished => console.push(
