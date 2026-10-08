@@ -677,7 +677,10 @@ mod tests {
         if std::env::var_os("PYPELINE_WRITE_DOCS").is_some() {
             std::fs::write(path, &generated).expect("write docs/API.md");
         }
-        let on_disk = std::fs::read_to_string(path).unwrap_or_default();
+        // Git on Windows may check the file out with CRLF line endings.
+        let on_disk = std::fs::read_to_string(path)
+            .unwrap_or_default()
+            .replace("\r\n", "\n");
         assert!(
             on_disk == generated,
             "docs/API.md is out of date: run PYPELINE_WRITE_DOCS=1 cargo test api_doc"
