@@ -30,6 +30,7 @@ impl Plugin for PypelinePlugin {
                 engine::camera::PixelCameraPlugin,
                 engine::grid::GridPlugin,
                 engine::renderer::FactoryRenderPlugin,
+                engine::wires::WirePlugin,
                 engine::ui::UiPlugin,
                 progression::saves::SavePlugin,
             ));
