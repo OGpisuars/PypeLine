@@ -116,6 +116,8 @@ pub struct HookReport {
     pub ops: Vec<Op>,
     /// The file an error or stop happened in, if it was not main.py.
     pub error_file: Option<String>,
+    /// Steam this call used.
+    pub steps_used: u64,
 }
 
 /// A value passed to an event handler.
@@ -156,7 +158,10 @@ impl ScriptRuntime {
         let interpreter = Interpreter::without_stdlib(settings);
 
         let budget = Rc::new(Budget::default());
-        let ctx = ScriptContext::default();
+        let ctx = ScriptContext {
+            steam: budget.clone(),
+            ..Default::default()
+        };
         let modules = Rc::new(RefCell::new(ModuleTable::new()));
         let user_modules = Rc::new(RefCell::new(UserModules::default()));
 
@@ -390,6 +395,7 @@ impl ScriptRuntime {
             console: Vec::new(),
             ops: Vec::new(),
             error_file: None,
+            steps_used: 0,
         }
     }
 
@@ -435,6 +441,7 @@ impl ScriptRuntime {
             console: sink.ops,
             ops: std::mem::take(&mut *self.ctx.ops.borrow_mut()),
             error_file: self.reported_file(),
+            steps_used: self.budget.used(),
         }
     }
 }

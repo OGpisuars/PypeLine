@@ -589,10 +589,12 @@ PHASE 3B - BETA: DEPTH SYSTEMS (Week 22-28)
 Goal: chapters 8-10 and the systems they unlock.
   [ ] Line debugger: step one line, variable watch, current-
       line marker (trace.rs, on the Phase 0 hook) (Part 4 F)
-  [ ] Stats dashboard: IPM, steam use, uptime, bottleneck glow
-  [~] stats.* Python module (ipm, steam, bottlenecks)
-      (produced, per_minute, coins; steam and bottlenecks to come)
-  [ ] Contracts that use stats.* (e.g. "keep IPM above 30")
+  [x] Stats dashboard: IPM, steam use, uptime, bottleneck glow
+      (Stats window, F4: per-machine state and busy %, blinking outlines)
+  [x] stats.* Python module (ipm, steam, bottlenecks)
+      (produced, per_minute, coins, bottlenecks, steam, steam_limit)
+  [x] Contracts that use stats.* (e.g. "keep IPM above 30")
+      (Rate goals: "Full Steam" asks for 40 plates a minute)
   [~] Cartridge system (unlocks with ch. 8): slots, carts as
       modules, per-module hot-reload, import-graph tracking
       (player files as importable modules done; cart/slot visuals to come)

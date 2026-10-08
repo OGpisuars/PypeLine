@@ -52,7 +52,9 @@ pub fn manual_window(
     mut progress: ResMut<Progress>,
     mut workspace: ResMut<Workspace>,
     factory: Res<Factory>,
+    history: Res<crate::factory::ProductionHistory>,
 ) -> Result {
+    let rates = history.per_minute(&factory);
     let ctx = contexts.ctx_mut()?;
     let mut open = manual.open;
     let screen = ctx.viewport_rect();
@@ -107,7 +109,7 @@ pub fn manual_window(
                     ui.add_space(12.0);
                     ui.heading("Contracts");
                     for contract in &chapter.contracts {
-                        show_contract(ui, chapter, contract, &mut progress, &factory);
+                        show_contract(ui, chapter, contract, &mut progress, &factory, &rates);
                     }
                 });
         });
@@ -209,6 +211,7 @@ fn show_contract(
     contract: &Contract,
     progress: &mut Progress,
     factory: &Factory,
+    rates: &std::collections::BTreeMap<crate::factory::items::ItemKind, u64>,
 ) {
     let done = progress.completed.contains(&contract.id);
     let active = progress
@@ -246,7 +249,7 @@ fn show_contract(
 
         ui.horizontal(|ui| {
             if let Some(active) = &active {
-                let (have, need) = contracts::goal_progress(&contract.goal, active, factory);
+                let (have, need) = contracts::goal_progress(&contract.goal, active, factory, rates);
                 ui.add(
                     egui::ProgressBar::new(have as f32 / need as f32)
                         .desired_width(200.0)

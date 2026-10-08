@@ -20,6 +20,8 @@ pub enum Goal {
     Produce { item: ItemKind, count: u64 },
     /// Earn this many coins from the train.
     Earn { coins: u64 },
+    /// Make this many items per minute (over the last minute of game time).
+    Rate { item: ItemKind, per_minute: u64 },
 }
 
 impl Goal {
@@ -27,6 +29,12 @@ impl Goal {
         match self {
             Self::Produce { item, count } => format!("Make {count} {}s", item.name()),
             Self::Earn { coins } => format!("Earn {coins} coins from the train"),
+            Self::Rate { item, per_minute } => {
+                format!(
+                    "Make {per_minute} {}s a minute (see Stats, F4)",
+                    item.name()
+                )
+            }
         }
     }
 }
@@ -318,6 +326,9 @@ mod tests {
                     match contract.goal {
                         Goal::Produce { item, count } => game.factory.produced(item) >= count,
                         Goal::Earn { coins } => game.factory.coins >= coins,
+                        Goal::Rate { item, per_minute } => {
+                            game.per_minute().get(&item).copied().unwrap_or(0) >= per_minute
+                        }
                     }
                 });
                 assert!(!game.had_errors(), "{id}: {:?}", game.output);

@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
 use crate::factory::shop::Upgrade;
+use crate::factory::stats::{self, MachineState};
 use crate::factory::{Factory, Pos};
 
 /// Which calls a script may make right now.
@@ -31,6 +32,7 @@ pub struct MachineView {
     pub powered: bool,
     pub enabled: bool,
     pub tier: u8,
+    pub state: MachineState,
 }
 
 /// What scripts can see of the factory during one tick.
@@ -68,6 +70,7 @@ impl WorldView {
                         powered,
                         enabled: m.enabled,
                         tier: m.tier,
+                        state: stats::machine_state(factory, name).expect("name came from the map"),
                     };
                     (name.clone(), view)
                 })

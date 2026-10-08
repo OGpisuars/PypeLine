@@ -27,6 +27,7 @@ pub struct Toggles<'w> {
     manual: ResMut<'w, ManualState>,
     settings: ResMut<'w, SettingsWindow>,
     shop: ResMut<'w, ShopWindow>,
+    stats: ResMut<'w, super::stats_panel::StatsWindow>,
     view: ResMut<'w, ViewState>,
     prefs: ResMut<'w, super::settings::Settings>,
 }
@@ -115,6 +116,12 @@ pub fn top_bar(
                 .clicked()
             {
                 toggles.shop.open = !toggles.shop.open;
+            }
+            if ui
+                .selectable_label(toggles.stats.open, "Stats (F4)")
+                .clicked()
+            {
+                toggles.stats.open = !toggles.stats.open;
             }
             if ui
                 .selectable_label(toggles.settings.open, "⚙ Settings")

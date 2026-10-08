@@ -93,8 +93,22 @@ impl Progress {
 }
 
 /// Progress toward a goal: (done so far, target).
-pub fn goal_progress(goal: &Goal, active: &ActiveContract, factory: &Factory) -> (u64, u64) {
+/// How far along a goal is: (have, need). `per_minute` is the factory's
+/// items made over the last minute.
+pub fn goal_progress(
+    goal: &Goal,
+    active: &ActiveContract,
+    factory: &Factory,
+    per_minute: &std::collections::BTreeMap<crate::factory::items::ItemKind, u64>,
+) -> (u64, u64) {
     match *goal {
+        Goal::Rate {
+            item,
+            per_minute: target,
+        } => (
+            per_minute.get(&item).copied().unwrap_or(0).min(target),
+            target,
+        ),
         Goal::Produce { item, count } => {
             let start = active.produced_at_start.get(&item).copied().unwrap_or(0);
             (
@@ -158,6 +172,7 @@ impl Plugin for ContractPlugin {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn track_contract(
     mut progress: ResMut<Progress>,
     mut factory: ResMut<Factory>,
@@ -166,6 +181,7 @@ fn track_contract(
     mut sounds: MessageWriter<SoundCue>,
     handlers: Res<DefinedHandlers>,
     mut events: ResMut<ScriptEvents>,
+    history: Res<crate::factory::ProductionHistory>,
 ) {
     let Some(active) = progress.active.clone() else {
         return;
@@ -174,7 +190,8 @@ fn track_contract(
         progress.active = None;
         return;
     };
-    let (done, target) = goal_progress(&contract.goal, &active, &factory);
+    let rates = history.per_minute(&factory);
+    let (done, target) = goal_progress(&contract.goal, &active, &factory, &rates);
     if done < target {
         return;
     }

@@ -66,6 +66,11 @@ impl Headless {
         }
     }
 
+    /// Items made over the last minute of game time.
+    pub fn per_minute(&self) -> std::collections::BTreeMap<crate::factory::items::ItemKind, u64> {
+        self.history.per_minute(&self.factory)
+    }
+
     /// Queue an event for the next tick, like finishing a contract does.
     pub fn send(&mut self, name: &'static str, args: Vec<EventArg>) {
         self.events.push((name, args));

@@ -310,6 +310,7 @@ fn run_script_hooks(
     mut error_line: ResMut<ErrorLine>,
     last_good: Res<LastGoodScript>,
     mut sounds: MessageWriter<SoundCue>,
+    mut stats: ResMut<crate::factory::stats::StatsHistory>,
 ) {
     if factory.halted {
         events.0.clear();
@@ -327,6 +328,9 @@ fn run_script_hooks(
     reports.push(("tick", runtime.tick(budget::TICK_BUDGET)));
 
     for (name, report) in reports {
+        if name == "tick" && report.outcome != HookOutcome::NotDefined {
+            stats.record_tick_steam(report.steps_used);
+        }
         console.apply(report.console);
         pending_ops.0.extend(report.ops);
         let file = report.error_file.clone();

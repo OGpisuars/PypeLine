@@ -14,6 +14,7 @@ pub mod manual;
 pub mod polaroid;
 pub mod settings;
 pub mod shop;
+pub mod stats_panel;
 pub mod time_dials;
 pub mod top_bar;
 
@@ -40,6 +41,7 @@ impl Plugin for UiPlugin {
             .init_resource::<settings::Settings>()
             .init_resource::<settings::SettingsWindow>()
             .init_resource::<shop::ShopWindow>()
+            .init_resource::<stats_panel::StatsWindow>()
             .add_systems(Startup, (editor::load_scripts, settings::load_settings))
             .add_systems(
                 Update,
@@ -47,6 +49,7 @@ impl Plugin for UiPlugin {
                     help::toggle_help,
                     manual::toggle_manual,
                     shop::toggle_shop,
+                    stats_panel::toggle_stats,
                     announce_sales,
                     settings::save_settings,
                 ),
@@ -64,6 +67,7 @@ impl Plugin for UiPlugin {
                     help::help_window,
                     manual::manual_window,
                     shop::shop_window,
+                    stats_panel::stats_window,
                     settings::settings_window,
                     time_dials::time_dial_keys,
                     polaroid::polaroid,
@@ -112,6 +116,7 @@ fn debug_overlay(
     control: Res<SimControl>,
     area: Res<super::camera::GameArea>,
     diagnostics: Res<DiagnosticsStore>,
+    history: Res<crate::factory::ProductionHistory>,
 ) -> Result {
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
@@ -153,6 +158,7 @@ fn debug_overlay(
                                 &contract.goal,
                                 active,
                                 &factory,
+                                &history.per_minute(&factory),
                             );
                             format!("contract: {}  {have}/{need}", contract.title)
                         }

@@ -75,6 +75,8 @@ pub struct ScriptContext {
     pub mode: Rc<Cell<ApiMode>>,
     pub world: Rc<RefCell<WorldView>>,
     pub ops: Rc<RefCell<Vec<Op>>>,
+    /// The running call's step budget, for stats.steam().
+    pub steam: Rc<super::budget::Budget>,
 }
 
 const BUILD_ONLY: &str =
@@ -211,6 +213,9 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
             ("produced", operate.produced),
             ("per_minute", operate.per_minute),
             ("coins", operate.coins),
+            ("bottlenecks", operate.bottlenecks),
+            ("steam", operate.steam),
+            ("steam_limit", operate.steam_limit),
         ],
     )?;
     let clock = new_module(
@@ -274,6 +279,9 @@ struct OperateFunctions {
     produced: PyObjectRef,
     per_minute: PyObjectRef,
     coins: PyObjectRef,
+    bottlenecks: PyObjectRef,
+    steam: PyObjectRef,
+    steam_limit: PyObjectRef,
     tick: PyObjectRef,
     seconds: PyObjectRef,
 }
@@ -319,6 +327,7 @@ fn operate_functions(vm: &VirtualMachine, ctx: &ScriptContext) -> OperateFunctio
                 dict.set_item("powered", vm.ctx.new_bool(m.powered).into(), vm)?;
                 dict.set_item("on", vm.ctx.new_bool(m.enabled).into(), vm)?;
                 dict.set_item("tier", vm.ctx.new_int(m.tier).into(), vm)?;
+                dict.set_item("state", vm.ctx.new_str(m.state.name()).into(), vm)?;
                 Ok(dict.into())
             },
         )
@@ -364,7 +373,29 @@ fn operate_functions(vm: &VirtualMachine, ctx: &ScriptContext) -> OperateFunctio
         vm.new_function(name, move || -> u64 { read(&world.borrow()) })
             .into()
     };
+    let bottlenecks = {
+        let world = ctx.world.clone();
+        vm.new_function("bottlenecks", move |vm: &VirtualMachine| -> PyResult {
+            let names: Vec<PyObjectRef> = world
+                .borrow()
+                .machines
+                .iter()
+                .filter(|(_, m)| m.state == crate::factory::stats::MachineState::Blocked)
+                .map(|(name, _)| vm.ctx.new_str(name.as_str()).into())
+                .collect();
+            Ok(vm.ctx.new_list(names).into())
+        })
+        .into()
+    };
+    let steam_reader = |name: &'static str, read: fn(&super::budget::Budget) -> u64| {
+        let steam = ctx.steam.clone();
+        vm.new_function(name, move || -> u64 { read(&steam) })
+            .into()
+    };
     OperateFunctions {
+        bottlenecks,
+        steam: steam_reader("steam", |b| b.used()),
+        steam_limit: steam_reader("steam_limit", |b| b.limit()),
         enable: switch(true),
         disable: switch(false),
         status,

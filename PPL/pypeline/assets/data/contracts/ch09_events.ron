@@ -32,6 +32,38 @@ def on_train(coins):
 "#,
     ),
     (
+        id: "ch9_full_steam",
+        title: "Full Steam",
+        brief: "Reach 40 iron plates a minute. Watch the number in the Stats window (F4), and print stats.per_minute(\"iron_plate\") from on_train to follow it in the console.",
+        goal: Rate(item: IronPlate, per_minute: 40),
+        requires: [Events],
+        reward: 150,
+        hints: [
+            "One smelter makes 20 plates a minute at most, so you need more than one line.",
+            "Stats (F4) shows blocked machines in red: a full station or a missing belt stops a line.",
+            "def on_train(coins): print(stats.per_minute(\"iron_plate\")) after import stats.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+import stats
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in [0, 2, 4]:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    powered = powered + [f"miner_{y}", f"smelter_{y}"]
+power.connect(generator="steam", to=powered)
+
+def on_train(coins):
+    print(stats.per_minute("iron_plate"), "plates a minute")
+"#,
+    ),
+    (
         id: "ch9_inspector",
         title: "Factory Inspector",
         brief: "Every time the train comes, check each smelter with machines.status and print a warning for any that has no power or a full output. Earn 250 coins.",

@@ -48,7 +48,7 @@ const MOVING: &[&str] = &[
 
 const KEYS: &[(&str, &str)] = &[
     ("Ctrl+Enter or F5", "Run"),
-    ("F1 / F2 / F3", "Help / Manual / Shop"),
+    ("F1 / F2 / F3 / F4", "Help / Manual / Shop / Stats"),
     ("Space", "pause or play (when not typing)"),
     (". (period)", "step one tick while paused"),
     ("1 / 2 / 3", "speed 1x / 2x / 4x"),
@@ -176,6 +176,20 @@ const OPERATE: &[Command] = &[
             "item is an item id like \"iron_plate\" (see \"Names you can use\").",
         ],
         example: "def report():\n    print(stats.produced(\"iron_ore\"), \"ore,\", stats.coins(), \"coins\")\n",
+    },
+    Command {
+        signature: "stats.bottlenecks() / stats.steam() / stats.steam_limit()",
+        about: &[
+            "stats.bottlenecks() lists the machines whose output is full: whatever comes \
+             after them is too slow or missing. The Stats window (F4) shows them glowing red.",
+            "stats.steam() is how much steam this Run or tick() has used so far, and \
+             stats.steam_limit() how much it has in total.",
+            "machines.status(name)[\"state\"] is \"working\", \"starved\", \"blocked\", \
+             \"no power\", \"off\" or \"idle\".",
+        ],
+        example: "def check():\n    for name in stats.bottlenecks():\n        \
+                  print(name, \"is blocked\")\n    \
+                  print(stats.steam(), \"of\", stats.steam_limit(), \"steam used\")\n",
     },
     Command {
         signature: "clock.tick() / clock.seconds()",
@@ -470,7 +484,7 @@ mod tests {
             .chain(OPERATE.iter().map(|c| c.example))
             .chain([
                 "first_tick = tick\ndef tick():\n    first_tick()\n    show_smelter()\n    \
-                 report()\n    belt_is_busy()\n    every_ten_seconds()\n",
+                 report()\n    belt_is_busy()\n    every_ten_seconds()\n    check()\n",
             ])
             .collect();
         let runtime = ScriptRuntime::new();

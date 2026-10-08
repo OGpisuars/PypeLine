@@ -4,7 +4,7 @@
 //! - `PYPELINE_SCREENSHOT=out.png`: save a screenshot, then quit.
 //! - `PYPELINE_SCREENSHOT_AFTER=8`: seconds to wait before the screenshot
 //!   (default 5).
-//! - `PYPELINE_OPEN=help,shop,settings,manual`: open those windows at startup.
+//! - `PYPELINE_OPEN=help,shop,settings,manual,stats`: open those windows at startup.
 //!
 //! Handy for checking visuals in automated runs. Does nothing otherwise.
 
@@ -55,6 +55,7 @@ fn autorun(workspace: Res<Workspace>, mut pending: ResMut<PendingRun>) {
 struct OpenAtStart(String);
 
 /// Open the listed windows once, after the Manual has picked its own state.
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn open_windows(
     list: Res<OpenAtStart>,
     time: Res<Time<Real>>,
@@ -63,6 +64,7 @@ fn open_windows(
     mut shop: ResMut<crate::engine::ui::shop::ShopWindow>,
     mut settings: ResMut<crate::engine::ui::settings::SettingsWindow>,
     mut manual: ResMut<crate::engine::ui::manual::ManualState>,
+    mut stats: ResMut<crate::engine::ui::stats_panel::StatsWindow>,
 ) {
     if *done || time.elapsed_secs() < 1.0 {
         return;
@@ -74,6 +76,7 @@ fn open_windows(
             "shop" => shop.open = true,
             "settings" => settings.open = true,
             "manual" => manual.open = true,
+            "stats" => stats.open = true,
             "-manual" => manual.open = false,
             _ => {}
         }

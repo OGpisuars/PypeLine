@@ -57,6 +57,14 @@ struct ItemSprite;
 #[derive(Component)]
 struct HoverHighlight;
 
+/// One side of the outline around a blocked or starved machine.
+#[derive(Component)]
+struct GlowEdge;
+
+/// Outline colors: blocked machines red, starved ones yellow.
+const GLOW_BLOCKED: Color = Color::srgb_u8(248, 64, 48);
+const GLOW_STARVED: Color = Color::srgb_u8(248, 208, 64);
+
 /// One piece of the train; 0 is the locomotive at the front.
 #[derive(Component)]
 struct TrainPart(usize);
@@ -84,6 +92,7 @@ impl Plugin for FactoryRenderPlugin {
                 animate_belts,
                 sync_items,
                 move_hover_highlight,
+                glow_bottlenecks,
                 move_train,
             )
                 .chain(),
@@ -250,6 +259,68 @@ fn spawn_hover_highlight(island: Res<Island>, mut commands: Commands) {
         WORLD_LAYER,
         ChildOf(island.root),
     ));
+}
+
+/// While the Stats window asks for it, blink an outline around machines
+/// that are blocked (red) or starved (yellow). Blinking, not fading, keeps
+/// it pixel art.
+fn glow_bottlenecks(
+    island: Res<Island>,
+    mut commands: Commands,
+    factory: Res<Factory>,
+    window: Option<Res<super::ui::stats_panel::StatsWindow>>,
+    time: Res<Time<Real>>,
+    mut pool: Query<(&mut Sprite, &mut Transform, &mut Visibility), With<GlowEdge>>,
+) {
+    use crate::factory::stats::{MachineState, machine_state};
+    let blink_on = ((time.elapsed_secs() * 2.0) as u64).is_multiple_of(2);
+    let show = window.is_some_and(|w| w.glowing()) && blink_on;
+    let half = TILE as f32 / 2.0 + 0.5;
+    let full = TILE as f32 + 2.0;
+    let sides = [
+        (Vec2::new(0.0, half), Vec2::new(full, 1.0)),
+        (Vec2::new(0.0, -half), Vec2::new(full, 1.0)),
+        (Vec2::new(-half, 0.0), Vec2::new(1.0, TILE as f32)),
+        (Vec2::new(half, 0.0), Vec2::new(1.0, TILE as f32)),
+    ];
+    let wanted: Vec<(Vec3, Vec2, Color)> = factory
+        .machines
+        .iter()
+        .filter(|_| show)
+        .filter_map(|(name, m)| {
+            let color = match machine_state(&factory, name)? {
+                MachineState::Blocked => GLOW_BLOCKED,
+                MachineState::Starved => GLOW_STARVED,
+                _ => return None,
+            };
+            Some((plot_tile_center(m.pos, Z_HOVER + 0.1), color))
+        })
+        .flat_map(|(center, color)| {
+            sides.map(|(offset, size)| (center + offset.extend(0.0), size, color))
+        })
+        .collect();
+
+    let mut wanted = wanted.into_iter();
+    for (mut sprite, mut transform, mut visibility) in &mut pool {
+        match wanted.next() {
+            Some((at, size, color)) => {
+                sprite.custom_size = Some(size);
+                sprite.color = color;
+                transform.translation = at;
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+    for (at, size, color) in wanted {
+        commands.spawn((
+            Sprite::from_color(color, size),
+            Transform::from_translation(at),
+            GlowEdge,
+            WORLD_LAYER,
+            ChildOf(island.root),
+        ));
+    }
 }
 
 fn move_hover_highlight(

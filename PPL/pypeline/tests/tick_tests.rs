@@ -64,6 +64,7 @@ fn switching_machines_is_queued_and_refused_while_building() {
             powered: true,
             enabled: true,
             tier: 1,
+            state: pypeline::factory::stats::MachineState::Working,
         },
     );
     rt.set_world(world);
@@ -137,6 +138,41 @@ fn stats_and_sensors_read_the_snapshot() {
     assert_eq!(
         report.output,
         vec!["5 20 17", "3 0 20"],
+        "{:?}",
+        report.outcome
+    );
+}
+
+#[test]
+fn stats_report_bottlenecks_and_steam() {
+    let rt = ScriptRuntime::new();
+    let mut world = WorldView::default();
+    for (name, state) in [
+        ("fine", pypeline::factory::stats::MachineState::Working),
+        ("stuck", pypeline::factory::stats::MachineState::Blocked),
+    ] {
+        world.machines.insert(
+            name.into(),
+            MachineView {
+                kind: MachineKind::Miner,
+                working: true,
+                input: 0,
+                output: 0,
+                powered: true,
+                enabled: true,
+                tier: 1,
+                state,
+            },
+        );
+    }
+    rt.set_world(world);
+    let report = rt.run(
+        "import stats\nfrom auto import machines\nprint(stats.bottlenecks(), machines.status('stuck')['state'])\nprint(stats.steam() > 0, stats.steam_limit())",
+        DEPLOY_BUDGET,
+    );
+    assert_eq!(
+        report.output,
+        vec!["['stuck'] blocked", &format!("True {DEPLOY_BUDGET}")],
         "{:?}",
         report.outcome
     );

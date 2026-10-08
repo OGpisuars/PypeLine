@@ -8,6 +8,7 @@ pub mod conveyors;
 pub mod items;
 pub mod machines;
 pub mod shop;
+pub mod stats;
 pub mod tick;
 pub mod train;
 
@@ -326,13 +327,17 @@ impl Plugin for FactoryPlugin {
             .init_resource::<PendingBuild>()
             .init_resource::<PendingOps>()
             .init_resource::<ProductionHistory>()
+            .init_resource::<stats::StatsHistory>()
             .add_systems(
                 FixedUpdate,
                 (apply_pending_build, apply_pending_ops, step_factory)
                     .chain()
                     .in_set(SimSet::Factory),
             )
-            .add_systems(FixedUpdate, sample_production.in_set(SimSet::Progress));
+            .add_systems(
+                FixedUpdate,
+                (sample_production, record_stats).in_set(SimSet::Progress),
+            );
     }
 }
 
@@ -364,6 +369,10 @@ fn apply_pending_ops(mut pending: ResMut<PendingOps>, mut factory: ResMut<Factor
 
 fn step_factory(mut factory: ResMut<Factory>) {
     factory.step();
+}
+
+fn record_stats(factory: Res<Factory>, mut stats: ResMut<stats::StatsHistory>) {
+    stats.record(&factory);
 }
 
 fn sample_production(factory: Res<Factory>, mut history: ResMut<ProductionHistory>) {

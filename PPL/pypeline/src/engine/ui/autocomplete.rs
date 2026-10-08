@@ -55,6 +55,9 @@ fn members(module: &str) -> Vec<Suggestion> {
             item("produced(", "\"iron_plate\" -> total made"),
             item("per_minute(", "\"iron_plate\" -> made in the last minute"),
             item("coins()", "your coins"),
+            item("bottlenecks()", "machines whose output is full"),
+            item("steam()", "steam used so far"),
+            item("steam_limit()", "steam available"),
         ],
         "clock" => vec![
             item("tick()", "ticks so far"),
