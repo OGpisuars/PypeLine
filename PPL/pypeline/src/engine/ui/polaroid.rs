@@ -1,1 +1,124 @@
-// Rust module
+//! Polaroid hover card: point at a machine or belt to see a snapshot with its
+//! live stats (roadmap Phase 2).
+
+use bevy::prelude::*;
+use bevy_egui::{EguiContexts, EguiTextureHandle, egui};
+
+use crate::engine::camera::HoveredTile;
+use crate::engine::sprites::SpriteSheet;
+use crate::factory::machines::{BUFFER_CAP, MINE_TICKS, MachineKind, SMELT_TICKS};
+use crate::factory::{Dir, Factory};
+
+/// Size of the photo in the card (a 16 px sprite at 4x).
+const PHOTO: f32 = 64.0;
+
+pub fn polaroid(
+    mut contexts: EguiContexts,
+    hovered: Res<HoveredTile>,
+    factory: Res<Factory>,
+    sheet: Option<Res<SpriteSheet>>,
+) -> Result {
+    let (Some(pos), Some(sheet)) = (hovered.0, sheet) else {
+        return Ok(());
+    };
+    let card = if let Some(name) = factory.machine_at.get(&pos) {
+        let machine = &factory.machines[name];
+        let image = sheet.machine(machine.kind);
+        let mut lines = vec![machine.kind.name().replace('_', " ")];
+        let mut progress = None;
+        if machine.kind.needs_power() {
+            let powered = factory.is_powered(name);
+            lines.push(if powered {
+                "power: on".into()
+            } else {
+                "power: OFF (connect it)".into()
+            });
+            let needed = match machine.kind {
+                MachineKind::Miner => MINE_TICKS,
+                _ => SMELT_TICKS,
+            };
+            progress = Some(machine.progress as f32 / needed as f32);
+            if let Some(ore) = machine.ore {
+                lines.push(format!("digging: {}", ore.name()));
+            }
+            if machine.kind == MachineKind::Smelter {
+                lines.push(format!("input: {}/{BUFFER_CAP}", machine.input.len()));
+            }
+            lines.push(format!("output: {}/{BUFFER_CAP}", machine.output.len()));
+            lines.push(format!("faces: {}", dir_name(machine.dir)));
+        } else {
+            let powering = factory.power.values().filter(|g| *g == name).count();
+            lines.push(format!("powering {powering} machine(s)"));
+        }
+        Some((name.clone(), image, lines, progress))
+    } else {
+        factory.conveyors.get(&pos).map(|belt| {
+            let image = sheet.belt(belt.dir, 0);
+            let lines = vec![
+                format!("moving {}", dir_name(belt.dir)),
+                format!("items on it: {}", belt.items.len()),
+            ];
+            (
+                format!("conveyor ({}, {})", pos.x, pos.y),
+                image,
+                lines,
+                None,
+            )
+        })
+    };
+    let Some((title, image, lines, progress)) = card else {
+        return Ok(());
+    };
+
+    let texture = contexts.add_image(EguiTextureHandle::Weak(image.id()));
+    let ctx = contexts.ctx_mut()?;
+    let Some(pointer) = ctx.pointer_hover_pos() else {
+        return Ok(());
+    };
+    egui::Area::new(egui::Id::new("polaroid"))
+        .order(egui::Order::Tooltip)
+        .fixed_pos(pointer + egui::vec2(18.0, 18.0))
+        .interactable(false)
+        .show(ctx, |ui| {
+            egui::Frame::new()
+                .fill(egui::Color32::from_rgb(248, 248, 240))
+                .stroke(egui::Stroke::new(
+                    1.0,
+                    egui::Color32::from_rgb(176, 168, 152),
+                ))
+                .inner_margin(egui::Margin {
+                    left: 8,
+                    right: 8,
+                    top: 8,
+                    bottom: 14,
+                })
+                .show(ui, |ui| {
+                    ui.set_width(PHOTO + 72.0);
+                    egui::Frame::new()
+                        .fill(egui::Color32::from_rgb(120, 192, 248))
+                        .show(ui, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.add(egui::Image::new((texture, egui::vec2(PHOTO, PHOTO))));
+                            });
+                        });
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(title).strong());
+                    for line in lines {
+                        ui.label(egui::RichText::new(line).small());
+                    }
+                    if let Some(progress) = progress {
+                        ui.add(egui::ProgressBar::new(progress).desired_height(6.0));
+                    }
+                });
+        });
+    Ok(())
+}
+
+fn dir_name(dir: Dir) -> &'static str {
+    match dir {
+        Dir::North => "north",
+        Dir::East => "east",
+        Dir::South => "south",
+        Dir::West => "west",
+    }
+}

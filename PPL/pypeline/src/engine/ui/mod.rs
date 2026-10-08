@@ -8,6 +8,7 @@ pub mod console;
 pub mod editor;
 pub mod help;
 pub mod highlight;
+pub mod polaroid;
 pub mod time_dials;
 
 use bevy::{
@@ -43,6 +44,7 @@ impl Plugin for UiPlugin {
                     help::help_window,
                     time_dials::time_dials,
                     time_dials::time_dial_keys,
+                    polaroid::polaroid,
                     debug_overlay,
                 )
                     .chain(),
