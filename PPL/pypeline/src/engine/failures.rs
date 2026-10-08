@@ -6,6 +6,7 @@
 use bevy::prelude::*;
 
 use super::camera::WORLD_LAYER;
+use super::floating_plot::Island;
 use super::grid::plot_tile_center;
 use super::renderer::{BeltSprite, MachineSprite};
 use crate::factory::machines::MachineKind;
@@ -63,6 +64,7 @@ fn blink_failures(
 
 /// Little steam clouds rising from overheated boilers.
 fn steam_puffs(
+    island: Res<Island>,
     mut commands: Commands,
     time: Res<Time<Real>>,
     factory: Res<Factory>,
@@ -108,6 +110,7 @@ fn steam_puffs(
             Transform::from_translation(at),
             SteamPuff,
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
     }
 }

@@ -7,6 +7,7 @@ use bevy::prelude::*;
 
 use super::camera::RES_WIDTH;
 use super::camera::{HoveredTile, WORLD_LAYER};
+use super::floating_plot::Island;
 use super::grid::{TILE, canvas_tile_center, plot_tile_center};
 use super::palette;
 use super::sprites::{self, SpriteSheet};
@@ -78,6 +79,7 @@ impl Plugin for FactoryRenderPlugin {
 }
 
 fn sync_layout(
+    island: Res<Island>,
     mut commands: Commands,
     factory: Res<Factory>,
     sheet: Res<SpriteSheet>,
@@ -99,6 +101,7 @@ fn sync_layout(
             BeltSprite(belt.dir),
             LayoutSprite,
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
     }
 
@@ -118,6 +121,7 @@ fn sync_layout(
             },
             LayoutSprite,
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
 
         // A small brass port on the side items come out of.
@@ -136,6 +140,7 @@ fn sync_layout(
                 ),
                 LayoutSprite,
                 WORLD_LAYER,
+                ChildOf(island.root),
             ));
         }
     }
@@ -154,6 +159,7 @@ fn animate_belts(
 }
 
 fn sync_items(
+    island: Res<Island>,
     mut commands: Commands,
     factory: Res<Factory>,
     sheet: Res<SpriteSheet>,
@@ -193,17 +199,19 @@ fn sync_items(
             Transform::from_translation(at),
             ItemSprite,
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
     }
 }
 
-fn spawn_hover_highlight(mut commands: Commands) {
+fn spawn_hover_highlight(island: Res<Island>, mut commands: Commands) {
     commands.spawn((
         Sprite::from_color(Color::srgba(1.0, 1.0, 1.0, 0.3), Vec2::splat(TILE as f32)),
         Transform::default(),
         Visibility::Hidden,
         HoverHighlight,
         WORLD_LAYER,
+        ChildOf(island.root),
     ));
 }
 

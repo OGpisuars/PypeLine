@@ -120,6 +120,7 @@ fn track_hovered_tile(
     camera: Single<(&Camera, &GlobalTransform), With<ScreenCamera>>,
     mut contexts: EguiContexts,
     mut hovered: ResMut<HoveredTile>,
+    island: Option<Res<super::floating_plot::Island>>,
 ) -> Result {
     let over_ui = contexts.ctx_mut()?.is_pointer_over_egui();
     let (camera, transform) = *camera;
@@ -129,6 +130,8 @@ fn track_hovered_tile(
         .cursor_position()
         .filter(|_| !over_ui)
         .and_then(|cursor| camera.viewport_to_world_2d(transform, cursor).ok())
+        // The plot bobs with the island.
+        .map(|world| world - Vec2::new(0.0, island.as_ref().map_or(0.0, |i| i.bob)))
         .and_then(world_to_plot);
     if hovered.0 != tile {
         hovered.0 = tile;

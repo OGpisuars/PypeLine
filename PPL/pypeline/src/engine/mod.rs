@@ -2,6 +2,7 @@
 
 pub mod camera;
 pub mod failures;
+pub mod floating_plot;
 pub mod grid;
 pub mod palette;
 pub mod renderer;

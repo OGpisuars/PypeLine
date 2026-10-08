@@ -8,6 +8,7 @@
 use bevy::prelude::*;
 
 use super::camera::WORLD_LAYER;
+use super::floating_plot::Island;
 use super::grid::plot_tile_center;
 use super::palette;
 use crate::factory::{Factory, Pos};
@@ -62,6 +63,7 @@ pub fn wire_path(from: Pos, to: Pos) -> Vec<IVec2> {
 }
 
 fn sync_wires(
+    island: Res<Island>,
     mut commands: Commands,
     factory: Res<Factory>,
     old: Query<Entity, With<WireSprite>>,
@@ -92,6 +94,7 @@ fn sync_wires(
                 Transform::from_xyz(p.x as f32 + 0.5, p.y as f32 + 0.5, Z_WIRE),
                 WireSprite,
                 WORLD_LAYER,
+                ChildOf(island.root),
             ));
         }
         paths.0.push(path);
@@ -99,6 +102,7 @@ fn sync_wires(
 }
 
 fn move_pulses(
+    island: Res<Island>,
     mut commands: Commands,
     factory: Res<Factory>,
     paths: Res<WirePaths>,
@@ -132,6 +136,7 @@ fn move_pulses(
             Transform::from_translation(at),
             PulseSprite,
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
     }
 }

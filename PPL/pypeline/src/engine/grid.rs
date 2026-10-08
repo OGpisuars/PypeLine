@@ -8,6 +8,7 @@
 use bevy::prelude::*;
 
 use super::camera::{RES_HEIGHT, RES_WIDTH, WORLD_LAYER};
+use super::floating_plot::Island;
 use super::palette;
 use crate::factory::{PLOT_HEIGHT, PLOT_WIDTH, Pos};
 
@@ -47,13 +48,14 @@ impl Plugin for GridPlugin {
     }
 }
 
-fn spawn_plot(mut commands: Commands) {
+fn spawn_plot(island: Res<Island>, mut commands: Commands) {
     let tile = Vec2::splat(TILE as f32);
     let mut ground = |x: i32, y: i32, color: Color| {
         commands.spawn((
             Sprite::from_color(color, tile),
             Transform::from_translation(canvas_tile_center(x, y, 0.0)),
             WORLD_LAYER,
+            ChildOf(island.root),
         ));
     };
 

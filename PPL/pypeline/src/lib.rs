@@ -28,6 +28,7 @@ impl Plugin for PypelinePlugin {
                 factory::FactoryPlugin,
                 scripting::ScriptingPlugin,
                 engine::camera::PixelCameraPlugin,
+                engine::floating_plot::FloatingPlotPlugin,
                 engine::grid::GridPlugin,
                 engine::renderer::FactoryRenderPlugin,
                 engine::wires::WirePlugin,
