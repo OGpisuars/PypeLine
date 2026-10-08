@@ -4,6 +4,7 @@
 //! styled with the FireRed-style palette and uses JetBrains Mono for all text
 //! (see ASSET_LICENSES.md).
 
+pub mod autocomplete;
 pub mod console;
 pub mod editor;
 pub mod help;

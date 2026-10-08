@@ -6,6 +6,41 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Phase 3A, the teaching loop
+
+### Content is data, built into the game
+Chapters are Markdown (`assets/data/manual/chNN_*.md`) and contracts are RON (`assets/data/contracts/chNN_*.ron`). Both are compiled in with `include_str!`, so the Windows `.exe` is still a single file. Loading them at run time (for mods, roadmap Phase 5) can come later without changing the formats.
+
+Manual Markdown is deliberately small: `#` title, `##` headings, paragraphs, `- ` bullets, simple `|` tables, inline `code` and **bold**, and fenced Python blocks. A code block whose first line is `# snippet: Name` also becomes a snippet, unlocked when its chapter is done.
+
+### Contracts
+- **Goals:** `Produce(item, count)` counts items made since the contract was accepted; `Earn(coins)` counts coins gained since then.
+- **Requirements** (`requires: [ForLoop, ...]`, `max_lines: Some(n)`) are checked against the **last script that ran to the end**, the one that built the factory. If the goal is met but a requirement is not, the player is told once and the contract waits for a good Run.
+- **Concepts** are found by walking the script's AST (`scripting/concepts.rs`), not by searching text, so `for` inside a comment or string does not count.
+- **Chapter tests:** each chapter has exactly one contract marked `chapter_test`. Passing it completes the chapter, and any chapter test can be taken at any time ("Test out"), which is the roadmap's skip-ahead for experienced coders. A chapter also counts as done when any later chapter is done.
+- Contract progress is checked in `SimSet::Progress`, after the factory steps, so it is deterministic. Rewards are added to `factory.coins`.
+
+### CI proves the content works (roadmap Part 4 E)
+- `content_is_valid`: chapters in order, unique contract ids, exactly one chapter test per chapter, hints and rewards present.
+- `golden_solutions_beat_their_contracts`: every contract's `solution` uses the required concepts, fits the line limit, and reaches the goal within 5 minutes of game time.
+- `manual_examples_run`: every code block in the manual runs. Blocks must therefore be self-contained.
+
+### Smelters stop at 10 plates
+A machine's output holds 10 items. A line with no belt out of the smelter makes exactly 10 plates and stops, so contracts asking for more than 10 per smelter need a station (or more lines). The chapter 5 hint teaches this.
+
+### Friendly errors and help
+- `scripting/errors.rs` adds a one-line hint under common errors (NameError, AttributeError, missing colon or quote, indentation, wrong arguments, IndexError, KeyError and more), with "did you mean ...?" from edit distance over game names, built-ins and names in the player's own script.
+- Three failed runs in a row print a pointer to the Manual's hints.
+- Hints open one at a time per contract (nudge, bigger hint, nearly the answer), and the count is saved.
+
+### Editor autocomplete
+`engine/ui/autocomplete.rs` suggests from the text before the cursor: functions after `conveyors.` / `machines.` / `power.` / `console.`, directions after `dir="`, machine kinds after `machines.place("`, ores, console colors and module names after `import`. Tab or Enter accepts, the arrow keys pick, and Esc closes until the text changes.
+
+### console module
+`console.color("green")` and `console.clear()`. Colors come from a fixed set (green, red, yellow, blue, orange, gray). `print` output and console operations go through one `ConsoleSink`, so ordering is exact and the per-run line cap applies to everything.
+
+---
+
 ## 2026-10-08: Headless mode and the golden hash
 
 - `Factory::state_hash()` is FNV-1a over the factory's `Debug` text. The state is only integers, enums and strings in `BTreeMap`s, so the text, and therefore the hash, is identical on every OS. std's `HashMap` hasher is randomly seeded, so it is never used for this.

@@ -483,8 +483,8 @@ slice: if it is not fun yet, fix that before Phase 3.
 PHASE 3A - BETA: THE TEACHING LOOP (Week 15-21)
 --------------------------------------------------------------
 Goal: a beginner can learn chapters 1-7 inside the game.
-  [ ] Engineering Manual UI with unlockable chapters
-  [ ] Chapter order (each one only uses what came before):
+  [x] Engineering Manual UI with unlockable chapters
+  [x] Chapter order (each one only uses what came before):
         1. Variables and calls
         2. Strings and f-strings (console output)
         3. for loops
@@ -495,24 +495,27 @@ Goal: a beginner can learn chapters 1-7 inside the game.
         8. Imports and modules
         9. Events and sensors
        10. Generators / tick()
-  [ ] Console font with block + box-drawing glyphs
-  [ ] console.* module (color, clear)
-  [ ] Strings chapter + ASCII progress-bar / banner contracts
+  [x] Console font with block + box-drawing glyphs
+  [x] console.* module (color, clear)
+  [~] Strings chapter + ASCII progress-bar / banner contracts
       (plain print() only)
-  [ ] Contracts with concept requirements
+      (chapter and progress-bar examples done; banner contract still to write)
+  [x] Contracts with concept requirements
       (e.g. "100 gears using a for loop, under 20 lines")
-  [ ] Scoring: throughput, steam used, line count
-  [ ] on_contract_complete event + default success banner
-  [ ] Editor autocomplete for auto.* APIs
-  [ ] Friendly error messages (Part 4 F)
-  [ ] Hint ladder tied to the manual + stuck detection
+  [~] Scoring: throughput, steam used, line count
+      (lines, steam and seconds recorded; throughput (items per minute) comes with stats)
+  [~] on_contract_complete event + default success banner
+      (default banner done; the player's own handler arrives with events (chapter 9))
+  [x] Editor autocomplete for auto.* APIs
+  [x] Friendly error messages (Part 4 F)
+  [x] Hint ladder tied to the manual + stuck detection
       (Part 4 F)
-  [ ] Snippet menu + starter templates, unlocked per chapter
-  [ ] Skip-ahead check for experienced coders (Part 4 F)
-  [ ] Golden solution per contract, run in CI (Part 4 E)
-  [ ] Every manual code example executed in CI (Part 4 E)
-  [ ] Content validator (Part 4 E)
-  [ ] Campaign: contracts for chapters 1-7
+  [x] Snippet menu + starter templates, unlocked per chapter
+  [x] Skip-ahead check for experienced coders (Part 4 F)
+  [x] Golden solution per contract, run in CI (Part 4 E)
+  [x] Every manual code example executed in CI (Part 4 E)
+  [x] Content validator (Part 4 E)
+  [x] Campaign: contracts for chapters 1-7
   [ ] Playtest chapters 1-7 with true beginners (Part 4 F)
 Exit test: a beginner finishes chapters 1-7 and can write a
 for loop unaided.

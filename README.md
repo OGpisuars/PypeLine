@@ -64,6 +64,8 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 |---------------|--------------|
 | **▶ Run** | Run `main.py` and update the factory to match it |
 | **F1** or **? Help** | Every command explained, with examples you can insert |
+| **F2** or **📖 Manual** | Chapters, examples and contracts |
+| **Tab** / **Enter** | Accept an autocomplete suggestion (arrows pick, Esc closes) |
 | Mouse over the island | Shows the tile's `x` and `y`, plus a polaroid card for machines and belts |
 | **Space** | Pause / play |
 | **.** (period) | Step one tick while paused |
@@ -88,12 +90,14 @@ Your script is saved automatically as you type, and the factory every minute and
 - **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
 - **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
 - **Floating island, chiptune music and steam-moths.** The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
+- **Engineering Manual (F2) and campaign.** Seven chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts) with 14 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
+- **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
+- **`console` module.** Color your output and clear the console for ASCII dashboards.
 
 ### Coming next
-- **Engineering Manual and campaign.** Contracts that teach one concept at a time: variables, strings, `for` and `while` loops, conditionals, functions, lists and dicts, imports, events, and generators.
+- **Chapters 8-10.** Imports and modules (cartridges), events and sensors, generators and `tick()`.
 - **Line debugger.** Step through your script one line at a time and watch your variables.
 - **Factory stats.** A dashboard and a `stats` module for items per minute, steam use, and bottlenecks.
-- **Friendly errors and snippets.** Python errors translated into helpful hints; starter templates per chapter.
 
 ### Mid and late game (planned)
 - **Day/night and thermal management.** Boilers run hotter by day and cooler by night. Read the clock and plan around it in code.
@@ -145,7 +149,7 @@ Each phase has an exit test that must pass before the next one begins.
 
 ## 🚀 Getting Started
 
-> Early but playable: Phases 0–2 are built. On Linux, install the ALSA and udev development packages first (on Debian/Ubuntu: `libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
+> Early but playable: Phases 0–2 and the Phase 3A teaching loop are built. On Linux, install the ALSA and udev development packages first (on Debian/Ubuntu: `libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
 
 **Requirements**
 - [Rust](https://www.rust-lang.org/tools/install) (the version is pinned in `rust-toolchain.toml` and installed automatically)

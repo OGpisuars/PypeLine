@@ -7,6 +7,7 @@ use crate::engine::camera::GameArea;
 use crate::scripting::files::ScriptStore;
 use crate::scripting::{Console, ConsoleKind, ErrorLine, PendingRun, RunRequests};
 
+use super::autocomplete::{self, Suggestions};
 use super::console::console_ui;
 use super::manual::ManualState;
 use crate::progression::chapters;
@@ -29,6 +30,10 @@ pub struct EditorState {
     pub saved: String,
     /// Code panel hidden, so the game gets the whole window.
     pub hidden: bool,
+    /// Highlighted autocomplete suggestion.
+    pub pick: usize,
+    /// Esc closed the suggestions; they stay closed until the text changes.
+    pub dismissed_for: Option<String>,
 }
 
 impl Default for EditorState {
@@ -37,6 +42,8 @@ impl Default for EditorState {
             source: STARTER_SCRIPT.to_owned(),
             saved: String::new(),
             hidden: false,
+            pick: 0,
+            dismissed_for: None,
         }
     }
 }
@@ -204,17 +211,29 @@ pub fn code_panel(
                 ui.fonts_mut(|f| f.layout_job(job))
             };
             let editor_height = (ui.available_height() - CONSOLE_HEIGHT).max(120.0);
+            let id = egui::Id::new(EDITOR_ID);
+            let suggestions = handle_completion_keys(ui, id, &mut state);
             egui::ScrollArea::vertical()
                 .id_salt("editor_scroll")
                 .max_height(editor_height)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    ui.add_sized(
-                        [ui.available_width(), editor_height],
-                        egui::TextEdit::multiline(&mut state.source)
-                            .code_editor()
-                            .layouter(&mut layouter),
-                    );
+                    let output = egui::TextEdit::multiline(&mut state.source)
+                        .id(id)
+                        .code_editor()
+                        .layouter(&mut layouter)
+                        .desired_width(f32::INFINITY)
+                        .min_size(egui::vec2(ui.available_width(), editor_height))
+                        .show(ui);
+                    if let (Some(suggestions), Some(range)) = (suggestions, output.cursor_range) {
+                        let at = output.galley_pos
+                            + output
+                                .galley
+                                .pos_from_cursor(range.primary)
+                                .left_bottom()
+                                .to_vec2();
+                        completion_popup(ui, id, at, &suggestions, &mut state);
+                    }
                 });
             ui.separator();
             console_ui(ui, &mut console);
@@ -251,6 +270,133 @@ fn snippets_menu(ui: &mut egui::Ui, state: &mut EditorState, progress: &Progress
     });
 }
 
+/// The editor's egui id, so autocomplete can read and move its cursor.
+const EDITOR_ID: &str = "main_py_editor";
+
+/// The cursor position (in characters) of the editor, if it has focus.
+fn editor_cursor(ctx: &egui::Context, id: egui::Id) -> Option<usize> {
+    if !ctx.memory(|m| m.has_focus(id)) {
+        return None;
+    }
+    egui::text_edit::TextEditState::load(ctx, id)
+        .and_then(|s| s.cursor.char_range())
+        .map(|r| r.primary.index.0)
+}
+
+/// Replace the `replace` characters before `cursor` with `insert`; returns
+/// the new cursor position.
+fn apply_completion(source: &mut String, cursor: usize, replace: usize, insert: &str) -> usize {
+    let start_char = cursor.saturating_sub(replace);
+    let byte = |chars: usize| {
+        source
+            .char_indices()
+            .nth(chars)
+            .map_or(source.len(), |(i, _)| i)
+    };
+    let (start, end) = (byte(start_char), byte(cursor));
+    source.replace_range(start..end, insert);
+    start_char + insert.chars().count()
+}
+
+fn accept(
+    ctx: &egui::Context,
+    id: egui::Id,
+    state: &mut EditorState,
+    cursor: usize,
+    replace: usize,
+    insert: &str,
+) {
+    let new_cursor = apply_completion(&mut state.source, cursor, replace, insert);
+    if let Some(mut edit) = egui::text_edit::TextEditState::load(ctx, id) {
+        let at = egui::text::CCursor::new(new_cursor);
+        edit.cursor
+            .set_char_range(Some(egui::text::CCursorRange::one(at)));
+        edit.store(ctx, id);
+    }
+    ctx.memory_mut(|m| m.request_focus(id));
+    state.pick = 0;
+}
+
+/// Before the text box sees the keyboard: Up/Down pick a suggestion,
+/// Tab/Enter accept it, Esc closes the list. Returns what to show.
+fn handle_completion_keys(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    state: &mut EditorState,
+) -> Option<Suggestions> {
+    let ctx = ui.ctx().clone();
+    if state
+        .dismissed_for
+        .as_ref()
+        .is_some_and(|s| *s != state.source)
+    {
+        state.dismissed_for = None;
+    }
+    let cursor = editor_cursor(&ctx, id)?;
+    if state.dismissed_for.is_some() {
+        return None;
+    }
+    let before: String = state.source.chars().take(cursor).collect();
+    let line = before.rsplit('\n').next().unwrap_or("");
+    let suggestions = autocomplete::suggest(line)?;
+    let count = suggestions.items.len();
+    state.pick %= count;
+    let (mut down, mut up, mut close, mut take) = (false, false, false, false);
+    ui.input_mut(|i| {
+        down = i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown);
+        up = i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp);
+        close = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);
+        take = i.consume_key(egui::Modifiers::NONE, egui::Key::Tab)
+            || i.consume_key(egui::Modifiers::NONE, egui::Key::Enter);
+    });
+    if down {
+        state.pick = (state.pick + 1) % count;
+    }
+    if up {
+        state.pick = (state.pick + count - 1) % count;
+    }
+    if close {
+        state.dismissed_for = Some(state.source.clone());
+        return None;
+    }
+    if take {
+        let insert = suggestions.items[state.pick].insert.clone();
+        accept(&ctx, id, state, cursor, suggestions.replace, &insert);
+        return None;
+    }
+    Some(suggestions)
+}
+
+fn completion_popup(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    at: egui::Pos2,
+    suggestions: &Suggestions,
+    state: &mut EditorState,
+) {
+    let ctx = ui.ctx().clone();
+    let mut clicked = None;
+    egui::Area::new(egui::Id::new("autocomplete"))
+        .order(egui::Order::Foreground)
+        .fixed_pos(at + egui::vec2(0.0, 2.0))
+        .show(&ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                for (i, item) in suggestions.items.iter().enumerate() {
+                    let text = egui::RichText::new(format!("{}   {}", item.insert, item.detail))
+                        .monospace();
+                    if ui.selectable_label(i == state.pick, text).clicked() {
+                        clicked = Some(i);
+                    }
+                }
+                ui.weak("Tab: accept   Esc: close");
+            });
+        });
+    if let (Some(i), Some(cursor)) = (clicked, editor_cursor(&ctx, id).or(Some(0))) {
+        let insert = suggestions.items[i].insert.clone();
+        accept(&ctx, id, state, cursor, suggestions.replace, &insert);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::STARTER_SCRIPT;
@@ -258,6 +404,15 @@ mod tests {
         budget::DEPLOY_BUDGET,
         runtime::{RunOutcome, ScriptRuntime},
     };
+
+    #[test]
+    fn completion_replaces_the_typed_part() {
+        let mut source = "# é\npower.co".to_owned();
+        let cursor = source.chars().count();
+        let new_cursor = super::apply_completion(&mut source, cursor, 2, "connect(");
+        assert_eq!(source, "# é\npower.connect(");
+        assert_eq!(new_cursor, source.chars().count());
+    }
 
     #[test]
     fn starter_script_runs() {
