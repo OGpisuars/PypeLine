@@ -3,6 +3,8 @@
 pub mod bindings;
 pub mod budget;
 pub mod commands;
+pub mod concepts;
+pub mod errors;
 pub mod files;
 pub mod hooks;
 pub mod memory;
@@ -82,6 +84,18 @@ impl Console {
     }
 }
 
+/// The last script that ran to the end, which is what built the factory.
+/// Contracts check their concept requirements against it.
+#[derive(Resource, Default)]
+pub struct LastGoodScript {
+    pub source: String,
+    pub steps: u64,
+}
+
+/// Failed runs in a row, for stuck detection (roadmap Part 4 F).
+#[derive(Resource, Default)]
+struct FailStreak(u32);
+
 /// The line the last run failed on, for the editor to highlight.
 #[derive(Resource, Default)]
 pub struct ErrorLine(pub Option<usize>);
@@ -109,6 +123,8 @@ impl Plugin for ScriptingPlugin {
             .init_resource::<Console>()
             .init_resource::<ErrorLine>()
             .init_resource::<LastFailure>()
+            .init_resource::<LastGoodScript>()
+            .init_resource::<FailStreak>()
             .add_systems(FixedUpdate, run_pending_script.in_set(SimSet::Scripts));
     }
 }
@@ -124,6 +140,8 @@ fn run_pending_script(
     mut failure: ResMut<LastFailure>,
     mut sounds: MessageWriter<SoundCue>,
     mut requests: ResMut<RunRequests>,
+    mut last_good: ResMut<LastGoodScript>,
+    mut streak: ResMut<FailStreak>,
     tick: Res<SimTick>,
 ) {
     if std::mem::take(&mut requests.stop) {
@@ -165,6 +183,13 @@ fn run_pending_script(
         );
     }
     build.0 = report.plan;
+    if report.outcome == RunOutcome::Finished {
+        last_good.source = source.clone();
+        last_good.steps = report.steps_used;
+        streak.0 = 0;
+    } else {
+        streak.0 += 1;
+    }
     match report.outcome {
         RunOutcome::Finished => console.push(
             ConsoleKind::Info,
@@ -176,6 +201,9 @@ fn run_pending_script(
         RunOutcome::Error { line, message } => {
             error_line.0 = line;
             console.push(ConsoleKind::Error, format!("Error{}: {message}", at(line)));
+            if let Some(hint) = errors::explain(&message, &source) {
+                console.push(ConsoleKind::Info, format!("Hint: {hint}"));
+            }
             console.push(ConsoleKind::Error, "Belts halted until the next good Run.");
         }
         RunOutcome::OutOfSteam { line } => {
@@ -189,5 +217,11 @@ fn run_pending_script(
                 ),
             );
         }
+    }
+    if streak.0 == 3 {
+        console.push(
+            ConsoleKind::Info,
+            "Stuck? Every contract in the Manual (F2) has hints, and F1 lists every command.",
+        );
     }
 }

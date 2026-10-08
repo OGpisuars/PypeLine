@@ -1,0 +1,59 @@
+[
+    (
+        id: "ch4_smelter_in_line",
+        title: "Smelter in the Line",
+        brief: "Use an if inside a loop to put a smelter in the middle of a belt, and make 10 iron plates.",
+        goal: Produce(item: IronPlate, count: 10),
+        requires: [ForLoop, Conditionals],
+        reward: 40,
+        hints: [
+            "Inside for x in range(1, 8):, check if x == 4: and place the smelter there.",
+            "else: place a conveyor. Indent both under the if/else lines.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+for x in range(1, 6):
+    if x == 3:
+        machines.place("smelter", name="smelter_1", x=x, y=0)
+    else:
+        conveyors.place(x=x, y=0, dir="east")
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+"#,
+    ),
+    (
+        id: "ch4_ore_and_plates",
+        title: "Ore and Plates",
+        brief: "Build two lines from one loop: one sells raw ore, the other sells plates. Use if to tell them apart. Earn 60 coins.",
+        goal: Earn(coins: 60),
+        requires: [ForLoop, Conditionals],
+        reward: 60,
+        chapter_test: true,
+        hints: [
+            "Loop for n in range(2): and use y = n * 3 for the row.",
+            "if n == 0: place a smelter at x=2, else: place a conveyor there instead.",
+            "Only smelters need power.connect, but the miners on both rows do too.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=9)
+for n in range(2):
+    y = n * 3
+    machines.place("miner", name=f"miner_{n}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    if n == 0:
+        machines.place("smelter", name="smelter_0", x=2, y=y)
+        power.connect(generator="steam_1", to=["smelter_0"])
+    else:
+        conveyors.place(x=2, y=y, dir="east")
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{n}", x=4, y=y)
+    power.connect(generator="steam_1", to=[f"miner_{n}"])
+"#,
+    ),
+]

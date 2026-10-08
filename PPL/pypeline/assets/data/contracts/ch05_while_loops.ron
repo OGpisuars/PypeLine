@@ -1,0 +1,58 @@
+[
+    (
+        id: "ch5_belt_until",
+        title: "Belt Until",
+        brief: "Lay a belt with a while loop and make 12 iron plates.",
+        goal: Produce(item: IronPlate, count: 12),
+        requires: [WhileLoop],
+        reward: 50,
+        hints: [
+            "Start with x = 1, loop while x < 6:, and add x += 1 at the end of the loop.",
+            "Forgetting x += 1 makes the loop run forever and the boiler overheats.",
+            "A smelter stops when it holds 10 plates. Give it a belt into a station so it keeps going.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+x = 1
+while x < 4:
+    conveyors.place(x=x, y=0, dir="east")
+    x += 1
+machines.place("smelter", name="smelter_1", x=x, y=0)
+conveyors.place(x=x + 1, y=0, dir="east")
+machines.place("station", name="station_1", x=x + 2, y=0)
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+"#,
+    ),
+    (
+        id: "ch5_stacked_lines",
+        title: "Stacked Lines",
+        brief: "Use a while loop to stack production lines up the island until you run out of room. Earn 80 coins.",
+        goal: Earn(coins: 80),
+        requires: [WhileLoop],
+        reward: 80,
+        chapter_test: true,
+        hints: [
+            "Loop while y < 9:, build a full line on row y, then y += 3.",
+            "Every line needs unique names: use f\"miner_{y}\" and friends.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=15, y=9)
+y = 0
+while y < 9:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    power.connect(generator="steam_1", to=[f"miner_{y}", f"smelter_{y}"])
+    y += 3
+"#,
+    ),
+]

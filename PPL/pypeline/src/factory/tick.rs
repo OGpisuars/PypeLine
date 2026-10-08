@@ -22,6 +22,8 @@ pub enum SimSet {
     Scripts,
     /// Apply queued script commands and step the factory.
     Factory,
+    /// Check contract goals against the stepped factory.
+    Progress,
 }
 
 /// Speeds the Time Dials offer.
@@ -57,13 +59,18 @@ impl Plugin for SimPlugin {
             .init_resource::<SimControl>()
             .configure_sets(
                 FixedUpdate,
-                (SimSet::Clock, SimSet::Scripts, SimSet::Factory)
+                (
+                    SimSet::Clock,
+                    SimSet::Scripts,
+                    SimSet::Factory,
+                    SimSet::Progress,
+                )
                     .chain()
                     .run_if(should_tick),
             )
             .add_systems(Update, apply_speed)
             .add_systems(FixedUpdate, advance_tick.in_set(SimSet::Clock))
-            .add_systems(FixedUpdate, consume_step.after(SimSet::Factory));
+            .add_systems(FixedUpdate, consume_step.after(SimSet::Progress));
     }
 }
 

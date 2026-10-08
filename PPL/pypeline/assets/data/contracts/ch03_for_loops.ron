@@ -1,0 +1,54 @@
+[
+    (
+        id: "ch3_long_haul",
+        title: "Long Haul",
+        brief: "Run a belt at least 6 tiles long with a for loop, and make 10 iron plates. Keep the script under 12 lines.",
+        goal: Produce(item: IronPlate, count: 10),
+        requires: [ForLoop],
+        max_lines: Some(12),
+        reward: 30,
+        hints: [
+            "for x in range(1, 7): places belts on x = 1 to 6.",
+            "Put conveyors.place(x=x, y=0, dir=\"east\") inside the loop, indented by 4 spaces.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+for x in range(1, 7):
+    conveyors.place(x=x, y=0, dir="east")
+machines.place("smelter", name="smelter_1", x=7, y=0)
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+"#,
+    ),
+    (
+        id: "ch3_triple_line",
+        title: "Triple Line",
+        brief: "Build three production lines with one for loop and earn 40 coins from the train.",
+        goal: Earn(coins: 40),
+        requires: [ForLoop],
+        reward: 45,
+        chapter_test: true,
+        hints: [
+            "Start from the 'Three lines from one loop' example.",
+            "Each line needs a station at the end: smelter, a belt pointing east, then the station.",
+            "Names must differ per line: use f\"station_{n}\".",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=9)
+for n in range(3):
+    y = n * 3
+    machines.place("miner", name=f"miner_{n}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{n}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{n}", x=4, y=y)
+    power.connect(generator="steam_1", to=[f"miner_{n}", f"smelter_{n}"])
+"#,
+    ),
+]

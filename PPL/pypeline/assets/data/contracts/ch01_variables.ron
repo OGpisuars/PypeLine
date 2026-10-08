@@ -1,0 +1,47 @@
+[
+    (
+        id: "ch1_first_plates",
+        title: "First Plates",
+        brief: "The station master needs proof your island works. Make 3 iron plates.",
+        goal: Produce(item: IronPlate, count: 3),
+        reward: 10,
+        hints: [
+            "The starter script already builds a working line. Press Run and wait.",
+            "A smelter makes one plate every 3 seconds once ore reaches it.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+conveyors.place(x=1, y=0, dir="east")
+machines.place("smelter", name="smelter_1", x=2, y=0)
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+"#,
+    ),
+    (
+        id: "ch1_variable_row",
+        title: "Movable Line",
+        brief: "Build a line whose row is set by a variable, and make 8 iron plates with it.",
+        goal: Produce(item: IronPlate, count: 8),
+        requires: [Variables],
+        reward: 20,
+        chapter_test: true,
+        hints: [
+            "Make a variable like row = 3, then use y=row in your place calls.",
+            "Copy the 'One production line on a row' example from this chapter.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+row = 3
+machines.place("steam_generator", name="steam_1", x=0, y=row + 2)
+machines.place("miner", name="miner_1", x=0, y=row, ore="iron")
+conveyors.place(x=1, y=row, dir="east")
+machines.place("smelter", name="smelter_1", x=2, y=row)
+power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+"#,
+    ),
+]

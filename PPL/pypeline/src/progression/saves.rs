@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use super::contracts::Progress;
 use crate::factory::{Factory, SimTick};
 use crate::scripting::files::write_atomic;
 use crate::scripting::{Console, ConsoleKind};
@@ -27,6 +28,9 @@ pub struct SaveFile {
     pub version: u32,
     pub tick: u64,
     pub factory: Factory,
+    /// Manual progress. Older saves have none, which loads as a fresh start.
+    #[serde(default)]
+    pub progress: Progress,
 }
 
 #[derive(Debug)]
@@ -136,6 +140,7 @@ fn load_game(
     mut commands: Commands,
     mut factory: ResMut<Factory>,
     mut tick: ResMut<SimTick>,
+    mut progress: ResMut<Progress>,
     mut console: ResMut<Console>,
 ) {
     let Some(store) = SaveStore::default_location() else {
@@ -145,6 +150,7 @@ fn load_game(
         Ok(Some(save)) => {
             *factory = save.factory;
             tick.0 = save.tick;
+            *progress = save.progress;
             console.push(ConsoleKind::Info, "Factory loaded from your last session.");
         }
         Ok(None) => {}
@@ -162,12 +168,14 @@ fn load_game(
     commands.insert_resource(store);
 }
 
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn autosave_game(
     time: Res<Time<Real>>,
     mut since: Local<f32>,
     store: Option<Res<SaveStore>>,
     factory: Res<Factory>,
     tick: Res<SimTick>,
+    progress: Res<Progress>,
     mut console: ResMut<Console>,
     mut exit: MessageReader<AppExit>,
 ) {
@@ -182,6 +190,7 @@ fn autosave_game(
         version: SAVE_VERSION,
         tick: tick.0,
         factory: factory.clone(),
+        progress: progress.clone(),
     };
     if let Err(err) = store.save(&save) {
         console.push(
@@ -221,6 +230,7 @@ mod tests {
                     version: SAVE_VERSION,
                     tick,
                     factory: factory.clone(),
+                    progress: Progress::default(),
                 })
                 .unwrap();
         }

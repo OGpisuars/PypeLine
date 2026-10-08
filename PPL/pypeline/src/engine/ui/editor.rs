@@ -8,6 +8,9 @@ use crate::scripting::files::ScriptStore;
 use crate::scripting::{Console, ConsoleKind, ErrorLine, PendingRun, RunRequests};
 
 use super::console::console_ui;
+use super::manual::ManualState;
+use crate::progression::chapters;
+use crate::progression::contracts::Progress;
 
 use super::help::HelpState;
 use super::highlight;
@@ -110,6 +113,8 @@ pub fn code_panel(
     mut console: ResMut<Console>,
     mut game_area: ResMut<GameArea>,
     mut requests: ResMut<RunRequests>,
+    mut manual: ResMut<ManualState>,
+    progress: Res<Progress>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     let screen = ctx.viewport_rect();
@@ -147,7 +152,7 @@ pub fn code_panel(
         .default_size(default_width)
         .min_size(280.0)
         .show(&mut root, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui
                     .small_button("◀")
                     .on_hover_text("Hide the code panel")
@@ -180,6 +185,10 @@ pub fn code_panel(
                 if ui.button("? Help (F1)").clicked() {
                     help.open = !help.open;
                 }
+                if ui.button("📖 Manual (F2)").clicked() {
+                    manual.open = !manual.open;
+                }
+                snippets_menu(ui, &mut state, &progress);
                 if let Some(line) = error_line.0 {
                     ui.colored_label(rgb(palette::UI_ERROR), format!("problem on line {line}"));
                 }
@@ -213,6 +222,33 @@ pub fn code_panel(
     let left = panel.response.rect.right();
     game_area.0 = Some(Rect::new(left, screen.min.y, screen.max.x, screen.max.y));
     Ok(())
+}
+
+/// Starter templates from finished chapters (roadmap: SNIPPETS). A snippet
+/// only appears once its chapter is done, so it saves typing but never
+/// skips learning.
+fn snippets_menu(ui: &mut egui::Ui, state: &mut EditorState, progress: &Progress) {
+    ui.menu_button("Snippets", |ui| {
+        let mut any = false;
+        for chapter in chapters::chapters() {
+            if !progress.chapter_done(chapter.number) {
+                continue;
+            }
+            for (name, code) in chapter.snippets() {
+                any = true;
+                if ui.button(format!("{}. {name}", chapter.number)).clicked() {
+                    if !state.source.ends_with('\n') {
+                        state.source.push('\n');
+                    }
+                    state.source.push_str(code);
+                    ui.close();
+                }
+            }
+        }
+        if !any {
+            ui.label("Finish a chapter to unlock its snippets.");
+        }
+    });
 }
 
 #[cfg(test)]

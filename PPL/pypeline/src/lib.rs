@@ -25,10 +25,18 @@ impl Plugin for PypelinePlugin {
                 auto_create_primary_context: false,
                 ..default()
             })
+            // Simulation, scripting and progression.
             .add_plugins((
                 factory::SimPlugin,
                 factory::FactoryPlugin,
                 scripting::ScriptingPlugin,
+                progression::saves::SavePlugin,
+                progression::contracts::ContractPlugin,
+                audio::GameAudioPlugin,
+                dev::DevPlugin,
+            ))
+            // Rendering and UI.
+            .add_plugins((
                 engine::camera::PixelCameraPlugin,
                 engine::floating_plot::FloatingPlotPlugin,
                 engine::grid::GridPlugin,
@@ -38,9 +46,6 @@ impl Plugin for PypelinePlugin {
                 engine::wildlife::WildlifePlugin,
                 engine::splash::SplashPlugin,
                 engine::ui::UiPlugin,
-                progression::saves::SavePlugin,
-                audio::GameAudioPlugin,
-                dev::DevPlugin,
             ));
     }
 }

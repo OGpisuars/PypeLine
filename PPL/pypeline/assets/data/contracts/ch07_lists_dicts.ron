@@ -1,0 +1,59 @@
+[
+    (
+        id: "ch7_power_list",
+        title: "Power List",
+        brief: "Build three lines from a list of rows, collect every machine name in a list, and power them all with one power.connect. Make 20 iron plates.",
+        goal: Produce(item: IronPlate, count: 20),
+        requires: [Lists, ForLoop],
+        reward: 100,
+        hints: [
+            "rows = [0, 3, 6] and for y in rows: builds a line per row.",
+            "Start with powered = [] and use powered.append(...) for each miner and smelter.",
+            "After the loop: power.connect(generator=\"steam\", to=powered).",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in [0, 3, 6]:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    powered.append(f"miner_{y}")
+    powered.append(f"smelter_{y}")
+power.connect(generator="steam", to=powered)
+"#,
+    ),
+    (
+        id: "ch7_district_plan",
+        title: "District Plan",
+        brief: "Describe your lines in a dict and build them all from it. Earn 150 coins.",
+        goal: Earn(coins: 150),
+        requires: [Dicts],
+        reward: 150,
+        chapter_test: true,
+        hints: [
+            "Start from the 'Build lines from a dict' example.",
+            "Four lines sell faster than three: add another entry to the dict.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+lines = {"a": 0, "b": 2, "c": 4, "d": 6}
+powered = []
+for name, y in lines.items():
+    machines.place("miner", name=f"miner_{name}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{name}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{name}", x=4, y=y)
+    powered.append(f"miner_{name}")
+    powered.append(f"smelter_{name}")
+power.connect(generator="steam", to=powered)
+"#,
+    ),
+]

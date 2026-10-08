@@ -1,0 +1,53 @@
+[
+    (
+        id: "ch2_shift_report",
+        title: "Shift Report",
+        brief: "Make 5 iron plates, and have your script print a report using an f-string.",
+        goal: Produce(item: IronPlate, count: 5),
+        requires: [FStrings],
+        reward: 15,
+        hints: [
+            "An f-string starts with f before the quote: f\"...\"",
+            "Try print(f\"Line {1} is running\") at the end of your script.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+line = 1
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name=f"miner_{line}", x=0, y=0, ore="iron")
+conveyors.place(x=1, y=0, dir="east")
+machines.place("smelter", name=f"smelter_{line}", x=2, y=0)
+power.connect(generator="steam_1", to=[f"miner_{line}", f"smelter_{line}"])
+print(f"Line {line} is running")
+"#,
+    ),
+    (
+        id: "ch2_first_sale",
+        title: "First Sale",
+        brief: "Sell to the cargo train and earn 20 coins. Name your machines with f-strings.",
+        goal: Earn(coins: 20),
+        requires: [FStrings],
+        reward: 25,
+        chapter_test: true,
+        hints: [
+            "Put a station at the end of your line: a belt from the smelter must point into it.",
+            "The train comes every 30 seconds. 5 plates are worth 20 coins.",
+            "Copy the 'Smelter into a station' example and name the machines with f\"...\".",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+n = 1
+machines.place("steam_generator", name="steam_1", x=0, y=2)
+machines.place("miner", name=f"miner_{n}", x=0, y=0, ore="iron")
+conveyors.place(x=1, y=0, dir="east")
+machines.place("smelter", name=f"smelter_{n}", x=2, y=0)
+conveyors.place(x=3, y=0, dir="east")
+machines.place("station", name=f"station_{n}", x=4, y=0)
+power.connect(generator="steam_1", to=[f"miner_{n}", f"smelter_{n}"])
+"#,
+    ),
+]

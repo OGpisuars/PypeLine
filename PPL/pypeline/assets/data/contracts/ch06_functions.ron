@@ -1,0 +1,61 @@
+[
+    (
+        id: "ch6_line_kit",
+        title: "Line Kit",
+        brief: "Write a function that builds a production line, call it twice, and make 15 iron plates.",
+        goal: Produce(item: IronPlate, count: 15),
+        requires: [Functions],
+        reward: 70,
+        hints: [
+            "def build_line(y): and indent everything that builds one line under it.",
+            "Use the parameter for the row and for the names: f\"miner_{y}\".",
+            "Call it twice: build_line(0) and build_line(3).",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+
+def build_line(y):
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    power.connect(generator="steam", to=[f"miner_{y}", f"smelter_{y}"])
+
+build_line(0)
+build_line(3)
+"#,
+    ),
+    (
+        id: "ch6_factory_district",
+        title: "Factory District",
+        brief: "Build four selling lines with one function and a loop, in under 20 lines. Earn 120 coins.",
+        goal: Earn(coins: 120),
+        requires: [Functions, ForLoop],
+        max_lines: Some(20),
+        reward: 110,
+        chapter_test: true,
+        hints: [
+            "Start from the 'build_line function' example.",
+            "Loop for n in range(4): and call build_line with y = n * 2.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+
+def build_line(y, n):
+    machines.place("miner", name=f"miner_{n}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{n}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{n}", x=4, y=y)
+    power.connect(generator="steam", to=[f"miner_{n}", f"smelter_{n}"])
+
+for n in range(4):
+    build_line(n * 2, n)
+"#,
+    ),
+]

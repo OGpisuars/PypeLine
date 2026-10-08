@@ -8,6 +8,7 @@ pub mod console;
 pub mod editor;
 pub mod help;
 pub mod highlight;
+pub mod manual;
 pub mod polaroid;
 pub mod time_dials;
 
@@ -31,8 +32,12 @@ impl Plugin for UiPlugin {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
             .init_resource::<editor::EditorState>()
             .init_resource::<help::HelpState>()
+            .init_resource::<manual::ManualState>()
             .add_systems(Startup, editor::load_script)
-            .add_systems(Update, (help::toggle_help, announce_sales))
+            .add_systems(
+                Update,
+                (help::toggle_help, manual::toggle_manual, announce_sales),
+            )
             // In Last, so it sees the AppExit sent when the window closes.
             .add_systems(Last, editor::autosave)
             .add_systems(
@@ -41,6 +46,7 @@ impl Plugin for UiPlugin {
                     apply_theme,
                     editor::code_panel,
                     help::help_window,
+                    manual::manual_window,
                     time_dials::time_dials,
                     time_dials::time_dial_keys,
                     polaroid::polaroid,
@@ -124,6 +130,7 @@ fn debug_overlay(
     scale: Res<PixelScale>,
     factory: Res<Factory>,
     hovered: Res<HoveredTile>,
+    progress: Res<crate::progression::contracts::Progress>,
     control: Res<SimControl>,
     area: Res<super::camera::GameArea>,
     diagnostics: Res<DiagnosticsStore>,
@@ -133,6 +140,8 @@ fn debug_overlay(
         .and_then(|d| d.smoothed())
         .unwrap_or(0.0);
     egui::Area::new(egui::Id::new("debug_overlay"))
+        // Under every window, so it never covers the Manual or Help.
+        .order(egui::Order::Background)
         .fixed_pos(area.0.map_or(egui::pos2(8.0, 8.0), |a| {
             egui::pos2(a.min.x + 8.0, a.min.y + 52.0)
         }))
@@ -144,22 +153,36 @@ fn debug_overlay(
                 (false, false) if control.speed > 1 => format!("  |  {}x", control.speed),
                 _ => String::new(),
             };
-            let lines = [
-                format!(
-                    "tick {}  |  {fps:.0} fps  |  zoom {}x{status}",
-                    tick.0, scale.0
-                ),
-                format!(
-                    "coins {}  |  ore mined {}  |  plates made {}",
-                    factory.coins,
-                    factory.produced(ItemKind::IronOre),
-                    factory.produced(ItemKind::IronPlate)
-                ),
-                match hovered.0 {
-                    Some(pos) => format!("mouse on tile x={}, y={}", pos.x, pos.y),
-                    None => "point at the island to see x and y".to_owned(),
-                },
-            ];
+            let lines =
+                [
+                    format!(
+                        "tick {}  |  {fps:.0} fps  |  zoom {}x{status}",
+                        tick.0, scale.0
+                    ),
+                    format!(
+                        "coins {}  |  ore mined {}  |  plates made {}",
+                        factory.coins,
+                        factory.produced(ItemKind::IronOre),
+                        factory.produced(ItemKind::IronPlate)
+                    ),
+                    match progress.active.as_ref().and_then(|a| {
+                        crate::progression::chapters::contract(&a.id).map(|c| (a, c.1))
+                    }) {
+                        Some((active, contract)) => {
+                            let (have, need) = crate::progression::contracts::goal_progress(
+                                &contract.goal,
+                                active,
+                                &factory,
+                            );
+                            format!("contract: {}  {have}/{need}", contract.title)
+                        }
+                        None => "no contract: open the Manual (F2)".to_owned(),
+                    },
+                    match hovered.0 {
+                        Some(pos) => format!("mouse on tile x={}, y={}", pos.x, pos.y),
+                        None => "point at the island to see x and y".to_owned(),
+                    },
+                ];
             for line in lines {
                 ui.label(
                     egui::RichText::new(line)

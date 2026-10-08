@@ -1,3 +1,5 @@
-//! Saves, and later the economy, contracts and manual unlocks.
+//! Saves and the Engineering Manual: chapters, contracts and progress.
 
+pub mod chapters;
+pub mod contracts;
 pub mod saves;
