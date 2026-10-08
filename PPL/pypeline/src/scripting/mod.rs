@@ -9,6 +9,7 @@ pub mod errors;
 pub mod files;
 pub mod hooks;
 pub mod memory;
+pub mod operate;
 pub mod reconcile;
 pub mod runtime;
 pub mod sandbox;
@@ -19,7 +20,7 @@ use crate::audio::SoundCue;
 use crate::audio::sfx::Sfx;
 use crate::factory::{Factory, PendingBuild, SimSet, SimTick};
 use budget::DEPLOY_BUDGET;
-use runtime::{RunOutcome, ScriptRuntime};
+use runtime::{HookOutcome, RunOutcome, ScriptRuntime};
 
 /// The roadmap's CANONICAL SAMPLE (Part 1): the README sample and the Phase 1
 /// exit test. Keep all three in sync.
@@ -111,6 +112,20 @@ pub struct LastGoodScript {
     pub steps: u64,
 }
 
+/// Events waiting to be delivered to the script's handlers, in order.
+#[derive(Resource, Default)]
+pub struct ScriptEvents(pub Vec<(&'static str, Vec<runtime::EventArg>)>);
+
+/// Which optional handlers the current script defines.
+#[derive(Resource, Default)]
+pub struct DefinedHandlers {
+    pub on_contract_complete: bool,
+}
+
+/// tick() overruns in a row; three overheat the boiler.
+#[derive(Resource, Default)]
+struct Overruns(u32);
+
 /// Failed runs in a row, for stuck detection (roadmap Part 4 F).
 #[derive(Resource, Default)]
 struct FailStreak(u32);
@@ -143,8 +158,16 @@ impl Plugin for ScriptingPlugin {
             .init_resource::<ErrorLine>()
             .init_resource::<LastFailure>()
             .init_resource::<LastGoodScript>()
+            .init_resource::<ScriptEvents>()
+            .init_resource::<DefinedHandlers>()
+            .init_resource::<Overruns>()
             .init_resource::<FailStreak>()
-            .add_systems(FixedUpdate, run_pending_script.in_set(SimSet::Scripts));
+            .add_systems(
+                FixedUpdate,
+                (run_pending_script, run_script_hooks)
+                    .chain()
+                    .in_set(SimSet::Scripts),
+            );
     }
 }
 
@@ -161,6 +184,8 @@ fn run_pending_script(
     mut requests: ResMut<RunRequests>,
     mut last_good: ResMut<LastGoodScript>,
     mut streak: ResMut<FailStreak>,
+    mut handlers: ResMut<DefinedHandlers>,
+    history: Res<crate::factory::ProductionHistory>,
     tick: Res<SimTick>,
 ) {
     if std::mem::take(&mut requests.stop) {
@@ -172,6 +197,10 @@ fn run_pending_script(
         return;
     };
     let clean = std::mem::take(&mut requests.clean);
+    runtime.set_world(operate::WorldView::of(
+        &factory,
+        history.per_minute(&factory),
+    ));
 
     console.push(ConsoleKind::Info, format!("> Run (tick {})", tick.0));
     let report = runtime.run(&source, DEPLOY_BUDGET);
@@ -200,6 +229,7 @@ fn run_pending_script(
         );
     }
     build.0 = report.plan;
+    handlers.on_contract_complete = runtime.defines("on_contract_complete");
     if report.outcome == RunOutcome::Finished {
         last_good.source = source.clone();
         last_good.steps = report.steps_used;
@@ -240,5 +270,99 @@ fn run_pending_script(
             ConsoleKind::Info,
             "Stuck? Every contract in the Manual (F2) has hints, and F1 lists every command.",
         );
+    }
+}
+
+/// Every tick: deliver events to their handlers, then call tick(). Both read
+/// a fresh factory snapshot and queue operations for the next factory step.
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
+fn run_script_hooks(
+    runtime: NonSend<ScriptRuntime>,
+    mut factory: ResMut<Factory>,
+    history: Res<crate::factory::ProductionHistory>,
+    mut events: ResMut<ScriptEvents>,
+    mut pending_ops: ResMut<crate::factory::PendingOps>,
+    mut console: ResMut<Console>,
+    mut overruns: ResMut<Overruns>,
+    mut failure: ResMut<LastFailure>,
+    mut error_line: ResMut<ErrorLine>,
+    last_good: Res<LastGoodScript>,
+    mut sounds: MessageWriter<SoundCue>,
+) {
+    if factory.halted {
+        events.0.clear();
+        return;
+    }
+    runtime.set_world(operate::WorldView::of(
+        &factory,
+        history.per_minute(&factory),
+    ));
+
+    let mut reports = Vec::new();
+    for (name, args) in std::mem::take(&mut events.0) {
+        reports.push((name, runtime.event(name, &args, budget::TICK_BUDGET)));
+    }
+    reports.push(("tick", runtime.tick(budget::TICK_BUDGET)));
+
+    for (name, report) in reports {
+        console.apply(report.console);
+        pending_ops.0.extend(report.ops);
+        let at = |line: Option<usize>| line.map(|l| format!(" (line {l})")).unwrap_or_default();
+        match report.outcome {
+            HookOutcome::NotDefined => {}
+            HookOutcome::Finished => {
+                if name == "tick" {
+                    overruns.0 = 0;
+                }
+            }
+            HookOutcome::Error { line, message } => {
+                error_line.0 = line;
+                console.push(
+                    ConsoleKind::Error,
+                    format!("Error in {name}(){}: {message}", at(line)),
+                );
+                if let Some(hint) = errors::explain(&message, &last_good.source) {
+                    console.push(ConsoleKind::Info, format!("Hint: {hint}"));
+                }
+                if name == "tick" {
+                    console.push(
+                        ConsoleKind::Error,
+                        "tick() is switched off until the next Run. The factory keeps going.",
+                    );
+                }
+                sounds.write(SoundCue(Sfx::Error));
+            }
+            HookOutcome::OutOfSteam { line } => {
+                if name != "tick" {
+                    console.push(
+                        ConsoleKind::Error,
+                        format!("{name}() ran out of steam{}.", at(line)),
+                    );
+                    continue;
+                }
+                overruns.0 += 1;
+                if overruns.0 == 1 {
+                    console.push(
+                        ConsoleKind::Error,
+                        format!(
+                            "tick() ran out of steam{}: the boiler is heating up!",
+                            at(line)
+                        ),
+                    );
+                }
+                if overruns.0 >= 3 {
+                    factory.halted = true;
+                    *failure = LastFailure::OutOfSteam;
+                    error_line.0 = line;
+                    console.push(
+                        ConsoleKind::Error,
+                        "The boiler overheated: tick() ran out of steam 3 ticks in a row. Make \
+                         tick() do less each tick (or spread work with yield), then Run again.",
+                    );
+                    sounds.write(SoundCue(Sfx::Overheat));
+                    overruns.0 = 0;
+                }
+            }
+        }
     }
 }

@@ -276,18 +276,50 @@ impl Factory {
 #[derive(Resource, Default)]
 pub struct PendingBuild(pub Option<crate::scripting::commands::BuildPlan>);
 
+/// Operations queued by tick() and event handlers, applied before the next
+/// factory step.
+#[derive(Resource, Default)]
+pub struct PendingOps(pub Vec<crate::scripting::operate::Op>);
+
+/// Totals sampled once per game second, for items-per-minute stats.
+#[derive(Resource, Default)]
+pub struct ProductionHistory {
+    samples: std::collections::VecDeque<BTreeMap<ItemKind, u64>>,
+}
+
+impl ProductionHistory {
+    /// Seconds of history kept (one minute).
+    const SECONDS: usize = 60;
+
+    /// Items made over the last minute (or since the start, if sooner).
+    pub fn per_minute(&self, factory: &Factory) -> BTreeMap<ItemKind, u64> {
+        let oldest = self.samples.front();
+        factory
+            .produced
+            .iter()
+            .map(|(&item, &now)| {
+                let then = oldest.and_then(|s| s.get(&item)).copied().unwrap_or(0);
+                (item, now.saturating_sub(then))
+            })
+            .collect()
+    }
+}
+
 pub struct FactoryPlugin;
 
 impl Plugin for FactoryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Factory>()
             .init_resource::<PendingBuild>()
+            .init_resource::<PendingOps>()
+            .init_resource::<ProductionHistory>()
             .add_systems(
                 FixedUpdate,
-                (apply_pending_build, step_factory)
+                (apply_pending_build, apply_pending_ops, step_factory)
                     .chain()
                     .in_set(SimSet::Factory),
-            );
+            )
+            .add_systems(FixedUpdate, sample_production.in_set(SimSet::Progress));
     }
 }
 
@@ -303,6 +335,30 @@ fn apply_pending_build(
     console.push(crate::scripting::ConsoleKind::Info, report.summary());
 }
 
+fn apply_pending_ops(mut pending: ResMut<PendingOps>, mut factory: ResMut<Factory>) {
+    if pending.0.is_empty() {
+        return;
+    }
+    let ops = std::mem::take(&mut pending.0);
+    let before: Vec<bool> = factory.machines.values().map(|m| m.enabled).collect();
+    crate::scripting::operate::apply_ops(&mut factory, &ops);
+    let after: Vec<bool> = factory.machines.values().map(|m| m.enabled).collect();
+    if before != after {
+        // Switched machines look different, so redraw them.
+        factory.layout_version += 1;
+    }
+}
+
 fn step_factory(mut factory: ResMut<Factory>) {
     factory.step();
+}
+
+fn sample_production(factory: Res<Factory>, mut history: ResMut<ProductionHistory>) {
+    if !factory.ticks.is_multiple_of(20) {
+        return;
+    }
+    history.samples.push_back(factory.produced.clone());
+    if history.samples.len() > ProductionHistory::SECONDS {
+        history.samples.pop_front();
+    }
 }

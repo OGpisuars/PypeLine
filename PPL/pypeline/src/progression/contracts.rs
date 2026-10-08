@@ -13,7 +13,8 @@ use crate::audio::sfx::Sfx;
 use crate::factory::items::ItemKind;
 use crate::factory::{Factory, SimSet};
 use crate::scripting::concepts::{self, ScriptShape};
-use crate::scripting::{Console, ConsoleKind, LastGoodScript};
+use crate::scripting::runtime::EventArg;
+use crate::scripting::{Console, ConsoleKind, DefinedHandlers, LastGoodScript, ScriptEvents};
 
 /// A contract being worked on, with the factory's counters when it started.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,8 +151,10 @@ pub struct ContractPlugin;
 
 impl Plugin for ContractPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Progress>()
-            .add_systems(FixedUpdate, track_contract.in_set(SimSet::Progress));
+        app.init_resource::<Progress>().add_systems(
+            FixedUpdate,
+            (track_contract, train_events).in_set(SimSet::Progress),
+        );
     }
 }
 
@@ -161,6 +164,8 @@ fn track_contract(
     last_good: Res<LastGoodScript>,
     mut console: ResMut<Console>,
     mut sounds: MessageWriter<SoundCue>,
+    handlers: Res<DefinedHandlers>,
+    mut events: ResMut<ScriptEvents>,
 ) {
     let Some(active) = progress.active.clone() else {
         return;
@@ -205,8 +210,16 @@ fn track_contract(
     if score.lines < best.lines || (score.lines == best.lines && score.steam < best.steam) {
         *best = score;
     }
-    for line in banner(&contract.title, contract.reward) {
-        console.push(ConsoleKind::Info, line);
+    if handlers.on_contract_complete {
+        // The player's own celebration (chapter 9) replaces the default banner.
+        events.0.push((
+            "on_contract_complete",
+            vec![EventArg::Text(contract.title.clone())],
+        ));
+    } else {
+        for line in banner(&contract.title, contract.reward) {
+            console.push(ConsoleKind::Info, line);
+        }
     }
     console.push(
         ConsoleKind::Info,
@@ -234,6 +247,28 @@ fn track_contract(
         );
     }
     sounds.write(SoundCue(Sfx::Boot));
+}
+
+/// Tell the script about each train visit: on_train(coins).
+fn train_events(
+    factory: Res<Factory>,
+    mut events: ResMut<ScriptEvents>,
+    mut seen: Local<Option<u64>>,
+) {
+    let Some(sale) = &factory.last_sale else {
+        return;
+    };
+    // The first sale seen may come from a loaded save; do not replay it.
+    if seen.is_none() {
+        *seen = Some(sale.tick);
+        return;
+    }
+    if *seen != Some(sale.tick) {
+        *seen = Some(sale.tick);
+        events
+            .0
+            .push(("on_train", vec![EventArg::Int(sale.coins as i64)]));
+    }
 }
 
 #[cfg(test)]

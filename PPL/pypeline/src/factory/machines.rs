@@ -75,6 +75,13 @@ pub struct Machine {
     pub output: Vec<ItemKind>,
     /// Ticks spent on the current job.
     pub progress: u32,
+    /// Switched off by a script (machines.disable). Off machines do no work.
+    #[serde(default = "switched_on")]
+    pub enabled: bool,
+}
+
+fn switched_on() -> bool {
+    true
 }
 
 impl Machine {
@@ -87,6 +94,7 @@ impl Machine {
             input: Vec::new(),
             output: Vec::new(),
             progress: 0,
+            enabled: true,
         }
     }
 
@@ -101,7 +109,7 @@ impl Machine {
 
     /// Run one tick of work. Returns the item made this tick, if any.
     pub fn work(&mut self, powered: bool) -> Option<ItemKind> {
-        if !powered || self.output.len() >= BUFFER_CAP {
+        if !powered || !self.enabled || self.output.len() >= BUFFER_CAP {
             return None;
         }
         let (ticks, made) = match self.kind {

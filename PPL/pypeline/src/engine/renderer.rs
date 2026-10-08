@@ -24,6 +24,8 @@ const Z_HOVER: f32 = 4.0;
 
 /// Tint for machines with no power.
 const UNPOWERED: Color = Color::srgb(0.55, 0.55, 0.62);
+/// Tint for machines a script switched off.
+const SWITCHED_OFF: Color = Color::srgb(0.4, 0.4, 0.48);
 
 #[derive(Component)]
 struct LayoutSprite;
@@ -110,6 +112,9 @@ fn sync_layout(
         let mut sprite = Sprite::from_image(sheet.machine(machine.kind));
         if machine.kind.needs_power() && !factory.is_powered(name) {
             sprite.color = UNPOWERED;
+        }
+        if !machine.enabled {
+            sprite.color = SWITCHED_OFF;
         }
         let base = sprite.color;
         commands.spawn((

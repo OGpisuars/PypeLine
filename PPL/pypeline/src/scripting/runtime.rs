@@ -9,15 +9,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use rustpython_vm::{
-    AsObject, Interpreter, PyResult, Settings, VirtualMachine, builtins::PyBaseExceptionRef,
-    compiler::Mode, function::FuncArgs,
+    AsObject, Interpreter, PyObjectRef, PyResult, Settings, VirtualMachine,
+    builtins::PyBaseExceptionRef, compiler::Mode, function::FuncArgs, scope::Scope,
 };
 
-use super::bindings::{self, ModuleTable};
+use super::bindings::{self, ModuleTable, ScriptContext};
 use super::budget::Budget;
 use super::commands::BuildPlan;
 use super::console_api::{ConsoleOp, ConsoleSink};
 use super::hooks;
+use super::operate::{ApiMode, Op, WorldView};
 use super::sandbox;
 
 /// Deepest call nesting a script may reach.
@@ -52,13 +53,55 @@ pub struct RunReport {
     pub plan: Option<BuildPlan>,
 }
 
+/// How a call to `tick()` or an event handler ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HookOutcome {
+    /// The script defines no such function (or tick() was switched off).
+    NotDefined,
+    Finished,
+    Error {
+        line: Option<usize>,
+        message: String,
+    },
+    OutOfSteam {
+        line: Option<usize>,
+    },
+}
+
+/// Result of one `tick()` or event-handler call.
+#[derive(Debug, Clone)]
+pub struct HookReport {
+    pub outcome: HookOutcome,
+    pub output: Vec<String>,
+    pub console: Vec<ConsoleOp>,
+    /// Operations to apply on the next factory step.
+    pub ops: Vec<Op>,
+}
+
+/// A value passed to an event handler.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventArg {
+    Int(i64),
+    Text(String),
+}
+
+/// The finished main.py: its globals stay alive so `tick()` and event
+/// handlers can use them until the next Run.
+struct Session {
+    scope: Scope,
+    /// A running `tick()` generator (chapter 10), advanced once per tick.
+    generator: Option<PyObjectRef>,
+    /// tick() raised an error; it is not called again until the next Run.
+    tick_broken: bool,
+}
+
 pub struct ScriptRuntime {
     interpreter: Interpreter,
     budget: Rc<Budget>,
-    output: Rc<RefCell<ConsoleSink>>,
-    plan: Rc<RefCell<BuildPlan>>,
+    ctx: ScriptContext,
     modules: Rc<RefCell<ModuleTable>>,
     hook: hooks::StepHook,
+    session: RefCell<Option<Session>>,
 }
 
 impl ScriptRuntime {
@@ -70,11 +113,11 @@ impl ScriptRuntime {
         let interpreter = Interpreter::without_stdlib(settings);
 
         let budget = Rc::new(Budget::default());
-        let output = Rc::new(RefCell::new(ConsoleSink::default()));
+        let ctx = ScriptContext::default();
         let modules = Rc::new(RefCell::new(ModuleTable::new()));
 
         interpreter.enter(|vm| {
-            install_print(vm, output.clone()).expect("failed to install print()");
+            install_print(vm, ctx.console.clone()).expect("failed to install print()");
             install_import_guard(vm, modules.clone()).expect("failed to install the import guard");
             sandbox::trim_builtins(vm).expect("failed to trim builtins");
             // Deep recursion gets a clean RecursionError long before the
@@ -86,18 +129,44 @@ impl ScriptRuntime {
         Self {
             interpreter,
             budget,
-            output,
-            plan: Rc::new(RefCell::new(BuildPlan::default())),
+            ctx,
             modules,
             hook,
+            session: RefCell::new(None),
         }
+    }
+
+    /// The factory snapshot that scripts read (stats, sensors, status).
+    pub fn set_world(&self, world: WorldView) {
+        *self.ctx.world.borrow_mut() = world;
+    }
+
+    /// Does the last good run define this function?
+    pub fn defines(&self, name: &str) -> bool {
+        let session = self.session.borrow();
+        let Some(session) = session.as_ref() else {
+            return false;
+        };
+        self.interpreter.enter(|vm| {
+            session
+                .scope
+                .globals
+                .get_item_opt(name, vm)
+                .ok()
+                .flatten()
+                .is_some_and(|f| f.is_callable())
+        })
     }
 
     /// Compile and run `source` as a fresh module with `step_limit` steps.
     pub fn run(&self, source: &str, step_limit: u64) -> RunReport {
-        self.output.borrow_mut().reset();
+        self.ctx.console.borrow_mut().reset();
+        self.ctx.ops.borrow_mut().clear();
+        self.ctx.mode.set(ApiMode::Build);
         self.budget.reset(step_limit);
-        *self.plan.borrow_mut() = BuildPlan::default();
+        *self.ctx.plan.borrow_mut() = BuildPlan::default();
+        // A new Run replaces the old session, even if it fails.
+        *self.session.borrow_mut() = None;
 
         if let Err(rejection) = sandbox::check(source) {
             return RunReport {
@@ -113,11 +182,12 @@ impl ScriptRuntime {
             };
         }
 
+        let mut finished_scope = None;
         let outcome = self.interpreter.enter(|vm| {
             if let Err(exc) = self.hook.arm(vm) {
                 return error_outcome(vm, &exc);
             }
-            match bindings::build_modules(vm, &self.plan, &self.output) {
+            match bindings::build_modules(vm, &self.ctx) {
                 Ok(table) => *self.modules.borrow_mut() = table,
                 Err(exc) => return error_outcome(vm, &exc),
             }
@@ -136,8 +206,11 @@ impl ScriptRuntime {
             {
                 return error_outcome(vm, &exc);
             }
-            match vm.run_code_obj(code, scope) {
-                Ok(_) => RunOutcome::Finished,
+            match vm.run_code_obj(code, scope.clone()) {
+                Ok(_) => {
+                    finished_scope = Some(scope);
+                    RunOutcome::Finished
+                }
                 Err(exc) if self.budget.is_exhausted() => RunOutcome::OutOfSteam {
                     line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
                 },
@@ -145,8 +218,15 @@ impl ScriptRuntime {
             }
         });
 
-        let plan = (outcome == RunOutcome::Finished).then(|| self.plan.take());
-        let sink = std::mem::take(&mut *self.output.borrow_mut());
+        if let Some(scope) = finished_scope {
+            *self.session.borrow_mut() = Some(Session {
+                scope,
+                generator: None,
+                tick_broken: false,
+            });
+        }
+        let plan = (outcome == RunOutcome::Finished).then(|| self.ctx.plan.take());
+        let sink = std::mem::take(&mut *self.ctx.console.borrow_mut());
         RunReport {
             output: sink.lines,
             console: sink.ops,
@@ -155,6 +235,141 @@ impl ScriptRuntime {
             steps_used: self.budget.used(),
             steps_limit: self.budget.limit(),
         }
+    }
+
+    /// Call `tick()` (or advance its generator) with `step_limit` steps.
+    pub fn tick(&self, step_limit: u64) -> HookReport {
+        let tick_broken = self.session.borrow().as_ref().is_none_or(|s| s.tick_broken);
+        if tick_broken {
+            return self.not_defined();
+        }
+        let report = self.invoke(step_limit, |vm, session| {
+            if let Some(generator) = session.generator.clone() {
+                return advance(vm, session, generator);
+            }
+            let Some(tick) = function(vm, session, "tick") else {
+                return Ok(None);
+            };
+            let result = tick.call((), vm)?;
+            if result.class().is(vm.ctx.types.generator_type) {
+                // A generator tick(): start it now and resume it every tick.
+                session.generator = Some(result.clone());
+                return advance(vm, session, result);
+            }
+            Ok(Some(()))
+        });
+        if matches!(report.outcome, HookOutcome::Error { .. })
+            && let Some(session) = self.session.borrow_mut().as_mut()
+        {
+            session.tick_broken = true;
+        }
+        report
+    }
+
+    /// Call an event handler like `on_train(coins)` if the script defines it.
+    pub fn event(&self, name: &str, args: &[EventArg], step_limit: u64) -> HookReport {
+        if self.session.borrow().is_none() {
+            return self.not_defined();
+        }
+        self.invoke(step_limit, |vm, session| {
+            let Some(handler) = function(vm, session, name) else {
+                return Ok(None);
+            };
+            let args: Vec<PyObjectRef> = args
+                .iter()
+                .map(|arg| match arg {
+                    EventArg::Int(n) => vm.ctx.new_int(*n).into(),
+                    EventArg::Text(t) => vm.ctx.new_str(t.as_str()).into(),
+                })
+                .collect();
+            handler.call(args, vm)?;
+            Ok(Some(()))
+        })
+    }
+
+    fn not_defined(&self) -> HookReport {
+        HookReport {
+            outcome: HookOutcome::NotDefined,
+            output: Vec::new(),
+            console: Vec::new(),
+            ops: Vec::new(),
+        }
+    }
+
+    /// Run `call` in operate mode inside the session. `Ok(None)` means the
+    /// function is not defined.
+    fn invoke(
+        &self,
+        step_limit: u64,
+        call: impl FnOnce(&VirtualMachine, &mut Session) -> PyResult<Option<()>>,
+    ) -> HookReport {
+        self.ctx.console.borrow_mut().reset();
+        self.ctx.ops.borrow_mut().clear();
+        self.ctx.mode.set(ApiMode::Operate);
+        self.budget.reset(step_limit);
+        let mut session = self.session.borrow_mut();
+        let Some(session) = session.as_mut() else {
+            return self.not_defined();
+        };
+        let outcome = self.interpreter.enter(|vm| {
+            if let Err(exc) = self.hook.arm(vm) {
+                return hook_error(vm, &exc);
+            }
+            match call(vm, session) {
+                Ok(Some(())) => HookOutcome::Finished,
+                Ok(None) => HookOutcome::NotDefined,
+                Err(exc) if self.budget.is_exhausted() => HookOutcome::OutOfSteam {
+                    line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
+                },
+                Err(exc) => hook_error(vm, &exc),
+            }
+        });
+        let sink = std::mem::take(&mut *self.ctx.console.borrow_mut());
+        HookReport {
+            outcome,
+            output: sink.lines,
+            console: sink.ops,
+            ops: std::mem::take(&mut *self.ctx.ops.borrow_mut()),
+        }
+    }
+}
+
+/// A callable defined at the top level of main.py, if any.
+fn function(vm: &VirtualMachine, session: &Session, name: &str) -> Option<PyObjectRef> {
+    session
+        .scope
+        .globals
+        .get_item_opt(name, vm)
+        .ok()
+        .flatten()
+        .filter(|f| f.is_callable())
+}
+
+/// Resume a tick() generator once. When it finishes, the next tick starts
+/// a fresh one.
+fn advance(
+    vm: &VirtualMachine,
+    session: &mut Session,
+    generator: PyObjectRef,
+) -> PyResult<Option<()>> {
+    match vm.call_method(&generator, "__next__", ()) {
+        Ok(_) => Ok(Some(())),
+        Err(exc) if exc.fast_isinstance(vm.ctx.exceptions.stop_iteration) => {
+            session.generator = None;
+            Ok(Some(()))
+        }
+        Err(exc) => {
+            session.generator = None;
+            Err(exc)
+        }
+    }
+}
+
+fn hook_error(vm: &VirtualMachine, exc: &PyBaseExceptionRef) -> HookOutcome {
+    match error_outcome(vm, exc) {
+        RunOutcome::Error { line, message } => HookOutcome::Error { line, message },
+        RunOutcome::OutOfSteam { line } => HookOutcome::OutOfSteam { line },
+        RunOutcome::Finished => HookOutcome::Finished,
     }
 }
 

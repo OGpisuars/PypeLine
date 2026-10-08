@@ -34,6 +34,9 @@ pub fn polaroid(
             } else {
                 "power: OFF (connect it)".into()
             });
+            if !machine.enabled {
+                lines.push("switched off by your script".into());
+            }
             let needed = match machine.kind {
                 MachineKind::Miner => MINE_TICKS,
                 _ => SMELT_TICKS,

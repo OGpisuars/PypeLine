@@ -11,6 +11,20 @@ pub enum ItemKind {
 }
 
 impl ItemKind {
+    pub const ALL: [Self; 2] = [Self::IronOre, Self::IronPlate];
+
+    /// The name used in Python: `stats.produced("iron_plate")`.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::IronOre => "iron_ore",
+            Self::IronPlate => "iron_plate",
+        }
+    }
+
+    pub fn by_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|item| item.id() == id)
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Self::IronOre => "iron ore",

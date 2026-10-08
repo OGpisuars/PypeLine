@@ -11,7 +11,7 @@ use pypeline::scripting::runtime::ScriptRuntime;
 /// State hash of the canonical sample after 600 ticks. If a deliberate
 /// change to the simulation changes it, update it in the same commit and
 /// say why in the commit message.
-const GOLDEN_HASH: u64 = 0xde10_4e90_e6d4_4b05;
+const GOLDEN_HASH: u64 = 0xe2c2_f767_7099_3cee;
 
 fn run_sample(ticks: u64) -> Factory {
     let report = ScriptRuntime::new().run(CANONICAL_SAMPLE, DEPLOY_BUDGET);
