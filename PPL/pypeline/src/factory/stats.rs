@@ -25,6 +25,8 @@ pub enum MachineState {
     Off,
     /// A generator that powers nothing.
     Idle,
+    /// A generator too hot to power anything until it cools down.
+    Overheated,
 }
 
 impl MachineState {
@@ -37,6 +39,7 @@ impl MachineState {
             Self::NoPower => "no power",
             Self::Off => "off",
             Self::Idle => "idle",
+            Self::Overheated => "overheated",
         }
     }
 
@@ -48,6 +51,7 @@ impl MachineState {
             Self::NoPower => "connect it to a steam generator",
             Self::Off => "switched off by your script",
             Self::Idle => "powers nothing yet",
+            Self::Overheated => "too hot: switch some of its machines off by day",
         }
     }
 }
@@ -85,6 +89,9 @@ pub fn state_of(
 /// The state of the machine called `name`.
 pub fn machine_state(factory: &Factory, name: &str) -> Option<MachineState> {
     let m = factory.machines.get(name)?;
+    if m.overheated {
+        return Some(MachineState::Overheated);
+    }
     let powered = !m.kind.needs_power() || factory.is_powered(name);
     let powering = factory.power.values().filter(|g| *g == name).count();
     Some(state_of(

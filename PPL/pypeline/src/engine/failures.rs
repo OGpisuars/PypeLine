@@ -1,6 +1,7 @@
 //! Visible, physical failure (roadmap Part 1 ERROR HANDLING):
 //! out of steam -> the steam generators blink red and puff steam;
 //! a script error -> the belts blink red. Both stop at the next good Run.
+//! A generator that overheats (thermal.rs) blinks and puffs until it cools.
 //! Render-only, driven by real time so it keeps blinking while halted.
 
 use bevy::prelude::*;
@@ -38,26 +39,24 @@ fn blink_failures(
     factory: Res<Factory>,
     failure: Res<LastFailure>,
     mut machines: Query<(&mut Sprite, &MachineSprite), Without<BeltSprite>>,
-    mut belts: Query<&mut Sprite, With<BeltSprite>>,
+    mut belts: Query<(&mut Sprite, &BeltSprite)>,
 ) {
     let blink = factory.halted && alarm_on(&time);
     for (mut sprite, machine) in &mut machines {
-        let alarmed = blink
+        let alarmed = (blink
             && *failure == LastFailure::OutOfSteam
-            && machine.kind == MachineKind::SteamGenerator;
+            && machine.kind == MachineKind::SteamGenerator)
+            || (machine.overheated && alarm_on(&time));
         let wanted = if alarmed { ALARM } else { machine.base };
         if sprite.color != wanted {
             sprite.color = wanted;
         }
     }
-    let belt_color = if blink && *failure == LastFailure::Error {
-        ALARM
-    } else {
-        Color::WHITE
-    };
-    for mut sprite in &mut belts {
-        if sprite.color != belt_color {
-            sprite.color = belt_color;
+    let belt_alarm = blink && *failure == LastFailure::Error;
+    for (mut sprite, belt) in &mut belts {
+        let wanted = if belt_alarm { ALARM } else { belt.tint };
+        if sprite.color != wanted {
+            sprite.color = wanted;
         }
     }
 }
@@ -71,16 +70,13 @@ fn steam_puffs(
     failure: Res<LastFailure>,
     mut puffs: Query<(&mut Transform, &mut Visibility), With<SteamPuff>>,
 ) {
-    let boilers: Vec<Pos> = if factory.halted && *failure == LastFailure::OutOfSteam {
-        factory
-            .machines
-            .values()
-            .filter(|m| m.kind == MachineKind::SteamGenerator)
-            .map(|m| m.pos)
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let all_hot = factory.halted && *failure == LastFailure::OutOfSteam;
+    let boilers: Vec<Pos> = factory
+        .machines
+        .values()
+        .filter(|m| m.kind == MachineKind::SteamGenerator && (all_hot || m.overheated))
+        .map(|m| m.pos)
+        .collect();
     let now = time.elapsed_secs();
     let wanted: Vec<Vec3> = boilers
         .iter()

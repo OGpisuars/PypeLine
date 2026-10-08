@@ -205,7 +205,14 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     )?;
     let power = new_module(vm, "power", &[("connect", connect.into())])?;
     let console = new_module(vm, "console", &console_module(vm, console)?)?;
-    let sensors = new_module(vm, "sensors", &[("count", operate.count)])?;
+    let sensors = new_module(
+        vm,
+        "sensors",
+        &[
+            ("count", operate.count),
+            ("temperature", operate.temperature),
+        ],
+    )?;
     let stats = new_module(
         vm,
         "stats",
@@ -221,7 +228,12 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     let clock = new_module(
         vm,
         "clock",
-        &[("tick", operate.tick), ("seconds", operate.seconds)],
+        &[
+            ("tick", operate.tick),
+            ("seconds", operate.seconds),
+            ("time_of_day", operate.time_of_day),
+            ("is_day", operate.is_day),
+        ],
     )?;
 
     Ok(BTreeMap::from([
@@ -276,6 +288,9 @@ struct OperateFunctions {
     disable: PyObjectRef,
     status: PyObjectRef,
     count: PyObjectRef,
+    temperature: PyObjectRef,
+    time_of_day: PyObjectRef,
+    is_day: PyObjectRef,
     produced: PyObjectRef,
     per_minute: PyObjectRef,
     coins: PyObjectRef,
@@ -328,6 +343,10 @@ fn operate_functions(vm: &VirtualMachine, ctx: &ScriptContext) -> OperateFunctio
                 dict.set_item("on", vm.ctx.new_bool(m.enabled).into(), vm)?;
                 dict.set_item("tier", vm.ctx.new_int(m.tier).into(), vm)?;
                 dict.set_item("state", vm.ctx.new_str(m.state.name()).into(), vm)?;
+                if m.kind == MachineKind::SteamGenerator {
+                    dict.set_item("temperature", vm.ctx.new_int(m.heat).into(), vm)?;
+                    dict.set_item("overheated", vm.ctx.new_bool(m.overheated).into(), vm)?;
+                }
                 Ok(dict.into())
             },
         )
@@ -392,7 +411,36 @@ fn operate_functions(vm: &VirtualMachine, ctx: &ScriptContext) -> OperateFunctio
         vm.new_function(name, move || -> u64 { read(&steam) })
             .into()
     };
+    let temperature = {
+        let world = ctx.world.clone();
+        vm.new_function(
+            "temperature",
+            move |generator: PyStrRef, vm: &VirtualMachine| -> PyResult<u32> {
+                let name = text(&generator, vm)?;
+                let world = world.borrow();
+                match world.machines.get(&name) {
+                    Some(m) if m.kind == MachineKind::SteamGenerator => Ok(m.heat),
+                    Some(m) => Err(vm.new_value_error(format!(
+                        "'{name}' is a {}; only steam generators have a temperature",
+                        m.kind.name()
+                    ))),
+                    None => Err(vm.new_value_error(format!("there is no machine named '{name}'"))),
+                }
+            },
+        )
+        .into()
+    };
+    let is_day = {
+        let world = ctx.world.clone();
+        vm.new_function("is_day", move || -> bool {
+            crate::factory::daynight::is_day(world.borrow().ticks)
+        })
+        .into()
+    };
     OperateFunctions {
+        temperature,
+        is_day,
+        time_of_day: world_number("time_of_day", |w| crate::factory::daynight::hour(w.ticks)),
         bottlenecks,
         steam: steam_reader("steam", |b| b.used()),
         steam_limit: steam_reader("steam_limit", |b| b.limit()),

@@ -75,3 +75,32 @@ for number in countdown(3):
     print(number)
 print("Lift off!")
 ```
+
+## Day, night and hot boilers
+
+The island has days and nights. One day lasts four minutes of game time; the clock in the top bar shows the hour, and hovering over it tells you when day or night begins.
+
+A steam generator warms up for every switched-on machine it powers, and the air is hotter by day, warmest at noon. A generator that reaches **100 degrees overheats**: it stops powering anything until it has cooled to 70. Small generators never get that hot, but one powering a dozen machines will, around midday.
+
+| Call | What it tells you |
+|------|-------------------|
+| `clock.time_of_day()` | The hour, 0 to 23 |
+| `clock.is_day()` | `True` from 6:00 to 18:00 |
+| `sensors.temperature(name)` | A steam generator's temperature in degrees |
+
+`tick()` can keep a big generator safe by switching a few machines off when it gets hot, and back on when it has cooled. Using two numbers (off above 90, on below 80) stops it flicking on and off every tick:
+
+```python
+# snippet: Boiler guard
+from auto import machines
+import sensors
+
+def tick():
+    heat = sensors.temperature("steam")
+    if heat >= 90:
+        machines.disable("miner_a")
+        machines.disable("miner_b")
+    elif heat <= 80:
+        machines.enable("miner_a")
+        machines.enable("miner_b")
+```

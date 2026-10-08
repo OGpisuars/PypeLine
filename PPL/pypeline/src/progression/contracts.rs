@@ -182,7 +182,11 @@ fn track_contract(
     handlers: Res<DefinedHandlers>,
     mut events: ResMut<ScriptEvents>,
     history: Res<crate::factory::ProductionHistory>,
+    mut was_hot: Local<bool>,
 ) {
+    let hot = factory.machines.values().any(|m| m.overheated);
+    let just_overheated = hot && !*was_hot;
+    *was_hot = hot;
     let Some(active) = progress.active.clone() else {
         return;
     };
@@ -190,6 +194,21 @@ fn track_contract(
         progress.active = None;
         return;
     };
+    if contract.keep_cool && hot {
+        // Start over from now, so the goal counts only cool running.
+        progress.accept(contract, &factory);
+        if !just_overheated {
+            return;
+        }
+        console.push(
+            ConsoleKind::Error,
+            format!(
+                "A boiler overheated! \"{}\" needs it to stay cool, so it starts over.",
+                contract.title
+            ),
+        );
+        return;
+    }
     let rates = history.per_minute(&factory);
     let (done, target) = goal_progress(&contract.goal, &active, &factory, &rates);
     if done < target {

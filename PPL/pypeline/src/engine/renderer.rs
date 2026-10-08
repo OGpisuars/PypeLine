@@ -30,10 +30,14 @@ const SWITCHED_OFF: Color = Color::srgb(0.4, 0.4, 0.48);
 #[derive(Component)]
 struct LayoutSprite;
 
-/// A belt's direction and how many animation frames it moves per tick
-/// (faster tiers scroll faster).
+/// A belt's direction, how many animation frames it moves per tick (faster
+/// tiers scroll faster), and its normal tint.
 #[derive(Component)]
-pub struct BeltSprite(Dir, u64);
+pub struct BeltSprite {
+    dir: Dir,
+    frames_per_tick: u64,
+    pub tint: Color,
+}
 
 /// Tint for faster belts: warm for tier 2, cool for tier 3.
 fn belt_tint(tier: u8) -> Color {
@@ -49,6 +53,8 @@ fn belt_tint(tier: u8) -> Color {
 pub struct MachineSprite {
     pub kind: MachineKind,
     pub base: Color,
+    /// A steam generator that is too hot (it blinks and puffs steam).
+    pub overheated: bool,
 }
 
 #[derive(Component)]
@@ -122,10 +128,11 @@ fn sync_layout(
         commands.spawn((
             sprite,
             Transform::from_translation(plot_tile_center(pos, Z_BELT)),
-            BeltSprite(
-                belt.dir,
-                u64::from(crate::factory::shop::belt_speed(belt.tier)),
-            ),
+            BeltSprite {
+                dir: belt.dir,
+                frames_per_tick: u64::from(crate::factory::shop::belt_speed(belt.tier)),
+                tint: belt_tint(belt.tier),
+            },
             LayoutSprite,
             WORLD_LAYER,
             ChildOf(island.root),
@@ -148,6 +155,7 @@ fn sync_layout(
             MachineSprite {
                 kind: machine.kind,
                 base,
+                overheated: machine.overheated,
             },
             LayoutSprite,
             WORLD_LAYER,
@@ -199,8 +207,8 @@ fn animate_belts(
 ) {
     // Driven by the factory's own tick, so belts freeze while halted.
     for (belt, mut sprite) in &mut belts {
-        let frame = (factory.ticks * belt.1 % sprites::BELT_FRAMES as u64) as usize;
-        sprite.image = sheet.belt(belt.0, frame);
+        let frame = (factory.ticks * belt.frames_per_tick % sprites::BELT_FRAMES as u64) as usize;
+        sprite.image = sheet.belt(belt.dir, frame);
     }
 }
 

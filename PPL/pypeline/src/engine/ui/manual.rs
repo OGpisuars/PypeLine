@@ -232,6 +232,9 @@ fn show_contract(
         });
         ui.label(&contract.brief);
         ui.label(format!("Goal: {}", contract.goal.describe()));
+        if contract.keep_cool {
+            ui.label("Keep cool: if a boiler overheats, the contract starts over.");
+        }
         if !contract.requires.is_empty() {
             let needs: Vec<&str> = contract.requires.iter().map(|c| c.describe()).collect();
             ui.label(format!("Must use: {}", needs.join(", ")));

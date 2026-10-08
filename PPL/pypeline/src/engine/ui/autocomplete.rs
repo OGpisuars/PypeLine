@@ -50,7 +50,10 @@ fn members(module: &str) -> Vec<Suggestion> {
             item("color(", "\"green\", \"red\", ... or \"default\""),
             item("clear()", "wipe the console"),
         ],
-        "sensors" => vec![item("count(", "x, y -> items on that belt")],
+        "sensors" => vec![
+            item("count(", "x, y -> items on that belt"),
+            item("temperature(", "generator -> degrees"),
+        ],
         "stats" => vec![
             item("produced(", "\"iron_plate\" -> total made"),
             item("per_minute(", "\"iron_plate\" -> made in the last minute"),
@@ -62,6 +65,8 @@ fn members(module: &str) -> Vec<Suggestion> {
         "clock" => vec![
             item("tick()", "ticks so far"),
             item("seconds()", "seconds so far"),
+            item("time_of_day()", "hour, 0-23"),
+            item("is_day()", "True from 6:00 to 18:00"),
         ],
         _ => Vec::new(),
     }

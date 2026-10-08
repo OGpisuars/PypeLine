@@ -22,6 +22,7 @@ pub struct Headless {
     last_sale: Option<u64>,
     /// Everything printed and every hook error, in order.
     pub output: Vec<String>,
+    overheated: bool,
 }
 
 impl Headless {
@@ -45,6 +46,7 @@ impl Headless {
             overruns: 0,
             last_sale,
             output: report.output,
+            overheated: false,
         })
     }
 
@@ -54,6 +56,7 @@ impl Headless {
             self.run_hooks();
         }
         self.factory.step();
+        self.overheated |= self.factory.machines.values().any(|m| m.overheated);
         if let Some(sale) = &self.factory.last_sale
             && self.last_sale != Some(sale.tick)
         {
@@ -109,6 +112,11 @@ impl Headless {
                 }
             }
         }
+    }
+
+    /// Has any steam generator overheated so far?
+    pub fn overheated_ever(&self) -> bool {
+        self.overheated
     }
 
     /// Did any event or tick() fail so far?

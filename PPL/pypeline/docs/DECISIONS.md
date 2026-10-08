@@ -6,6 +6,19 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Stats, day/night and boiler heat
+
+### Stats
+- `factory::stats` works out each machine's state (working, starved, blocked, no power, off, idle, overheated) from what can be seen of it, so the Stats window, `machines.status()["state"]` and `stats.bottlenecks()` always agree.
+- `StatsHistory` (busy %, uptime, coins earned, tick() steam) is UI-only: recorded after each step, never saved, never hashed.
+- Contracts can have a `Rate` goal ("40 plates a minute"), measured over the last minute of game time.
+
+### Day/night and heat
+- The day runs on `Factory::ticks` (4 minutes per day, starting at 6:00), so it pauses while halted and replays exactly. The tint is render-only and changes in steps, like a palette swap. The canvas tint and the sky around it are mixed in linear color, because that is how the GPU blends; mixing in sRGB left a visible rectangle.
+- Heat is integer math, updated once per game second inside `Factory::step`: a generator closes 1/8 of the gap to (air + 6 per switched-on machine it powers). It overheats at 100 and restarts at 70. Air is 15 at night and 30 at noon, so 11 machines peak at 96 and never overheat; that keeps chapters 1-9 (at most 8 machines per generator) unaffected.
+- Contracts can say `keep_cool: true`: an overheat restarts them. Heatwave asks for 500 plates, more than a day's worth, so it always runs through a noon; a test checks that its solution overheats without its tick().
+- **Golden hash changed** to `0x1175_a7cb_540a_8474` (machines now carry `heat` and `overheated`). With those fields removed from the state text, the previous hash came out exactly.
+
 ## 2026-10-08: Workspace, Shop, Settings, and the prestige plan
 Player feedback: the docked editor left no room, one file was not enough, and the world could not be moved.
 

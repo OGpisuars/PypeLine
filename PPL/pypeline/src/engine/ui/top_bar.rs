@@ -46,6 +46,7 @@ pub fn top_bar(
     mut control: ResMut<SimControl>,
     mut audio: ResMut<crate::audio::AudioSettings>,
     mut toggles: Toggles,
+    factory: Res<crate::factory::Factory>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     let screen = ctx.viewport_rect();
@@ -160,6 +161,8 @@ pub fn top_bar(
             });
             ui.separator();
             time_dials_ui(ui, &mut control, &mut audio);
+            ui.separator();
+            day_clock(ui, factory.ticks);
             if let Some((file, line)) = &error_line.0 {
                 ui.separator();
                 ui.colored_label(
@@ -180,6 +183,30 @@ pub fn top_bar(
     let bottom = bar.response.rect.bottom();
     game_area.0 = Some(Rect::new(screen.min.x, bottom, screen.max.x, screen.max.y));
     Ok(())
+}
+
+/// The time of day, with a forecast on hover (roadmap: a forecast so the
+/// heat is learnable, not punishing).
+fn day_clock(ui: &mut egui::Ui, ticks: u64) {
+    use crate::factory::daynight;
+    let minute = daynight::minute_of_day(ticks);
+    let icon = if daynight::is_day(ticks) {
+        "☀"
+    } else {
+        "🌙"
+    };
+    let next = if daynight::is_day(ticks) {
+        "night"
+    } else {
+        "day"
+    };
+    ui.label(format!("{icon} {:02}:{:02}", minute / 60, minute % 60))
+        .on_hover_text(format!(
+            "{}. {next} in {} s. Boilers run hottest around noon (air {} degrees now).",
+            daynight::phase(ticks).name(),
+            daynight::seconds_until_change(ticks),
+            daynight::air_temperature(ticks)
+        ));
 }
 
 fn files_menu(ui: &mut egui::Ui, workspace: &mut Workspace) {

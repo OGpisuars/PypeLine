@@ -65,6 +65,10 @@ pub struct Contract {
     /// coders can skip ahead by passing it directly.
     #[serde(default)]
     pub chapter_test: bool,
+    /// No steam generator may overheat while the contract runs; if one
+    /// does, the contract starts over.
+    #[serde(default)]
+    pub keep_cool: bool,
 }
 
 /// One piece of a chapter's text.
@@ -320,8 +324,9 @@ mod tests {
                     Ok(game) => game,
                     Err(report) => panic!("{id}: {:?} {:?}", report.outcome, report.output),
                 };
-                // Five minutes of game time is plenty for every contract.
-                let met = (0..6000).any(|_| {
+                // Ten minutes of game time (two and a half days) is plenty
+                // for every contract.
+                let met = (0..12_000).any(|_| {
                     game.step();
                     match contract.goal {
                         Goal::Produce { item, count } => game.factory.produced(item) >= count,
@@ -332,13 +337,29 @@ mod tests {
                     }
                 });
                 assert!(!game.had_errors(), "{id}: {:?}", game.output);
+                if contract.keep_cool {
+                    assert!(!game.overheated_ever(), "{id}: a generator overheated");
+                }
                 assert!(
                     met,
-                    "{id}: goal not reached in 5 minutes ({:?})",
+                    "{id}: goal not reached in 10 minutes ({:?})",
                     game.factory.produced
                 );
             }
         }
+    }
+
+    /// Heatwave really needs its tick(): without it the generator overheats.
+    #[test]
+    fn heatwave_overheats_without_a_guard() {
+        let (_, contract) = contract("ch10_heatwave").expect("the contract exists");
+        let unguarded = contract.solution.replace("def tick():", "def unused():");
+        let mut game = Headless::start(&Program::main_only(&unguarded), Factory::default())
+            .expect("the script runs");
+        for _ in 0..12_000 {
+            game.step();
+        }
+        assert!(game.overheated_ever());
     }
 
     /// Every code example in the manual runs (roadmap Part 4 E).

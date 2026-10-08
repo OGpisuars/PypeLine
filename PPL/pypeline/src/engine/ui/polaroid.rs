@@ -60,6 +60,19 @@ pub fn polaroid(
         } else {
             let powering = factory.power.values().filter(|g| *g == name).count();
             lines.push(format!("powering {powering} machine(s)"));
+            let target = crate::factory::thermal::target_temperature(&factory, name);
+            lines.push(format!(
+                "temperature: {} (heading for {target})",
+                machine.heat
+            ));
+            if machine.overheated {
+                lines.push(format!(
+                    "OVERHEATED: back on at {}",
+                    crate::factory::thermal::RESTART
+                ));
+            } else if target >= crate::factory::thermal::OVERHEAT {
+                lines.push("will overheat: switch machines off".into());
+            }
         }
         Some((name.clone(), image, lines, progress))
     } else {

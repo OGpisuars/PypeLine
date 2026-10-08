@@ -5,10 +5,12 @@
 //! `BTreeMap` (roadmap Part 4 C). Rendering reads it and never writes to it.
 
 pub mod conveyors;
+pub mod daynight;
 pub mod items;
 pub mod machines;
 pub mod shop;
 pub mod stats;
+pub mod thermal;
 pub mod tick;
 pub mod train;
 
@@ -117,7 +119,7 @@ impl Factory {
         self.power
             .get(machine)
             .and_then(|generator| self.machines.get(generator))
-            .is_some_and(|g| g.kind == MachineKind::SteamGenerator)
+            .is_some_and(|g| g.kind == MachineKind::SteamGenerator && !g.overheated)
     }
 
     pub fn produced(&self, item: ItemKind) -> u64 {
@@ -160,6 +162,9 @@ impl Factory {
 
         if train::arrives_at(self.ticks) {
             self.sell_to_train();
+        }
+        if self.ticks.is_multiple_of(20) {
+            thermal::update(self);
         }
     }
 

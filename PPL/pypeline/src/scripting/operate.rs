@@ -33,6 +33,9 @@ pub struct MachineView {
     pub enabled: bool,
     pub tier: u8,
     pub state: MachineState,
+    /// Steam generators: degrees, and whether it is too hot to work.
+    pub heat: u32,
+    pub overheated: bool,
 }
 
 /// What scripts can see of the factory during one tick.
@@ -71,6 +74,8 @@ impl WorldView {
                         enabled: m.enabled,
                         tier: m.tier,
                         state: stats::machine_state(factory, name).expect("name came from the map"),
+                        heat: m.heat,
+                        overheated: m.overheated,
                     };
                     (name.clone(), view)
                 })

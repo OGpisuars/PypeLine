@@ -44,6 +44,7 @@ impl Plugin for PypelinePlugin {
                 engine::wires::WirePlugin,
                 engine::failures::FailurePlugin,
                 engine::wildlife::WildlifePlugin,
+                engine::daynight_palette::DayNightPlugin,
                 engine::splash::SplashPlugin,
                 engine::ui::UiPlugin,
             ));

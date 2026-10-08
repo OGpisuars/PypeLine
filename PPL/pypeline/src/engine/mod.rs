@@ -1,6 +1,7 @@
 //! Rendering and UI.
 
 pub mod camera;
+pub mod daynight_palette;
 pub mod failures;
 pub mod floating_plot;
 pub mod grid;

@@ -65,6 +65,8 @@ fn switching_machines_is_queued_and_refused_while_building() {
             enabled: true,
             tier: 1,
             state: pypeline::factory::stats::MachineState::Working,
+            heat: 15,
+            overheated: false,
         },
     );
     rt.set_world(world);
@@ -162,6 +164,8 @@ fn stats_report_bottlenecks_and_steam() {
                 enabled: true,
                 tier: 1,
                 state,
+                heat: 15,
+                overheated: false,
             },
         );
     }
@@ -173,6 +177,28 @@ fn stats_report_bottlenecks_and_steam() {
     assert_eq!(
         report.output,
         vec!["['stuck'] blocked", &format!("True {DEPLOY_BUDGET}")],
+        "{:?}",
+        report.outcome
+    );
+}
+
+#[test]
+fn clock_and_temperature_read_the_snapshot() {
+    use pypeline::factory::{Factory, daynight::DAY_TICKS};
+    use pypeline::scripting::reconcile;
+    let rt = ScriptRuntime::new();
+    let report = rt.run(pypeline::scripting::CANONICAL_SAMPLE, DEPLOY_BUDGET);
+    let mut factory = Factory::default();
+    reconcile::apply(&mut factory, &report.plan.unwrap());
+    factory.ticks = DAY_TICKS / 2;
+    rt.set_world(WorldView::of(&factory, BTreeMap::new()));
+    let report = rt.run(
+        "import clock, sensors\nprint(clock.time_of_day(), clock.is_day(), sensors.temperature('steam_1'))\nsensors.temperature('miner_1')",
+        DEPLOY_BUDGET,
+    );
+    assert_eq!(report.output, vec!["18 False 15"]);
+    assert!(
+        matches!(&report.outcome, RunOutcome::Error { message, .. } if message.contains("only steam generators")),
         "{:?}",
         report.outcome
     );

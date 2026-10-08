@@ -165,9 +165,15 @@ const OPERATE: &[Command] = &[
                   print(s[\"kind\"], \"has\", s[\"input\"], \"ore waiting\")\n",
     },
     Command {
-        signature: "sensors.count(x, y)",
-        about: &["How many items are on the belt at (x, y) right now (0 if there is no belt)."],
-        example: "def belt_is_busy():\n    return sensors.count(2, 0) >= 2\n",
+        signature: "sensors.count(x, y) / sensors.temperature(generator)",
+        about: &[
+            "How many items are on the belt at (x, y) right now (0 if there is no belt).",
+            "A steam generator's temperature. At 100 it overheats and powers nothing \
+             until it cools to 70. Each switched-on machine it powers adds 6 degrees, \
+             and the air is up to 15 degrees warmer at noon.",
+        ],
+        example: "def belt_is_busy():\n    return sensors.count(2, 0) >= 2\n\n\
+                  def boiler_is_hot():\n    return sensors.temperature(\"steam_1\") >= 90\n",
     },
     Command {
         signature: "stats.produced(item) / stats.per_minute(item) / stats.coins()",
@@ -192,9 +198,14 @@ const OPERATE: &[Command] = &[
                   print(stats.steam(), \"of\", stats.steam_limit(), \"steam used\")\n",
     },
     Command {
-        signature: "clock.tick() / clock.seconds()",
-        about: &["Ticks and whole seconds the factory has run (20 ticks a second)."],
-        example: "def every_ten_seconds():\n    return clock.tick() % 200 == 0\n",
+        signature: "clock.tick() / clock.seconds() / clock.time_of_day() / clock.is_day()",
+        about: &[
+            "Ticks and whole seconds the factory has run (20 ticks a second).",
+            "The hour (0-23) and whether it is day (6:00 to 18:00). A whole day lasts \
+             four minutes; the clock in the top bar shows it.",
+        ],
+        example: "def every_ten_seconds():\n    return clock.tick() % 200 == 0\n\n\
+                  def hot_hours():\n    return clock.is_day() and 10 <= clock.time_of_day() <= 14\n",
     },
     Command {
         signature: "def on_train(coins): / def on_contract_complete(title):",
@@ -484,7 +495,8 @@ mod tests {
             .chain(OPERATE.iter().map(|c| c.example))
             .chain([
                 "first_tick = tick\ndef tick():\n    first_tick()\n    show_smelter()\n    \
-                 report()\n    belt_is_busy()\n    every_ten_seconds()\n    check()\n",
+                 report()\n    belt_is_busy()\n    every_ten_seconds()\n    check()\n    \
+                 boiler_is_hot()\n    hot_hours()\n",
             ])
             .collect();
         let runtime = ScriptRuntime::new();

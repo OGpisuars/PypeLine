@@ -81,6 +81,16 @@ pub struct Machine {
     /// 1, or 2-3 for the faster Mk2/Mk3 bought in the Shop.
     #[serde(default = "super::conveyors::first_tier")]
     pub tier: u8,
+    /// Steam generators only: temperature in degrees (see thermal.rs).
+    #[serde(default = "room_temperature")]
+    pub heat: u32,
+    /// Steam generators only: too hot to power anything until it cools.
+    #[serde(default)]
+    pub overheated: bool,
+}
+
+fn room_temperature() -> u32 {
+    15
 }
 
 fn switched_on() -> bool {
@@ -99,6 +109,8 @@ impl Machine {
             progress: 0,
             enabled: true,
             tier: 1,
+            heat: room_temperature(),
+            overheated: false,
         }
     }
 

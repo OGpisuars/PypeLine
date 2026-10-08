@@ -96,12 +96,13 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
 - **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
 - **Floating island, chiptune music and steam-moths.** The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
-- **Engineering Manual (F2) and campaign.** Ten chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts, imports and modules, events and sensors, `tick()` and generators) with 21 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
+- **Engineering Manual (F2) and campaign.** Ten chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts, imports and modules, events and sensors, `tick()` and generators) with 22 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
 - **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
 - **`console` module.** Color your output and clear the console for ASCII dashboards.
 - **Your own workspace.** Floating, resizable windows for every file and the console, over a world you can drag and zoom, so there is always room for your code.
 - **Many files.** Split your code into files and `import` them from `main.py`. Errors name the file and line.
 - **`tick()` and events.** Run code 20 times a second, react to `on_train(coins)` and `on_contract_complete(title)`, read `sensors`, `stats` and `clock`, and switch machines on and off.
+- **Day, night and hot boilers.** A four-minute day turns over the island. Boilers run hotter by day; a big one overheats around noon unless your `tick()` reads `sensors.temperature()` and `clock.time_of_day()` and eases off.
 - **Stats (F4).** Items and coins per minute, steam use, uptime, and what every machine is doing. Blocked machines blink red on the island, and `stats.bottlenecks()` gives your scripts the same list.
 - **The Shop.** Spend train coins on Fast/Express belts and Mk2/Mk3 miners and smelters, then use them with `tier=2` or `tier=3` in your script.
 - **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, and a switch to stop the island bobbing.
@@ -110,7 +111,6 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Line debugger.** Step through your script one line at a time and watch your variables.
 
 ### Mid and late game (planned)
-- **Day/night and thermal management.** Boilers run hotter by day and cooler by night. Read the clock and plan around it in code.
 - **Cartridges.** Split your code into modules, shown in-game as physical carts you slot into terminals.
 - **Micro-chips.** Tiny chips on sorters and valves run fast, local micro-scripts: edge vs. central computing.
 - **LED matrix panels.** Control 8x8 and 16x16 pixel displays with `display.set_pixel(x, y, "green")`.

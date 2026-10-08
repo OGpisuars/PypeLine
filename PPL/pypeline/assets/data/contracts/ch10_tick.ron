@@ -71,4 +71,43 @@ def tick():
         yield
 "#,
     ),
+    (
+        id: "ch10_heatwave",
+        title: "Heatwave",
+        brief: "Power six smelter lines (twelve machines) from ONE steam generator and make 500 iron plates (that takes longer than a whole day). It overheats around noon unless tick() switches a few machines off when it gets hot. If it overheats, the contract starts over.",
+        goal: Produce(item: IronPlate, count: 500),
+        requires: [Tick, Conditionals],
+        keep_cool: true,
+        reward: 300,
+        hints: [
+            "Watch it first: point at the generator to see its temperature and where it is heading.",
+            "In tick(): heat = sensors.temperature(\"steam\"), then switch two miners off at 90 or more.",
+            "Switch them back on at 80 or less, so they do not flick on and off every tick.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+import sensors
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in [0, 1, 3, 4, 6, 7]:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    powered = powered + [f"miner_{y}", f"smelter_{y}"]
+power.connect(generator="steam", to=powered)
+
+def tick():
+    heat = sensors.temperature("steam")
+    if heat >= 90:
+        machines.disable("miner_0")
+        machines.disable("miner_1")
+    elif heat <= 80:
+        machines.enable("miner_0")
+        machines.enable("miner_1")
+"#,
+    ),
 ]

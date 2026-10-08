@@ -167,7 +167,9 @@ fn state_color(ui: &egui::Ui, state: MachineState) -> egui::Color32 {
     let visuals = ui.visuals();
     match state {
         MachineState::Working => visuals.text_color(),
-        MachineState::Blocked | MachineState::NoPower => visuals.error_fg_color,
+        MachineState::Blocked | MachineState::NoPower | MachineState::Overheated => {
+            visuals.error_fg_color
+        }
         MachineState::Starved => visuals.warn_fg_color,
         MachineState::Off | MachineState::Idle => visuals.weak_text_color(),
     }

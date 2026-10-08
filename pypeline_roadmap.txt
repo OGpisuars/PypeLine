@@ -602,10 +602,14 @@ Goal: chapters 8-10 and the systems they unlock.
       player-defined on_contract_complete banners
       (on_train, on_contract_complete, sensors.count)
   [x] Generator tick() support (ch. 10)
-  [ ] Day/night cycle (palette shift) + thermal system
-  [~] clock.* module + boiler temperature readouts
-      (clock.tick, clock.seconds; temperatures come with thermal)
-  [ ] Contracts that need thermal planning (after ch. 9)
+  [x] Day/night cycle (palette shift) + thermal system
+      (4-minute day on the sim tick; stepped tint; boilers overheat
+       at 100 with 12+ machines by day, restart at 70)
+  [x] clock.* module + boiler temperature readouts
+      (clock.time_of_day/is_day, sensors.temperature, polaroid, forecast clock)
+  [x] Contracts that need thermal planning (after ch. 9)
+      ("Heatwave" in ch. 10, with a keep-cool rule)
+  [ ] "Relaxed thermal" option for newcomers
   [x] Campaign: contracts for chapters 8-10 (15 total+)
       (20 contracts; golden solutions run tick() and events headless)
   [ ] Playtest chapters 8-10 with true beginners

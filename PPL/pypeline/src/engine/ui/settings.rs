@@ -106,6 +106,9 @@ pub struct Settings {
     pub cursor: CursorChoice,
     /// The island gently floats up and down. Off keeps it perfectly still.
     pub island_bob: bool,
+    /// Tint the world for dawn, dusk and night. The day still turns (and
+    /// boilers still run hotter by day) when this is off.
+    pub day_night: bool,
 }
 
 impl Default for Settings {
@@ -116,6 +119,7 @@ impl Default for Settings {
             text_size: 13.0,
             cursor: CursorChoice::default(),
             island_bob: true,
+            day_night: true,
         }
     }
 }
@@ -278,6 +282,10 @@ pub fn settings_window(
                     ui.label("Island");
                     ui.checkbox(&mut edited.island_bob, "Bob up and down");
                     ui.end_row();
+
+                    ui.label("Day and night");
+                    ui.checkbox(&mut edited.day_night, "Darken the world at night");
+                    ui.end_row();
                 });
             ui.add_space(6.0);
             if ui.button("Back to defaults").clicked() {
@@ -418,6 +426,7 @@ mod tests {
             text_size: 16.0,
             cursor: CursorChoice::Light,
             island_bob: false,
+            day_night: false,
         };
         let text = ron::to_string(&settings).unwrap();
         assert_eq!(ron::from_str::<Settings>(&text).unwrap(), settings);
