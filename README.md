@@ -67,6 +67,7 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 | **F2** or **Manual** | Chapters, examples and contracts |
 | **F3** or **Shop** | Spend coins on faster belts and machines |
 | **F4** or **Stats** | Items per minute, steam, uptime, and bottlenecks |
+| **F6** or **🐞 Debug** | Record `main.py` line by line; **F7 / F8** step back / forward |
 | **Files > + New file** | Add another file (type `PPL` and it becomes `PPL.py`); `main.py` uses it with `import PPL` |
 | **⚙ Settings** | Theme, font, text size, mouse pointer, island bobbing |
 | Drag empty space | Move the world side to side (middle/right button drags from anywhere) |
@@ -103,12 +104,12 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Many files.** Split your code into files and `import` them from `main.py`. Errors name the file and line.
 - **`tick()` and events.** Run code 20 times a second, react to `on_train(coins)` and `on_contract_complete(title)`, read `sensors`, `stats` and `clock`, and switch machines on and off.
 - **Day, night and hot boilers.** A four-minute day turns over the island. Boilers run hotter by day; a big one overheats around noon unless your `tick()` reads `sensors.temperature()` and `clock.time_of_day()` and eases off.
+- **Line debugger (F6).** Record a run of `main.py` and step through it line by line, forwards or backwards, with the current line marked and your variables listed. It never changes your factory.
 - **Stats (F4).** Items and coins per minute, steam use, uptime, and what every machine is doing. Blocked machines blink red on the island, and `stats.bottlenecks()` gives your scripts the same list.
 - **The Shop.** Spend train coins on Fast/Express belts and Mk2/Mk3 miners and smelters, then use them with `tier=2` or `tier=3` in your script.
 - **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, and a switch to stop the island bobbing.
 
 ### Coming next
-- **Line debugger.** Step through your script one line at a time and watch your variables.
 
 ### Mid and late game (planned)
 - **Cartridges.** Split your code into modules, shown in-game as physical carts you slot into terminals.

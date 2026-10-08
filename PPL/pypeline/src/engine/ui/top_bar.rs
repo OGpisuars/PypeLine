@@ -29,6 +29,7 @@ pub struct Toggles<'w> {
     shop: ResMut<'w, ShopWindow>,
     stats: ResMut<'w, super::stats_panel::StatsWindow>,
     view: ResMut<'w, ViewState>,
+    debugger: ResMut<'w, super::debugger::Debugger>,
     prefs: ResMut<'w, super::settings::Settings>,
 }
 
@@ -88,6 +89,16 @@ pub fn top_bar(
                 .on_hover_text("Clear the whole factory, then run (coins are kept)");
             if clean.clicked() {
                 run = Some(true);
+            }
+            if ui
+                .button("🐞 Debug")
+                .on_hover_text(
+                    "Record main.py line by line and step through it (F6). \
+                     Never changes the factory.",
+                )
+                .clicked()
+            {
+                toggles.debugger.requested = true;
             }
             ui.separator();
 

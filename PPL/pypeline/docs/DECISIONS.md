@@ -6,6 +6,15 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: The line debugger records, then replays
+
+The roadmap warned that pausing the VM mid-line and resuming it is "harder than tick stepping". The debugger avoids pausing altogether:
+- A Debug Run turns on a `Recorder` that the existing VM hook feeds from RustPython's "line" trace events. Each step saves the file, line, function, the frame's variables as text (no modules, functions or classes; at most 24, 60 characters each), how much has been printed, and the steam used.
+- Runs are deterministic, so stepping through the recording, forwards or backwards, shows exactly what the run did. Stepping back for free is a bonus a pausing debugger would not have.
+- Recording costs no steam: the trace function runs with tracing switched off, so `repr()` calls inside it are never charged. A test checks steps_used is identical with and without recording.
+- Debug Runs use their own `ScriptRuntime` (a non-send resource), read a snapshot of the real factory, and never apply their build plan, so they cannot disturb the running script's tick() or the factory.
+- At most 2000 lines are recorded; the window says when it was cut short.
+
 ## 2026-10-08: Stats, day/night and boiler heat
 
 ### Stats

@@ -7,6 +7,7 @@
 
 pub mod autocomplete;
 pub mod console;
+pub mod debugger;
 pub mod editor;
 pub mod help;
 pub mod highlight;
@@ -42,6 +43,10 @@ impl Plugin for UiPlugin {
             .init_resource::<settings::SettingsWindow>()
             .init_resource::<shop::ShopWindow>()
             .init_resource::<stats_panel::StatsWindow>()
+            .init_resource::<debugger::Debugger>()
+            .insert_non_send(debugger::DebugRuntime(
+                crate::scripting::runtime::ScriptRuntime::new(),
+            ))
             .add_systems(Startup, (editor::load_scripts, settings::load_settings))
             .add_systems(
                 Update,
@@ -52,6 +57,7 @@ impl Plugin for UiPlugin {
                     stats_panel::toggle_stats,
                     announce_sales,
                     settings::save_settings,
+                    debugger::run_debugger,
                 ),
             )
             // In Last, so it sees the AppExit sent when the window closes
@@ -69,6 +75,8 @@ impl Plugin for UiPlugin {
                     shop::shop_window,
                     stats_panel::stats_window,
                     settings::settings_window,
+                    debugger::debugger_window,
+                    debugger::debug_keys,
                     time_dials::time_dial_keys,
                     polaroid::polaroid,
                     debug_overlay,

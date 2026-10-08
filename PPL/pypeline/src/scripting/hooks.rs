@@ -5,7 +5,9 @@
 //!   * on every frame "call", turns on opcode tracing for that frame and
 //!     returns itself as the frame's local trace function;
 //!   * on every "opcode" event, checks the memory cap and the watchdog, charges
-//!     one step of steam, and stops the script once the budget is gone.
+//!     one step of steam, and stops the script once the budget is gone;
+//!   * on every "line" event, lets the debugger's `Recorder` note the line
+//!     (only while it is recording).
 //!
 //! IMPORTANT: when a trace function raises, RustPython (like CPython) switches
 //! tracing OFF. Two rules keep the budget unbreakable anyway:
@@ -23,6 +25,7 @@ use rustpython_vm::{
 };
 
 use super::budget::Budget;
+use super::trace::Recorder;
 
 /// Message carried by the exception raised when steam runs out.
 pub const OUT_OF_STEAM: &str = "out of steam: the script used its whole step budget";
@@ -36,7 +39,7 @@ pub struct StepHook {
 }
 
 impl StepHook {
-    pub fn install(vm: &VirtualMachine, budget: Rc<Budget>) -> Self {
+    pub fn install(vm: &VirtualMachine, budget: Rc<Budget>, recorder: Rc<Recorder>) -> Self {
         let stopped: PyTypeRef = vm.ctx.new_exception_type(
             "pypeline",
             "Stopped",
@@ -81,6 +84,12 @@ impl StepHook {
                             budget.record_stop_line(line, file);
                             stop(OUT_OF_STEAM)
                         }
+                    }
+                    Some("line") => {
+                        if recorder.is_on() {
+                            recorder.record(&frame, budget.used(), vm);
+                        }
+                        Ok(vm.ctx.none())
                     }
                     _ => Ok(vm.ctx.none()),
                 }

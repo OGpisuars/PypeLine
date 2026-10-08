@@ -14,6 +14,7 @@ pub mod operate;
 pub mod reconcile;
 pub mod runtime;
 pub mod sandbox;
+pub mod trace;
 
 use bevy::prelude::*;
 

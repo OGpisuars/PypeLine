@@ -48,6 +48,8 @@ const MOVING: &[&str] = &[
 
 const KEYS: &[(&str, &str)] = &[
     ("Ctrl+Enter or F5", "Run"),
+    ("F6", "Debug: record main.py line by line"),
+    ("F7 / F8", "debugger: back / forward one line"),
     ("F1 / F2 / F3 / F4", "Help / Manual / Shop / Stats"),
     ("Space", "pause or play (when not typing)"),
     (". (period)", "step one tick while paused"),
@@ -217,6 +219,15 @@ const OPERATE: &[Command] = &[
     },
 ];
 
+const DEBUGGING: &[&str] = &[
+    "Press Debug (F6) to record a run of main.py line by line. The Debugger window \
+     then steps through it: forward, backward, or straight to the next time a line runs.",
+    "The line about to run is marked in its code window, and the window lists your \
+     variables as they were just before it. Values that just changed are highlighted.",
+    "A Debug Run uses its own copy of Python and never changes the factory, so press \
+     it as often as you like. It records up to 2000 lines.",
+];
+
 const FILES: &[&str] = &[
     "Files > + New file makes another file next to main.py. Type a name like PPL and \
      it is saved as PPL.py (if you type PPL.py it stays PPL.py).",
@@ -313,6 +324,7 @@ pub fn help_window(
                 }
                 ui.add_space(4.0);
                 section(ui, "Your own files", false, |ui| paragraphs(ui, FILES));
+                section(ui, "The debugger", false, |ui| paragraphs(ui, DEBUGGING));
                 section(ui, "The Shop and tiers", false, shop_help);
                 section(ui, "When something goes wrong", false, |ui| {
                     for (problem, fix) in TROUBLESHOOTING {

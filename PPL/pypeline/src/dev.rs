@@ -4,7 +4,7 @@
 //! - `PYPELINE_SCREENSHOT=out.png`: save a screenshot, then quit.
 //! - `PYPELINE_SCREENSHOT_AFTER=8`: seconds to wait before the screenshot
 //!   (default 5).
-//! - `PYPELINE_OPEN=help,shop,settings,manual,stats`: open those windows at startup.
+//! - `PYPELINE_OPEN=help,shop,settings,manual,stats,debug`: open those windows at startup.
 //!
 //! Handy for checking visuals in automated runs. Does nothing otherwise.
 
@@ -65,6 +65,7 @@ fn open_windows(
     mut settings: ResMut<crate::engine::ui::settings::SettingsWindow>,
     mut manual: ResMut<crate::engine::ui::manual::ManualState>,
     mut stats: ResMut<crate::engine::ui::stats_panel::StatsWindow>,
+    mut debugger: ResMut<crate::engine::ui::debugger::Debugger>,
 ) {
     if *done || time.elapsed_secs() < 1.0 {
         return;
@@ -77,6 +78,7 @@ fn open_windows(
             "settings" => settings.open = true,
             "manual" => manual.open = true,
             "stats" => stats.open = true,
+            "debug" => debugger.requested = true,
             "-manual" => manual.open = false,
             _ => {}
         }

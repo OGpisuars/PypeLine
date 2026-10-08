@@ -6,7 +6,7 @@
 use std::ops::Range;
 
 use bevy_egui::egui::{
-    FontId,
+    Color32, FontId,
     text::{LayoutJob, TextFormat},
 };
 
@@ -173,29 +173,34 @@ fn line_range(src: &str, line: usize) -> Option<Range<usize>> {
     None
 }
 
-/// Build the colored layout for the editor.
-pub fn layout(src: &str, font: FontId, error_line: Option<usize>, syntax: &Syntax) -> LayoutJob {
-    let error = error_line.and_then(|line| line_range(src, line));
+/// Build the colored layout for the editor. `marks` gives whole lines a
+/// background color: the error line, the debugger's current line.
+pub fn layout(src: &str, font: FontId, marks: &[(usize, Color32)], syntax: &Syntax) -> LayoutJob {
+    let marked: Vec<(Range<usize>, Color32)> = marks
+        .iter()
+        .filter_map(|&(line, color)| line_range(src, line).map(|r| (r, color)))
+        .collect();
     let mut job = LayoutJob::default();
     for (range, kind) in tokenize(src) {
-        // Split each piece where the error line starts and ends.
+        // Split each piece where a marked line starts and ends.
         let mut cuts = vec![range.start, range.end];
-        if let Some(err) = &error {
-            for at in [err.start, err.end] {
+        for (mark, _) in &marked {
+            for at in [mark.start, mark.end] {
                 if range.start < at && at < range.end {
                     cuts.push(at);
                 }
             }
         }
         cuts.sort_unstable();
+        cuts.dedup();
         for pair in cuts.windows(2) {
             let (a, b) = (pair[0], pair[1]);
             let mut format = TextFormat::simple(font.clone(), rgb(color(kind, syntax)));
-            if error
-                .as_ref()
-                .is_some_and(|err| err.start <= a && b <= err.end)
+            if let Some((_, color)) = marked
+                .iter()
+                .find(|(mark, _)| mark.start <= a && b <= mark.end)
             {
-                format.background = rgb(syntax.error_line);
+                format.background = *color;
             }
             job.append(&src[a..b], 0.0, format);
         }
@@ -255,15 +260,16 @@ mod tests {
     fn error_line_is_marked() {
         let src = "a = 1\nb = oops\nc = 3\n";
         let syntax = crate::engine::themes::CLASSIC.syntax;
-        let marked = |line| {
-            layout(src, FontId::monospace(12.0), line, &syntax)
+        let red = rgb(syntax.error_line);
+        let marked = |marks: &[(usize, Color32)]| {
+            layout(src, FontId::monospace(12.0), marks, &syntax)
                 .sections
                 .iter()
-                .filter(|s| s.format.background == rgb(syntax.error_line))
+                .filter(|s| s.format.background == red)
                 .count()
         };
         assert_eq!(line_range(src, 2), Some(6..15));
-        assert!(marked(Some(2)) > 0);
-        assert_eq!(marked(None), 0);
+        assert!(marked(&[(2, red)]) > 0);
+        assert_eq!(marked(&[]), 0);
     }
 }

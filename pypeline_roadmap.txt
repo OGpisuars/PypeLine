@@ -587,8 +587,10 @@ for loop unaided.
 PHASE 3B - BETA: DEPTH SYSTEMS (Week 22-28)
 --------------------------------------------------------------
 Goal: chapters 8-10 and the systems they unlock.
-  [ ] Line debugger: step one line, variable watch, current-
+  [x] Line debugger: step one line, variable watch, current-
       line marker (trace.rs, on the Phase 0 hook) (Part 4 F)
+      (Debug Run records up to 2000 lines; steps forwards AND
+       backwards; never changes the factory)
   [x] Stats dashboard: IPM, steam use, uptime, bottleneck glow
       (Stats window, F4: per-machine state and busy %, blinking outlines)
   [x] stats.* Python module (ipm, steam, bottlenecks)

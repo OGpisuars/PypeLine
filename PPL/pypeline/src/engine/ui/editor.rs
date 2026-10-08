@@ -290,6 +290,7 @@ pub fn autosave(
 const CODE_SIZE: egui::Vec2 = egui::vec2(470.0, 440.0);
 
 /// Every open code window, the console, and the New file / Delete dialogs.
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 pub fn code_windows(
     mut contexts: EguiContexts,
     mut workspace: ResMut<Workspace>,
@@ -298,12 +299,28 @@ pub fn code_windows(
     mut console: ResMut<Console>,
     settings: Res<Settings>,
     area: Res<crate::engine::camera::GameArea>,
+    debugger: Res<super::debugger::Debugger>,
+    mut followed: Local<Option<(String, usize)>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     let top = area.0.map_or(40.0, |a| a.min.y) + 8.0;
     let screen = ctx.viewport_rect();
     let layout = workspace.layout;
     let syntax = settings.theme().syntax;
+    let theme = settings.theme();
+    let here = debugger.current_line();
+    // The debugger opens the window of the file it is in, and brings it to
+    // the front each time it moves to another line.
+    if let Some((file, _)) = &here
+        && let Some(f) = workspace.files.iter_mut().find(|f| f.name == *file)
+    {
+        f.open = true;
+        if *followed != here {
+            let id = egui::Id::new(("code_window", file, layout));
+            ctx.move_to_top(egui::LayerId::new(egui::Order::Middle, id));
+        }
+    }
+    followed.clone_from(&here);
 
     let mut delete = None;
     for (index, file) in workspace.files.iter_mut().enumerate() {
@@ -331,6 +348,15 @@ pub fn code_windows(
                     Some((name, line)) if *name == file.name => Some(*line),
                     _ => None,
                 };
+                let mut marks = Vec::new();
+                if let Some((name, line)) = &here
+                    && *name == file.name
+                {
+                    marks.push((*line, crate::engine::themes::rgb(theme.accent)));
+                }
+                if let Some(line) = marked {
+                    marks.push((line, crate::engine::themes::rgb(syntax.error_line)));
+                }
                 ui.horizontal(|ui| {
                     if index == 0 {
                         ui.weak("Run starts here");
@@ -355,7 +381,7 @@ pub fn code_windows(
                         });
                     }
                 });
-                code_editor(ui, file, marked, &syntax);
+                code_editor(ui, file, &marks, &syntax);
             });
         file.open = open;
     }
@@ -383,12 +409,12 @@ pub fn code_windows(
 fn code_editor(
     ui: &mut egui::Ui,
     file: &mut ScriptFile,
-    marked: Option<usize>,
+    marks: &[(usize, egui::Color32)],
     syntax: &crate::engine::themes::Syntax,
 ) {
     let font = egui::TextStyle::Monospace.resolve(ui.style());
     let mut layouter = |ui: &egui::Ui, buf: &dyn egui::TextBuffer, wrap_width: f32| {
-        let mut job = highlight::layout(buf.as_str(), font.clone(), marked, syntax);
+        let mut job = highlight::layout(buf.as_str(), font.clone(), marks, syntax);
         job.wrap.max_width = wrap_width;
         ui.fonts_mut(|f| f.layout_job(job))
     };

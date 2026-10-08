@@ -25,6 +25,7 @@ use super::console_api::{ConsoleOp, ConsoleSink};
 use super::hooks;
 use super::operate::{ApiMode, Op, WorldView};
 use super::sandbox;
+use super::trace::{Recorder, TraceStep};
 
 /// Deepest call nesting a script may reach.
 const RECURSION_LIMIT: usize = 200;
@@ -144,6 +145,7 @@ pub struct ScriptRuntime {
     modules: Rc<RefCell<ModuleTable>>,
     user_modules: Rc<RefCell<UserModules>>,
     hook: hooks::StepHook,
+    recorder: Rc<Recorder>,
     session: RefCell<Option<Session>>,
     /// Where the last error happened (file, line), filled by `locate`.
     error_file: RefCell<Option<String>>,
@@ -174,7 +176,9 @@ impl ScriptRuntime {
             // game's own stack is at risk.
             vm.recursion_limit.set(RECURSION_LIMIT);
         });
-        let hook = interpreter.enter(|vm| hooks::StepHook::install(vm, budget.clone()));
+        let recorder = Rc::new(Recorder::new(ctx.console.clone()));
+        let hook =
+            interpreter.enter(|vm| hooks::StepHook::install(vm, budget.clone(), recorder.clone()));
 
         Self {
             interpreter,
@@ -183,6 +187,7 @@ impl ScriptRuntime {
             modules,
             user_modules,
             hook,
+            recorder,
             session: RefCell::new(None),
             error_file: RefCell::new(None),
         }
@@ -213,6 +218,19 @@ impl ScriptRuntime {
     /// Compile and run `source` as a fresh module with `step_limit` steps.
     pub fn run(&self, source: &str, step_limit: u64) -> RunReport {
         self.run_program(&Program::main_only(source), step_limit)
+    }
+
+    /// Run main.py like `run_program`, recording every line for the line
+    /// debugger. Also returns whether the recording was cut short.
+    pub fn debug_program(
+        &self,
+        program: &Program,
+        step_limit: u64,
+    ) -> (RunReport, Vec<TraceStep>, bool) {
+        self.recorder.start();
+        let report = self.run_program(program, step_limit);
+        let (steps, truncated) = self.recorder.finish();
+        (report, steps, truncated)
     }
 
     /// Run main.py, which may import the program's other files.
