@@ -4,6 +4,7 @@ pub mod bindings;
 pub mod budget;
 pub mod commands;
 pub mod concepts;
+pub mod console_api;
 pub mod errors;
 pub mod files;
 pub mod hooks;
@@ -64,6 +65,8 @@ pub enum ConsoleKind {
 pub struct ConsoleLine {
     pub kind: ConsoleKind,
     pub text: String,
+    /// Set by `console.color(...)` in the script.
+    pub color: Option<console_api::ConsoleColor>,
 }
 
 /// In-game console scrollback.
@@ -80,7 +83,23 @@ impl Console {
         self.lines.push_back(ConsoleLine {
             kind,
             text: text.into(),
+            color: None,
         });
+    }
+
+    /// Apply what a script did to the console: colored lines and clears.
+    pub fn apply(&mut self, ops: Vec<console_api::ConsoleOp>) {
+        for op in ops {
+            match op {
+                console_api::ConsoleOp::Clear => self.lines.clear(),
+                console_api::ConsoleOp::Line { text, color } => {
+                    self.push(ConsoleKind::Output, text);
+                    if let Some(line) = self.lines.back_mut() {
+                        line.color = color;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -156,9 +175,7 @@ fn run_pending_script(
 
     console.push(ConsoleKind::Info, format!("> Run (tick {})", tick.0));
     let report = runtime.run(&source, DEPLOY_BUDGET);
-    for line in report.output {
-        console.push(ConsoleKind::Output, line);
-    }
+    console.apply(report.console);
 
     let at = |line: Option<usize>| line.map(|l| format!(" (line {l})")).unwrap_or_default();
     error_line.0 = None;

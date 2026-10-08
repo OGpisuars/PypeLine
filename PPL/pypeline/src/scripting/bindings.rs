@@ -15,6 +15,7 @@ use rustpython_vm::{
 };
 
 use super::commands::{BuildPlan, PlannedMachine};
+use super::console_api::{ConsoleSink, console_module};
 use crate::factory::items;
 use crate::factory::machines::MachineKind;
 use crate::factory::{Dir, Pos};
@@ -57,7 +58,11 @@ struct ConnectArgs {
 }
 
 /// Build this run's modules, all recording into `plan`.
-pub fn build_modules(vm: &VirtualMachine, plan: &Rc<RefCell<BuildPlan>>) -> PyResult<ModuleTable> {
+pub fn build_modules(
+    vm: &VirtualMachine,
+    plan: &Rc<RefCell<BuildPlan>>,
+    console: &Rc<RefCell<ConsoleSink>>,
+) -> PyResult<ModuleTable> {
     let place_conveyor = {
         let plan = plan.clone();
         vm.new_function(
@@ -143,12 +148,14 @@ pub fn build_modules(vm: &VirtualMachine, plan: &Rc<RefCell<BuildPlan>>) -> PyRe
         ],
     )?;
     let power = new_module(vm, "power", &[("connect", connect.into())])?;
+    let console = new_module(vm, "console", &console_module(vm, console)?)?;
 
     Ok(BTreeMap::from([
         ("auto".to_owned(), auto),
         ("auto.conveyors".to_owned(), conveyors),
         ("auto.machines".to_owned(), machines),
         ("power".to_owned(), power),
+        ("console".to_owned(), console),
     ]))
 }
 

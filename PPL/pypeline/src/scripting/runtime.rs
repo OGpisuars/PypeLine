@@ -16,15 +16,12 @@ use rustpython_vm::{
 use super::bindings::{self, ModuleTable};
 use super::budget::Budget;
 use super::commands::BuildPlan;
+use super::console_api::{ConsoleOp, ConsoleSink};
 use super::hooks;
 use super::sandbox;
 
 /// Deepest call nesting a script may reach.
 const RECURSION_LIMIT: usize = 200;
-/// Max characters kept from a single `print()` call.
-const MAX_LINE_CHARS: usize = 200;
-/// Max console lines one run may produce.
-const MAX_LINES_PER_RUN: usize = 200;
 
 /// How a script run ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +40,10 @@ pub enum RunOutcome {
 /// Result of one script run: console output plus how it ended.
 #[derive(Debug, Clone)]
 pub struct RunReport {
+    /// Plain text of every printed line.
     pub output: Vec<String>,
+    /// Everything done to the console, in order (colored lines, clears).
+    pub console: Vec<ConsoleOp>,
     pub outcome: RunOutcome,
     pub steps_used: u64,
     pub steps_limit: u64,
@@ -55,7 +55,7 @@ pub struct RunReport {
 pub struct ScriptRuntime {
     interpreter: Interpreter,
     budget: Rc<Budget>,
-    output: Rc<RefCell<Vec<String>>>,
+    output: Rc<RefCell<ConsoleSink>>,
     plan: Rc<RefCell<BuildPlan>>,
     modules: Rc<RefCell<ModuleTable>>,
     hook: hooks::StepHook,
@@ -70,7 +70,7 @@ impl ScriptRuntime {
         let interpreter = Interpreter::without_stdlib(settings);
 
         let budget = Rc::new(Budget::default());
-        let output = Rc::new(RefCell::new(Vec::new()));
+        let output = Rc::new(RefCell::new(ConsoleSink::default()));
         let modules = Rc::new(RefCell::new(ModuleTable::new()));
 
         interpreter.enter(|vm| {
@@ -95,13 +95,14 @@ impl ScriptRuntime {
 
     /// Compile and run `source` as a fresh module with `step_limit` steps.
     pub fn run(&self, source: &str, step_limit: u64) -> RunReport {
-        self.output.borrow_mut().clear();
+        self.output.borrow_mut().reset();
         self.budget.reset(step_limit);
         *self.plan.borrow_mut() = BuildPlan::default();
 
         if let Err(rejection) = sandbox::check(source) {
             return RunReport {
                 output: Vec::new(),
+                console: Vec::new(),
                 plan: None,
                 outcome: RunOutcome::Error {
                     line: Some(rejection.line),
@@ -116,7 +117,7 @@ impl ScriptRuntime {
             if let Err(exc) = self.hook.arm(vm) {
                 return error_outcome(vm, &exc);
             }
-            match bindings::build_modules(vm, &self.plan) {
+            match bindings::build_modules(vm, &self.plan, &self.output) {
                 Ok(table) => *self.modules.borrow_mut() = table,
                 Err(exc) => return error_outcome(vm, &exc),
             }
@@ -145,8 +146,10 @@ impl ScriptRuntime {
         });
 
         let plan = (outcome == RunOutcome::Finished).then(|| self.plan.take());
+        let sink = std::mem::take(&mut *self.output.borrow_mut());
         RunReport {
-            output: std::mem::take(&mut *self.output.borrow_mut()),
+            output: sink.lines,
+            console: sink.ops,
             plan,
             outcome,
             steps_used: self.budget.used(),
@@ -162,7 +165,7 @@ impl Default for ScriptRuntime {
 }
 
 /// Replace `builtins.print` with one that appends to the console buffer.
-fn install_print(vm: &VirtualMachine, output: Rc<RefCell<Vec<String>>>) -> PyResult<()> {
+fn install_print(vm: &VirtualMachine, output: Rc<RefCell<ConsoleSink>>) -> PyResult<()> {
     let print = vm.new_function(
         "print",
         move |args: FuncArgs, vm: &VirtualMachine| -> PyResult<()> {
@@ -174,13 +177,7 @@ fn install_print(vm: &VirtualMachine, output: Rc<RefCell<Vec<String>>>) -> PyRes
             for arg in &args.args {
                 parts.push(arg.str(vm)?.to_string());
             }
-            let mut out = output.borrow_mut();
-            for line in parts.join(&sep).split('\n') {
-                if out.len() >= MAX_LINES_PER_RUN {
-                    break;
-                }
-                out.push(sanitize(line));
-            }
+            output.borrow_mut().print(&parts.join(&sep));
             Ok(())
         },
     );
@@ -224,20 +221,6 @@ fn install_import_guard(vm: &VirtualMachine, modules: Rc<RefCell<ModuleTable>>) 
         },
     );
     vm.builtins.set_attr("__import__", guard, vm)
-}
-
-/// Keep console output safe: no control characters or escape codes, and a
-/// capped line length (roadmap: ASCII DASHBOARDS / sandbox output cap).
-fn sanitize(line: &str) -> String {
-    line.chars()
-        .filter(|c| !c.is_control() && !is_invisible(*c))
-        .take(MAX_LINE_CHARS)
-        .collect()
-}
-
-/// Bidi overrides and zero-width characters that could disguise text.
-fn is_invisible(c: char) -> bool {
-    matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
 }
 
 fn error_outcome(vm: &VirtualMachine, exc: &PyBaseExceptionRef) -> RunOutcome {
@@ -394,6 +377,23 @@ mod tests {
             report.outcome,
             RunOutcome::Error { line: Some(2), .. }
         ));
+    }
+
+    #[test]
+    fn console_module_colors_and_clears() {
+        use crate::scripting::console_api::{ConsoleColor, ConsoleOp};
+        let report = run("import console\nconsole.color('green')\nprint('ok')\nconsole.clear()");
+        assert_eq!(
+            report.console,
+            vec![
+                ConsoleOp::Line {
+                    text: "ok".into(),
+                    color: Some(ConsoleColor::Green)
+                },
+                ConsoleOp::Clear,
+            ]
+        );
+        assert!(error_message("import console\nconsole.color('pink')").contains("unknown color"));
     }
 
     #[test]

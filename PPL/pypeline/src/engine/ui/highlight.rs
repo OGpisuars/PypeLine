@@ -56,6 +56,7 @@ const BUILTINS: &[&str] = &[
     "conveyors",
     "machines",
     "power",
+    "console",
 ];
 
 /// Split Python source into colored pieces covering every byte.

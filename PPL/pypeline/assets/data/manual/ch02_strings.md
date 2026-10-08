@@ -66,3 +66,19 @@ done = 7
 total = 10
 print("[" + "#" * done + "." * (total - done) + "]")
 ```
+
+## Color and a clean slate
+
+The `console` module colors your output and clears the console. Colors come from a fixed set: green, red, yellow, blue, orange and gray.
+
+```python
+# snippet: Green progress bar
+import console
+
+console.clear()
+console.color("green")
+done = 7
+print(f"[{'#' * done}{'.' * (10 - done)}] {done * 10}%")
+console.color("default")
+print("Back to normal")
+```

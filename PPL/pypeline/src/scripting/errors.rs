@@ -11,6 +11,9 @@ const KNOWN_NAMES: &[&str] = &[
     "power",
     "place",
     "connect",
+    "console",
+    "clear",
+    "color",
     // Built-ins beginners use.
     "print",
     "range",

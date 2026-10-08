@@ -76,6 +76,15 @@ const COMMANDS: &[Command] = &[
                   power.connect(generator=\"steam_1\", to=[\"miner_1\"])\n",
     },
     Command {
+        signature: "console.color(name) / console.clear()",
+        about: &[
+            "import console first. console.color(\"green\") colors the lines you print after it.",
+            "Colors: green, red, yellow, blue, orange, gray, or \"default\" to go back.",
+            "console.clear() wipes the console, handy for dashboards that redraw.",
+        ],
+        example: "import console\nconsole.color(\"green\")\nprint(\"[\" + \"#\" * 8 + \"..]\")\nconsole.color(\"default\")\n",
+    },
+    Command {
         signature: "print(...)",
         about: &["Writes to the console. Handy for checking what a variable holds."],
         example: "print(\"Hello, factory!\")\n",
