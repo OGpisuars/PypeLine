@@ -34,7 +34,7 @@ You do not have to write Rust to contribute.
 
 If you find a way for a player script to read files, run system commands, crash the game unrecoverably, or escape the sandbox, **do not open a public issue.**
 
-Contact [YOUR CONTACT EMAIL] with:
+Contact KiloKiloGames@gmail.com with:
 - What you did, with a minimal script that reproduces it
 - What happened
 - Your OS and game version
