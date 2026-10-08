@@ -33,6 +33,7 @@ impl Plugin for PypelinePlugin {
                 engine::renderer::FactoryRenderPlugin,
                 engine::wires::WirePlugin,
                 engine::failures::FailurePlugin,
+                engine::wildlife::WildlifePlugin,
                 engine::ui::UiPlugin,
                 progression::saves::SavePlugin,
             ));

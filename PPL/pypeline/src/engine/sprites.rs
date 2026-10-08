@@ -160,9 +160,9 @@ fn color_of(key: char) -> [u8; 4] {
     [r, g, b, 255]
 }
 
-type Grid = Vec<Vec<char>>;
+pub(crate) type Grid = Vec<Vec<char>>;
 
-fn grid(rows: &[&str]) -> Grid {
+pub(crate) fn grid(rows: &[&str]) -> Grid {
     rows.iter().map(|row| row.chars().collect()).collect()
 }
 
@@ -205,7 +205,7 @@ fn facing(g: &Grid, dir: Dir) -> Grid {
         .collect()
 }
 
-fn to_image(g: &Grid) -> Image {
+pub(crate) fn to_image(g: &Grid) -> Image {
     let height = g.len();
     let width = g[0].len();
     assert!(g.iter().all(|row| row.len() == width), "ragged sprite grid");

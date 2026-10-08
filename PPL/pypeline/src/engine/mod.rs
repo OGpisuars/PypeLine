@@ -8,4 +8,5 @@ pub mod palette;
 pub mod renderer;
 pub mod sprites;
 pub mod ui;
+pub mod wildlife;
 pub mod wires;
