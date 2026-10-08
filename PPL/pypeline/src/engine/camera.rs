@@ -30,6 +30,15 @@ pub const SCREEN_LAYER: RenderLayers = RenderLayers::layer(1);
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct PixelScale(pub u32);
 
+/// The part of the window not covered by the code panel, in logical pixels
+/// with y growing downward (egui's coordinates). None until the UI has run.
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct GameArea(pub Option<Rect>);
+
+/// Marks the sprite that shows the 480x320 canvas on screen.
+#[derive(Component)]
+struct CanvasSprite;
+
 /// The plot tile under the mouse (None when off the plot or over a window).
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct HoveredTile(pub Option<Pos>);
@@ -44,6 +53,7 @@ impl Plugin for PixelCameraPlugin {
         app.insert_resource(PixelScale(1))
             .insert_resource(ClearColor(palette::LETTERBOX))
             .init_resource::<HoveredTile>()
+            .init_resource::<GameArea>()
             .add_systems(Startup, setup_cameras)
             .add_systems(Update, fit_canvas)
             // Runs in the egui pass so it can ask whether the mouse is over a window.
@@ -89,7 +99,7 @@ fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ));
 
     // Shows the canvas on screen; egui draws on this camera too.
-    commands.spawn((Sprite::from_image(canvas), SCREEN_LAYER));
+    commands.spawn((Sprite::from_image(canvas), CanvasSprite, SCREEN_LAYER));
     commands.spawn((
         Camera2d,
         Msaa::Off,
@@ -99,16 +109,36 @@ fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ));
 }
 
+/// Scale the canvas by the largest whole number that fits the game area and
+/// center it there, with its edges on whole pixels.
 fn fit_canvas(
     window: Single<&Window, With<PrimaryWindow>>,
+    area: Res<GameArea>,
     mut projection: Single<&mut Projection, With<ScreenCamera>>,
+    mut canvas: Single<&mut Transform, With<CanvasSprite>>,
     mut scale: ResMut<PixelScale>,
 ) {
-    let fit_w = window.width() / RES_WIDTH as f32;
-    let fit_h = window.height() / RES_HEIGHT as f32;
+    let (w, h) = (window.width(), window.height());
+    let area = area.0.unwrap_or(Rect::new(0.0, 0.0, w, h));
+    let fit_w = area.width() / RES_WIDTH as f32;
+    let fit_h = area.height() / RES_HEIGHT as f32;
     let factor = (fit_w.min(fit_h).floor() as u32).max(1);
+    let f = factor as f32;
     if let Projection::Orthographic(ortho) = &mut **projection {
-        ortho.scale = 1.0 / factor as f32;
+        ortho.scale = 1.0 / f;
+    }
+    // Top-left corner of the canvas on screen, on a whole logical pixel.
+    let left = (area.center().x - RES_WIDTH as f32 * f / 2.0).round();
+    let top = (area.center().y - RES_HEIGHT as f32 * f / 2.0).round();
+    // Its center relative to the window center, in canvas pixels (world
+    // units of the screen camera), with y pointing up.
+    let center = Vec2::new(
+        left + RES_WIDTH as f32 * f / 2.0 - w / 2.0,
+        -(top + RES_HEIGHT as f32 * f / 2.0 - h / 2.0),
+    ) / f;
+    let wanted = center.extend(0.0);
+    if canvas.translation != wanted {
+        canvas.translation = wanted;
     }
     if scale.0 != factor {
         scale.0 = factor;
@@ -118,6 +148,7 @@ fn fit_canvas(
 fn track_hovered_tile(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<ScreenCamera>>,
+    canvas: Single<&Transform, With<CanvasSprite>>,
     mut contexts: EguiContexts,
     mut hovered: ResMut<HoveredTile>,
     island: Option<Res<super::floating_plot::Island>>,
@@ -130,7 +161,8 @@ fn track_hovered_tile(
         .cursor_position()
         .filter(|_| !over_ui)
         .and_then(|cursor| camera.viewport_to_world_2d(transform, cursor).ok())
-        // The plot bobs with the island.
+        // From screen-camera space to canvas space; the plot also bobs.
+        .map(|world| world - canvas.translation.truncate())
         .map(|world| world - Vec2::new(0.0, island.as_ref().map_or(0.0, |i| i.bob)))
         .and_then(world_to_plot);
     if hovered.0 != tile {

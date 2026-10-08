@@ -39,8 +39,7 @@ impl Plugin for UiPlugin {
                 EguiPrimaryContextPass,
                 (
                     apply_theme,
-                    editor::editor_window,
-                    console::console_window,
+                    editor::code_panel,
                     help::help_window,
                     time_dials::time_dials,
                     time_dials::time_dial_keys,
@@ -123,6 +122,7 @@ fn debug_overlay(
     factory: Res<Factory>,
     hovered: Res<HoveredTile>,
     control: Res<SimControl>,
+    area: Res<super::camera::GameArea>,
     diagnostics: Res<DiagnosticsStore>,
 ) -> Result {
     let fps = diagnostics
@@ -130,7 +130,9 @@ fn debug_overlay(
         .and_then(|d| d.smoothed())
         .unwrap_or(0.0);
     egui::Area::new(egui::Id::new("debug_overlay"))
-        .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 8.0))
+        .fixed_pos(area.0.map_or(egui::pos2(8.0, 8.0), |a| {
+            egui::pos2(a.min.x + 8.0, a.min.y + 52.0)
+        }))
         .interactable(false)
         .show(contexts.ctx_mut()?, |ui| {
             let status = match (factory.halted, control.paused) {

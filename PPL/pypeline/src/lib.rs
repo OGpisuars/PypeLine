@@ -1,6 +1,7 @@
 //! PypeLine: a cozy GBA-style factory game where your factory runs on Python.
 
 pub mod audio;
+pub mod dev;
 pub mod engine;
 pub mod factory;
 pub mod progression;
@@ -38,6 +39,7 @@ impl Plugin for PypelinePlugin {
                 engine::ui::UiPlugin,
                 progression::saves::SavePlugin,
                 audio::GameAudioPlugin,
+                dev::DevPlugin,
             ));
     }
 }

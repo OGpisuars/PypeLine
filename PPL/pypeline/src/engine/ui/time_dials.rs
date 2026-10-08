@@ -12,10 +12,14 @@ pub fn time_dials(
     mut contexts: EguiContexts,
     mut control: ResMut<SimControl>,
     mut audio: ResMut<crate::audio::AudioSettings>,
+    area: Res<crate::engine::camera::GameArea>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
     egui::Area::new(egui::Id::new("time_dials"))
-        .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 8.0))
+        .pivot(egui::Align2::CENTER_TOP)
+        .fixed_pos(area.0.map_or(egui::pos2(400.0, 8.0), |a| {
+            egui::pos2(a.center().x, a.min.y + 8.0)
+        }))
         .show(ctx, |ui| {
             egui::Frame::window(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {

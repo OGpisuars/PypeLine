@@ -3,8 +3,11 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
+use crate::engine::camera::GameArea;
 use crate::scripting::files::ScriptStore;
 use crate::scripting::{Console, ConsoleKind, ErrorLine, PendingRun};
+
+use super::console::console_ui;
 
 use super::help::HelpState;
 use super::highlight;
@@ -88,7 +91,13 @@ pub fn autosave(
     }
 }
 
-pub fn editor_window(
+/// Height of the console under the editor, in points.
+const CONSOLE_HEIGHT: f32 = 190.0;
+
+/// The code panel docked on the left: main.py on top, the console below.
+/// Whatever space is left becomes the game area.
+#[allow(clippy::too_many_arguments)]
+pub fn code_panel(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
     mut pending: ResMut<PendingRun>,
@@ -96,12 +105,25 @@ pub fn editor_window(
     mut help: ResMut<HelpState>,
     store: Option<Res<ScriptStore>>,
     mut console: ResMut<Console>,
+    mut game_area: ResMut<GameArea>,
 ) -> Result {
-    egui::Window::new("main.py")
-        .default_pos(egui::pos2(16.0, 48.0))
-        .default_size(egui::vec2(460.0, 420.0))
-        .show(contexts.ctx_mut()?, |ui| {
+    let ctx = contexts.ctx_mut()?.clone();
+    let screen = ctx.viewport_rect();
+    let mut root = egui::Ui::new(
+        ctx.clone(),
+        "root".into(),
+        egui::UiBuilder::new()
+            .layer_id(egui::LayerId::background())
+            .max_rect(screen),
+    );
+    let default_width = (screen.width() * 0.4).clamp(320.0, 640.0);
+    let panel = egui::Panel::left("code_panel")
+        .resizable(true)
+        .default_size(default_width)
+        .min_size(280.0)
+        .show(&mut root, |ui| {
             ui.horizontal(|ui| {
+                ui.strong("main.py");
                 let queued = pending.0.is_some();
                 let run = ui.add_enabled(!queued, egui::Button::new("▶ Run"));
                 if run.clicked() {
@@ -125,17 +147,24 @@ pub fn editor_window(
                 job.wrap.max_width = wrap_width;
                 ui.fonts_mut(|f| f.layout_job(job))
             };
+            let editor_height = (ui.available_height() - CONSOLE_HEIGHT).max(120.0);
+            egui::ScrollArea::vertical()
+                .id_salt("editor_scroll")
+                .max_height(editor_height)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.add_sized(
+                        [ui.available_width(), editor_height],
+                        egui::TextEdit::multiline(&mut state.source)
+                            .code_editor()
+                            .layouter(&mut layouter),
+                    );
+                });
             ui.separator();
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.add(
-                    egui::TextEdit::multiline(&mut state.source)
-                        .code_editor()
-                        .desired_width(f32::INFINITY)
-                        .desired_rows(20)
-                        .layouter(&mut layouter),
-                );
-            });
+            console_ui(ui, &mut console);
         });
+    let left = panel.response.rect.right();
+    game_area.0 = Some(Rect::new(left, screen.min.y, screen.max.x, screen.max.y));
     Ok(())
 }
 
