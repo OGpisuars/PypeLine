@@ -138,6 +138,18 @@ impl Workspace {
         main.open = true;
     }
 
+    /// Create a file with this code, or replace the code of the file with
+    /// that name, and show its window. It is saved by the next autosave.
+    pub fn put_file(&mut self, name: &str, code: &str) {
+        match self.files.iter_mut().find(|f| f.name == name) {
+            Some(file) => {
+                file.source = code.to_owned();
+                file.open = true;
+            }
+            None => self.files.push(ScriptFile::new(name, code)),
+        }
+    }
+
     pub fn open_new_file_dialog(&mut self) {
         self.new_file = Some(NewFileDialog {
             focus: true,

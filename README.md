@@ -95,7 +95,7 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
 - **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
 - **Floating island, chiptune music and steam-moths.** The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
-- **Engineering Manual (F2) and campaign.** Seven chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts) with 14 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
+- **Engineering Manual (F2) and campaign.** Ten chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts, imports and modules, events and sensors, `tick()` and generators) with 20 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
 - **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
 - **`console` module.** Color your output and clear the console for ASCII dashboards.
 - **Your own workspace.** Floating, resizable windows for every file and the console, over a world you can drag and zoom, so there is always room for your code.
@@ -105,7 +105,6 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, and a switch to stop the island bobbing.
 
 ### Coming next
-- **Chapters 8-10.** Manual chapters and contracts for imports and modules, events and sensors, generators and `tick()`.
 - **Line debugger.** Step through your script one line at a time and watch your variables.
 - **Factory stats.** A dashboard for items per minute, steam use, and bottlenecks.
 

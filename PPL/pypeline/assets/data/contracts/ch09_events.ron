@@ -1,0 +1,75 @@
+[
+    (
+        id: "ch9_sales_report",
+        title: "Sales Report",
+        brief: "Write an on_train(coins) event handler that prints what the train paid each visit. Earn 100 coins.",
+        goal: Earn(coins: 100),
+        requires: [Events],
+        reward: 120,
+        hints: [
+            "def on_train(coins): with a print inside. You never call it yourself.",
+            "It only runs when a train pays, so you need a station for the train to buy from.",
+            "Two lines with stations earn 100 coins in a couple of train visits.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in [0, 3]:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    powered.append(f"miner_{y}")
+    powered.append(f"smelter_{y}")
+power.connect(generator="steam", to=powered)
+
+def on_train(coins):
+    print(f"The train paid {coins} coins")
+"#,
+    ),
+    (
+        id: "ch9_inspector",
+        title: "Factory Inspector",
+        brief: "Every time the train comes, check each smelter with machines.status and print a warning for any that has no power or a full output. Earn 250 coins.",
+        goal: Earn(coins: 250),
+        requires: [Events, Conditionals],
+        reward: 250,
+        chapter_test: true,
+        hints: [
+            "Keep a list of your smelter names, then loop over it inside on_train.",
+            "s = machines.status(name) gives a dict; check s[\"powered\"] and s[\"output\"].",
+            "Use if / elif so each smelter prints one message.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+smelters = []
+powered = []
+for y in [0, 2, 4, 6]:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    smelters.append(f"smelter_{y}")
+    powered.append(f"miner_{y}")
+    powered.append(f"smelter_{y}")
+power.connect(generator="steam", to=powered)
+
+def on_train(coins):
+    for name in smelters:
+        s = machines.status(name)
+        if not s["powered"]:
+            print(f"{name}: no power!")
+        elif s["output"] >= 10:
+            print(f"{name}: output is full")
+    print(f"Inspection done, the train paid {coins}")
+"#,
+    ),
+]

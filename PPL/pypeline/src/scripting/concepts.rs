@@ -25,6 +25,14 @@ pub enum Concept {
     Lists,
     /// A dict `{key: value}`.
     Dicts,
+    /// Importing one of the player's own files.
+    Modules,
+    /// An event handler: `def on_train(coins):` or `def on_contract_complete(title):`.
+    Events,
+    /// `def tick():`, run every game tick.
+    Tick,
+    /// `yield`, which makes a function a generator.
+    Generators,
 }
 
 impl Concept {
@@ -39,6 +47,10 @@ impl Concept {
             Self::Functions => "a function (def)",
             Self::Lists => "a list [...]",
             Self::Dicts => "a dict {key: value}",
+            Self::Modules => "an import of one of your own files",
+            Self::Events => "an event handler (def on_train or def on_contract_complete)",
+            Self::Tick => "a tick() function",
+            Self::Generators => "a generator (yield)",
         }
     }
 }
@@ -80,6 +92,12 @@ pub fn analyze_program<'a>(sources: impl Iterator<Item = &'a str>) -> ScriptShap
     total
 }
 
+/// Is `module` one of the player's files rather than a game module?
+fn players_module(module: &str) -> bool {
+    let top = module.split('.').next().unwrap_or(module);
+    !super::bindings::GAME_MODULES.contains(&top)
+}
+
 #[derive(Default)]
 struct Finder {
     found: BTreeSet<Concept>,
@@ -92,7 +110,28 @@ impl<'a> Visitor<'a> for Finder {
             Stmt::For(_) => Some(Concept::ForLoop),
             Stmt::While(_) => Some(Concept::WhileLoop),
             Stmt::If(_) => Some(Concept::Conditionals),
-            Stmt::FunctionDef(_) => Some(Concept::Functions),
+            Stmt::FunctionDef(def) => {
+                match def.name.as_str() {
+                    "tick" => {
+                        self.found.insert(Concept::Tick);
+                    }
+                    "on_train" | "on_contract_complete" => {
+                        self.found.insert(Concept::Events);
+                    }
+                    _ => {}
+                }
+                Some(Concept::Functions)
+            }
+            Stmt::Import(import) => import
+                .names
+                .iter()
+                .any(|alias| players_module(alias.name.as_str()))
+                .then_some(Concept::Modules),
+            Stmt::ImportFrom(import) => import
+                .module
+                .as_ref()
+                .filter(|m| import.level == 0 && players_module(m.as_str()))
+                .map(|_| Concept::Modules),
             _ => None,
         };
         self.found.extend(concept);
@@ -105,6 +144,7 @@ impl<'a> Visitor<'a> for Finder {
             Expr::List(_) | Expr::ListComp(_) => Some(Concept::Lists),
             Expr::Dict(_) | Expr::DictComp(_) => Some(Concept::Dicts),
             Expr::If(_) => Some(Concept::Conditionals),
+            Expr::Yield(_) | Expr::YieldFrom(_) => Some(Concept::Generators),
             _ => None,
         };
         self.found.extend(concept);
@@ -115,6 +155,21 @@ impl<'a> Visitor<'a> for Finder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_chapter_8_to_10_concepts() {
+        assert_eq!(concepts("import lines"), vec![Concept::Modules]);
+        assert_eq!(concepts("from lines import build"), vec![Concept::Modules]);
+        assert!(concepts("import power\nfrom auto import machines").is_empty());
+        assert_eq!(
+            concepts("def on_train(coins):\n    pass"),
+            vec![Concept::Functions, Concept::Events]
+        );
+        assert_eq!(
+            concepts("def tick():\n    yield"),
+            vec![Concept::Functions, Concept::Tick, Concept::Generators]
+        );
+    }
 
     fn concepts(src: &str) -> Vec<Concept> {
         analyze(src).unwrap().concepts.into_iter().collect()

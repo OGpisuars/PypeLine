@@ -22,6 +22,10 @@ use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
 use crate::factory::{Dir, Pos};
 
+/// The game's own top-level modules. Anything else a script imports is one
+/// of the player's files.
+pub const GAME_MODULES: [&str; 6] = ["auto", "power", "console", "sensors", "stats", "clock"];
+
 /// Importable modules for one run, by their full dotted name.
 pub type ModuleTable = BTreeMap<String, PyObjectRef>;
 

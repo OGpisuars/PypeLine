@@ -296,6 +296,14 @@ impl ProductionHistory {
     /// Seconds of history kept (one minute).
     const SECONDS: usize = 60;
 
+    /// Remember the totals; call once per game second.
+    pub fn sample(&mut self, factory: &Factory) {
+        self.samples.push_back(factory.produced.clone());
+        if self.samples.len() > Self::SECONDS {
+            self.samples.pop_front();
+        }
+    }
+
     /// Items made over the last minute (or since the start, if sooner).
     pub fn per_minute(&self, factory: &Factory) -> BTreeMap<ItemKind, u64> {
         let oldest = self.samples.front();
@@ -359,11 +367,7 @@ fn step_factory(mut factory: ResMut<Factory>) {
 }
 
 fn sample_production(factory: Res<Factory>, mut history: ResMut<ProductionHistory>) {
-    if !factory.ticks.is_multiple_of(20) {
-        return;
-    }
-    history.samples.push_back(factory.produced.clone());
-    if history.samples.len() > ProductionHistory::SECONDS {
-        history.samples.pop_front();
+    if factory.ticks.is_multiple_of(20) {
+        history.sample(&factory);
     }
 }

@@ -1,0 +1,74 @@
+[
+    (
+        id: "ch10_thermostat",
+        title: "Belt Thermostat",
+        brief: "Write a tick() that switches a miner off when 2 or more ore wait on the belt in front of its smelter, and back on when the belt clears. Make 30 iron plates.",
+        goal: Produce(item: IronPlate, count: 30),
+        requires: [Tick, Conditionals],
+        reward: 150,
+        hints: [
+            "def tick(): runs 20 times a second. Put an if inside it.",
+            "sensors.count(1, 0) is how many items are on the belt at (1, 0).",
+            "machines.disable(\"miner_1\") and machines.enable(\"miner_1\") switch it.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+import sensors
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
+conveyors.place(x=1, y=0, dir="east")
+machines.place("smelter", name="smelter_1", x=2, y=0)
+conveyors.place(x=3, y=0, dir="east")
+machines.place("station", name="station_1", x=4, y=0)
+power.connect(generator="steam", to=["miner_1", "smelter_1"])
+
+def tick():
+    if sensors.count(1, 0) >= 2:
+        machines.disable("miner_1")
+    else:
+        machines.enable("miner_1")
+"#,
+    ),
+    (
+        id: "ch10_shift_manager",
+        title: "Shift Manager",
+        brief: "Run at least three lines, and make tick() a generator: check one line per tick with yield, switching its miner off while its belt is backed up. Make 60 iron plates.",
+        goal: Produce(item: IronPlate, count: 60),
+        requires: [Tick, Generators],
+        reward: 300,
+        chapter_test: true,
+        hints: [
+            "Build the lines from a list of rows, and keep that list for tick() to use.",
+            "Inside tick(): for y in rows:, check sensors.count(1, y), then yield.",
+            "Each yield ends this tick's work. The loop picks up there next tick.",
+        ],
+        solution: r#"
+from auto import conveyors, machines
+import power
+import sensors
+
+rows = [0, 3, 6]
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in rows:
+    machines.place("miner", name=f"miner_{y}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{y}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{y}", x=4, y=y)
+    powered.append(f"miner_{y}")
+    powered.append(f"smelter_{y}")
+power.connect(generator="steam", to=powered)
+
+def tick():
+    for y in rows:
+        if sensors.count(1, y) >= 2:
+            machines.disable(f"miner_{y}")
+        else:
+            machines.enable(f"miner_{y}")
+        yield
+"#,
+    ),
+]

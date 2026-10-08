@@ -7,6 +7,7 @@ pub mod concepts;
 pub mod console_api;
 pub mod errors;
 pub mod files;
+pub mod headless;
 pub mod hooks;
 pub mod memory;
 pub mod operate;

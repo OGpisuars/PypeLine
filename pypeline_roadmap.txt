@@ -604,7 +604,8 @@ Goal: chapters 8-10 and the systems they unlock.
   [~] clock.* module + boiler temperature readouts
       (clock.tick, clock.seconds; temperatures come with thermal)
   [ ] Contracts that need thermal planning (after ch. 9)
-  [ ] Campaign: contracts for chapters 8-10 (15 total+)
+  [x] Campaign: contracts for chapters 8-10 (15 total+)
+      (20 contracts; golden solutions run tick() and events headless)
   [ ] Playtest chapters 8-10 with true beginners
 Exit test: a beginner finishes the campaign and can use
 functions, lists, and events unaided.

@@ -139,7 +139,11 @@ fn show_block(ui: &mut egui::Ui, block: &Block, workspace: &mut Workspace) {
             }
             ui.add_space(4.0);
         }
-        Block::Code { code, snippet } => {
+        Block::Code {
+            code,
+            snippet,
+            file,
+        } => {
             egui::Frame::new()
                 .fill(ui.visuals().code_bg_color)
                 .stroke(egui::Stroke::new(1.0, ui.visuals().window_stroke.color))
@@ -149,6 +153,19 @@ fn show_block(ui: &mut egui::Ui, block: &Block, workspace: &mut Workspace) {
                     ui.label(egui::RichText::new(code.trim_end()).monospace());
                 });
             ui.horizontal(|ui| {
+                // A whole file of its own, which main.py imports.
+                if let Some(name) = file {
+                    let exists = workspace.files.iter().any(|f| f.name == *name);
+                    let label = if exists {
+                        format!("Replace {name}")
+                    } else {
+                        format!("Create {name}")
+                    };
+                    if ui.small_button(label).clicked() {
+                        workspace.put_file(name, code);
+                    }
+                    return;
+                }
                 if ui.small_button("Insert into main.py").clicked() {
                     workspace.insert_into_main(code);
                 }

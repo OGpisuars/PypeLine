@@ -5,6 +5,7 @@
 //! Windows .exe is a single file); editing a file and rebuilding is all it
 //! takes to change content. Loading content at run time comes later.
 
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -48,6 +49,10 @@ pub struct Contract {
     pub hints: Vec<String>,
     /// A script that beats this contract. CI runs it (roadmap Part 4 E).
     pub solution: String,
+    /// Other files the solution imports, by module name ("lines" for
+    /// lines.py).
+    #[serde(default)]
+    pub files: BTreeMap<String, String>,
     /// Passing this contract completes the whole chapter, so experienced
     /// coders can skip ahead by passing it directly.
     #[serde(default)]
@@ -61,10 +66,12 @@ pub enum Block {
     Text(String),
     /// A Python example. `snippet` is its name if it starts with
     /// `# snippet: Name`, which also puts it in the Snippets menu once the
-    /// chapter is done.
+    /// chapter is done. `file` is set if it starts with `# file: NAME.py`:
+    /// it is a whole file of its own, which later examples can import.
     Code {
         code: String,
         snippet: Option<String>,
+        file: Option<String>,
     },
 }
 
@@ -82,13 +89,14 @@ impl Chapter {
             Block::Code {
                 code,
                 snippet: Some(name),
+                ..
             } => Some((name.as_str(), code.as_str())),
             _ => None,
         })
     }
 }
 
-const SOURCES: [(u32, &str, &str); 7] = [
+const SOURCES: [(u32, &str, &str); 10] = [
     (
         1,
         include_str!("../../assets/data/manual/ch01_variables.md"),
@@ -123,6 +131,21 @@ const SOURCES: [(u32, &str, &str); 7] = [
         7,
         include_str!("../../assets/data/manual/ch07_lists_dicts.md"),
         include_str!("../../assets/data/contracts/ch07_lists_dicts.ron"),
+    ),
+    (
+        8,
+        include_str!("../../assets/data/manual/ch08_modules.md"),
+        include_str!("../../assets/data/contracts/ch08_modules.ron"),
+    ),
+    (
+        9,
+        include_str!("../../assets/data/manual/ch09_events.md"),
+        include_str!("../../assets/data/contracts/ch09_events.ron"),
+    ),
+    (
+        10,
+        include_str!("../../assets/data/manual/ch10_tick.md"),
+        include_str!("../../assets/data/contracts/ch10_tick.ron"),
     ),
 ];
 
@@ -174,13 +197,16 @@ pub fn parse_manual(text: &str) -> (String, Vec<Block>) {
         if let Some(lines) = code.as_mut() {
             if line.trim_start().starts_with("```") {
                 let code_text = lines.join("\n") + "\n";
-                let snippet = lines
-                    .first()
-                    .and_then(|first| first.strip_prefix("# snippet:"))
-                    .map(|name| name.trim().to_owned());
+                let marker = |prefix: &str| {
+                    lines
+                        .first()
+                        .and_then(|first| first.strip_prefix(prefix))
+                        .map(|name| name.trim().to_owned())
+                };
                 blocks.push(Block::Code {
                     code: code_text,
-                    snippet,
+                    snippet: marker("# snippet:"),
+                    file: marker("# file:"),
                 });
                 code = None;
             } else {
@@ -215,8 +241,8 @@ mod tests {
     use crate::factory::Factory;
     use crate::scripting::budget::DEPLOY_BUDGET;
     use crate::scripting::concepts;
-    use crate::scripting::reconcile;
-    use crate::scripting::runtime::{RunOutcome, ScriptRuntime};
+    use crate::scripting::headless::Headless;
+    use crate::scripting::runtime::{Program, RunOutcome, ScriptRuntime};
 
     /// Content validator (roadmap Part 4 E).
     #[test]
@@ -255,11 +281,20 @@ mod tests {
     /// Every contract ships with a solution that beats it (roadmap Part 4 E).
     #[test]
     fn golden_solutions_beat_their_contracts() {
-        let runtime = ScriptRuntime::new();
         for chapter in chapters() {
             for contract in &chapter.contracts {
                 let id = &contract.id;
-                let shape = concepts::analyze(&contract.solution).expect("solution parses");
+                let program = Program {
+                    main: contract.solution.clone(),
+                    modules: contract.files.clone(),
+                };
+                for source in program.sources() {
+                    assert!(
+                        concepts::analyze(source).is_some(),
+                        "{id}: a file does not parse"
+                    );
+                }
+                let shape = concepts::analyze_program(program.sources());
                 for concept in &contract.requires {
                     assert!(
                         shape.concepts.contains(concept),
@@ -273,27 +308,23 @@ mod tests {
                         shape.code_lines
                     );
                 }
-                let report = runtime.run(&contract.solution, DEPLOY_BUDGET);
-                assert_eq!(
-                    report.outcome,
-                    RunOutcome::Finished,
-                    "{id}: {:?}",
-                    report.output
-                );
-                let mut factory = Factory::default();
-                reconcile::apply(&mut factory, &report.plan.unwrap());
+                let mut game = match Headless::start(&program, Factory::default()) {
+                    Ok(game) => game,
+                    Err(report) => panic!("{id}: {:?} {:?}", report.outcome, report.output),
+                };
                 // Five minutes of game time is plenty for every contract.
                 let met = (0..6000).any(|_| {
-                    factory.step();
+                    game.step();
                     match contract.goal {
-                        Goal::Produce { item, count } => factory.produced(item) >= count,
-                        Goal::Earn { coins } => factory.coins >= coins,
+                        Goal::Produce { item, count } => game.factory.produced(item) >= count,
+                        Goal::Earn { coins } => game.factory.coins >= coins,
                     }
                 });
+                assert!(!game.had_errors(), "{id}: {:?}", game.output);
                 assert!(
                     met,
                     "{id}: goal not reached in 5 minutes ({:?})",
-                    factory.produced
+                    game.factory.produced
                 );
             }
         }
@@ -304,9 +335,19 @@ mod tests {
     fn manual_examples_run() {
         let runtime = ScriptRuntime::new();
         for chapter in chapters() {
+            // `# file:` examples become modules the later examples can import.
+            let mut files = BTreeMap::new();
             for block in &chapter.blocks {
-                if let Block::Code { code, .. } = block {
-                    let report = runtime.run(code, DEPLOY_BUDGET);
+                if let Block::Code { code, file, .. } = block {
+                    if let Some(name) = file {
+                        let module = name.strip_suffix(".py").expect("file names end in .py");
+                        files.insert(module.to_owned(), code.clone());
+                    }
+                    let program = Program {
+                        main: code.clone(),
+                        modules: files.clone(),
+                    };
+                    let report = runtime.run_program(&program, DEPLOY_BUDGET);
                     assert_eq!(
                         report.outcome,
                         RunOutcome::Finished,
@@ -331,7 +372,8 @@ mod tests {
                 Block::Heading("Part".into()),
                 Block::Code {
                     code: "# snippet: Demo\nx = 1\n".into(),
-                    snippet: Some("Demo".into())
+                    snippet: Some("Demo".into()),
+                    file: None,
                 },
             ]
         );

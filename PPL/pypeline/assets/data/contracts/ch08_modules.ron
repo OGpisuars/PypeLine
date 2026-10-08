@@ -1,0 +1,82 @@
+[
+    (
+        id: "ch8_toolbox",
+        title: "Toolbox",
+        brief: "Put a function that builds one smelter line in its own file, import it into main.py, and build three lines with it. Make 30 iron plates.",
+        goal: Produce(item: IronPlate, count: 30),
+        requires: [Modules, Functions],
+        reward: 120,
+        hints: [
+            "Press Create lines.py under the first example in this chapter.",
+            "In main.py: import lines, then call lines.smelter_line(\"a\", 0) for each row.",
+            "Each call returns its machine names. Join them with + and pass them to power.connect.",
+        ],
+        solution: r#"
+from auto import machines
+import power
+import lines
+
+machines.place("steam_generator", name="steam", x=15, y=9)
+powered = []
+for y in [0, 3, 6]:
+    powered = powered + lines.smelter_line(f"row_{y}", y)
+power.connect(generator="steam", to=powered)
+"#,
+        files: {
+            "lines": r#"
+from auto import conveyors, machines
+
+def smelter_line(name, y):
+    machines.place("miner", name=f"miner_{name}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{name}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{name}", x=4, y=y)
+    return [f"miner_{name}", f"smelter_{name}"]
+"#,
+        },
+    ),
+    (
+        id: "ch8_blueprint_office",
+        title: "Blueprint Office",
+        brief: "Keep the plan (a dict of rows) in one file and the building code in another. main.py only imports them and puts them together. Earn 200 coins.",
+        goal: Earn(coins: 200),
+        requires: [Modules, Dicts],
+        reward: 200,
+        chapter_test: true,
+        hints: [
+            "Make plan.py with ROWS = {\"north\": 6, \"south\": 0} and lines.py with a smelter_line function.",
+            "In main.py, loop over plan.ROWS.items() and call lines.smelter_line(name, y).",
+            "Three or four rows sell faster than two.",
+        ],
+        solution: r#"
+from auto import machines
+import power
+import lines
+import plan
+
+machines.place("steam_generator", name=plan.GENERATOR, x=15, y=9)
+powered = []
+for name, y in plan.ROWS.items():
+    powered = powered + lines.smelter_line(name, y)
+power.connect(generator=plan.GENERATOR, to=powered)
+"#,
+        files: {
+            "plan": r#"
+ROWS = {"a": 0, "b": 2, "c": 4, "d": 6}
+GENERATOR = "steam"
+"#,
+            "lines": r#"
+from auto import conveyors, machines
+
+def smelter_line(name, y):
+    machines.place("miner", name=f"miner_{name}", x=0, y=y, ore="iron")
+    conveyors.place(x=1, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{name}", x=2, y=y)
+    conveyors.place(x=3, y=y, dir="east")
+    machines.place("station", name=f"station_{name}", x=4, y=y)
+    return [f"miner_{name}", f"smelter_{name}"]
+"#,
+        },
+    ),
+]
