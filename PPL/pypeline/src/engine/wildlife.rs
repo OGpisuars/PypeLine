@@ -62,6 +62,7 @@ pub fn moth_position(center: Vec2, i: usize, t: f32, scatter: f32) -> Vec2 {
         )
 }
 
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn flutter(
     mut commands: Commands,
     time: Res<Time<Real>>,

@@ -117,6 +117,7 @@ fn apply_theme(mut contexts: EguiContexts, mut applied: Local<bool>) -> Result {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn debug_overlay(
     mut contexts: EguiContexts,
     tick: Res<SimTick>,

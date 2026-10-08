@@ -50,7 +50,8 @@ impl Budget {
     /// Has this run taken longer than the watchdog allows? Checked every
     /// 1024 steps, since reading the clock is slower than counting.
     pub fn watchdog_fired(&self) -> bool {
-        self.used.get() % 1024 == 0 && self.started.get().is_some_and(|t| t.elapsed() > WATCHDOG)
+        self.used.get().is_multiple_of(1024)
+            && self.started.get().is_some_and(|t| t.elapsed() > WATCHDOG)
     }
 
     /// Charge one step. Returns `false` once the budget is gone.

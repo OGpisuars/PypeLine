@@ -278,7 +278,7 @@ pub fn train_front_x(ticks: u64) -> Option<f32> {
     let t = ticks - visit;
     let edge = RES_WIDTH as f32 / 2.0 + 3.0 * TILE as f32;
     let x = match t {
-        _ if t < -(ROLL + WAIT) || t > ROLL + WAIT => return None,
+        _ if !(-(ROLL + WAIT)..=ROLL + WAIT).contains(&t) => return None,
         _ if t < -WAIT => -edge * (-(t + WAIT)) as f32 / ROLL as f32,
         _ if t <= WAIT => 0.0,
         _ => edge * (t - WAIT) as f32 / ROLL as f32,

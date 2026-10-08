@@ -124,7 +124,7 @@ fn show_splash(
         let x = (seed >> 8) % RES_WIDTH;
         seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
         let y = (seed >> 8) % RES_HEIGHT;
-        let bright = (seed >> 4) % 3 == 0;
+        let bright = (seed >> 4).is_multiple_of(3);
         let size = if bright { 2.0 } else { 1.0 };
         let color = if bright {
             Color::srgb_u8(248, 240, 200)
@@ -149,8 +149,16 @@ fn show_splash(
     title.custom_size = Some(size);
     // Centered, with edges on whole pixels.
     let at = Vec3::new(
-        if size.x as u32 % 2 == 0 { 0.0 } else { 0.5 },
-        if size.y as u32 % 2 == 0 { 8.0 } else { 8.5 },
+        if (size.x as u32).is_multiple_of(2) {
+            0.0
+        } else {
+            0.5
+        },
+        if (size.y as u32).is_multiple_of(2) {
+            8.0
+        } else {
+            8.5
+        },
         Z_SPLASH + 0.2,
     );
     part(title, at);

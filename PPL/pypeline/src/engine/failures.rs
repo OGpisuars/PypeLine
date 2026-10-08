@@ -30,7 +30,7 @@ impl Plugin for FailurePlugin {
 }
 
 fn alarm_on(time: &Time<Real>) -> bool {
-    (time.elapsed_secs() * BLINK_HZ) as u32 % 2 == 0
+    ((time.elapsed_secs() * BLINK_HZ) as u32).is_multiple_of(2)
 }
 
 fn blink_failures(

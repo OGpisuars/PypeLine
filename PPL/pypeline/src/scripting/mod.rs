@@ -102,6 +102,7 @@ impl Plugin for ScriptingPlugin {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn run_pending_script(
     runtime: NonSend<ScriptRuntime>,
     mut pending: ResMut<PendingRun>,
