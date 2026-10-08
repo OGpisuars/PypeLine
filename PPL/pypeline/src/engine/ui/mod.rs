@@ -8,6 +8,7 @@ pub mod console;
 pub mod editor;
 pub mod help;
 pub mod highlight;
+pub mod time_dials;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -16,6 +17,7 @@ use bevy::{
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 use crate::factory::items::ItemKind;
+use crate::factory::tick::SimControl;
 use crate::factory::{Factory, SimTick};
 
 use super::camera::{HoveredTile, PixelScale};
@@ -37,6 +39,8 @@ impl Plugin for UiPlugin {
                     editor::editor_window,
                     console::console_window,
                     help::help_window,
+                    time_dials::time_dials,
+                    time_dials::time_dial_keys,
                     debug_overlay,
                 )
                     .chain(),
@@ -90,6 +94,7 @@ fn debug_overlay(
     scale: Res<PixelScale>,
     factory: Res<Factory>,
     hovered: Res<HoveredTile>,
+    control: Res<SimControl>,
     diagnostics: Res<DiagnosticsStore>,
 ) -> Result {
     let fps = diagnostics
@@ -100,9 +105,17 @@ fn debug_overlay(
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 8.0))
         .interactable(false)
         .show(contexts.ctx_mut()?, |ui| {
-            let status = if factory.halted { "  |  HALTED" } else { "" };
+            let status = match (factory.halted, control.paused) {
+                (true, _) => "  |  HALTED".to_owned(),
+                (false, true) => "  |  PAUSED".to_owned(),
+                (false, false) if control.speed > 1 => format!("  |  {}x", control.speed),
+                _ => String::new(),
+            };
             let lines = [
-                format!("tick {}  |  {fps:.0} fps  |  {}x{status}", tick.0, scale.0),
+                format!(
+                    "tick {}  |  {fps:.0} fps  |  zoom {}x{status}",
+                    tick.0, scale.0
+                ),
                 format!(
                     "ore mined {}  |  plates made {}",
                     factory.produced(ItemKind::IronOre),
