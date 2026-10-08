@@ -6,6 +6,36 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Workspace, Shop, Settings, and the prestige plan
+Player feedback: the docked editor left no room, one file was not enough, and the world could not be moved.
+
+### Floating windows over a world you can drag
+- Every script file and the console are `egui::Window`s. A thin top bar (an `egui::Panel::top` in a background root `Ui`) holds Run, Files, Console, Snippets, Help, Manual, Shop, Settings, View and the Time Dials. `GameArea` is now everything under the top bar.
+- `camera::ViewState { zoom, pan }`: zoom is a whole number (None = largest that fits), so pixels stay crisp; pan is a logical-pixel offset, clamped so a corner of the island stays on screen. Left-drag on empty space, or middle/right drag anywhere outside a window, pans; the wheel zooms around the pointer; Home resets. The screen clear color is now the sky, so the world reads as bigger than the 480x320 canvas.
+- "Reset windows" bumps a number that is part of every window id, so egui forgets their positions. That is simpler than storing and forcing positions.
+
+### Many files
+- `Workspace.files[0]` is always main.py. Run sends a `runtime::Program { main, modules }`; the other files are importable by their stem. The runtime reports which file an error or a stop happened in, and `ErrorLine` holds `(file, line)`.
+- File names must be importable: an identifier, not a Python keyword, not a game module (`auto`, `power`, ...), not `main`, not starting with `__`. "PPL" becomes "PPL.py"; "PPL.py" is kept. Comparison ignores case, for Windows.
+- Deleting a file keeps `NAME.py.bak`.
+
+### Settings
+- `settings.ron` in the data folder: theme, font, text size, mouse pointer, island bobbing. Missing fields load as defaults (`#[serde(default)]`), so old files keep working.
+- Themes are Rust constants for now (`engine/themes.rs`), each a full set of egui visuals plus syntax colors plus cursor colors. Every channel is a multiple of 8 (tested). Moving them to data files is still the Phase 4 plan.
+- The mouse pointer is a generated pixel arrow (Bevy `CursorIcon::Custom`). bevy_egui only writes the cursor when egui's wanted cursor changes, so a system in `Last` swaps the plain system arrow for ours and leaves egui's text, resize and grab pointers alone. Tested: light themes get a dark arrow, dark themes a light one.
+- Fonts: JetBrains Mono (default), Maple Mono, Noto Sans Mono (all OFL, bundled with their license files) and Hack (built into egui). The chosen font goes first in both families; egui's fonts stay as fallbacks for symbols.
+
+### Shop and tiers
+- Upgrades live in `Factory.unlocked`, so they are saved with the factory, survive Clean Run, and are part of the deterministic state. Buying is a player input applied outside the tick, like Run.
+- An upgrade unlocks a `tier=` argument; it never changes the factory by itself. Scripts see the unlocks through `WorldView.unlocked`, so a locked tier fails on its own line during the run, with the upgrade's name and price.
+- Tier 2 is 2x and tier 3 is 4x: belts move 1/2/4 px per tick (spacing stays 8), machines divide their work ticks by 1/2/4. All whole numbers, so determinism is unaffected.
+- `Machine.tier` and `Conveyor.tier` default to 1 when loading older saves.
+- **Golden hash changed** to `0x26b7_cf8a_40b6_8ae6` because the state's `Debug` text now includes `tier` and `unlocked`. Checked before updating it: with those fields removed from the text, the old hash `0xe2c2_f767_7099_3cee` came out exactly, so the simulation itself did not change.
+
+### Prestige and new languages (planned, not built)
+- Each prestige resets the factory, coins and upgrades, keeps Manual progress, grants a permanent bonus, and switches the scripting language, each one harder than the last: Python, Lua, JavaScript, PypeC (our C-like), Belt Assembly, then an esoteric finale.
+- Rule for any language: pure Rust, embeddable, sandboxable (step budget, memory cap, watchdog) and deterministic, behind one `Language` trait with the same game API. Details: roadmap Part 1 "PRESTIGE + LANGUAGES" and Phase 4B.
+
 ## 2026-10-08: Phase 3A, the teaching loop
 
 ### Content is data, built into the game

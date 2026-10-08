@@ -4,9 +4,9 @@
 use super::items::{self, ItemKind};
 use super::{Dir, Pos};
 
-/// Ticks a miner needs per ore (2 seconds).
+/// Ticks a tier 1 miner needs per ore (2 seconds).
 pub const MINE_TICKS: u32 = 40;
-/// Ticks a smelter needs per plate (3 seconds).
+/// Ticks a tier 1 smelter needs per plate (3 seconds).
 pub const SMELT_TICKS: u32 = 60;
 /// Items a machine can hold in its input and in its output.
 pub const BUFFER_CAP: usize = 10;
@@ -78,6 +78,9 @@ pub struct Machine {
     /// Switched off by a script (machines.disable). Off machines do no work.
     #[serde(default = "switched_on")]
     pub enabled: bool,
+    /// 1, or 2-3 for the faster Mk2/Mk3 bought in the Shop.
+    #[serde(default = "super::conveyors::first_tier")]
+    pub tier: u8,
 }
 
 fn switched_on() -> bool {
@@ -95,7 +98,18 @@ impl Machine {
             output: Vec::new(),
             progress: 0,
             enabled: true,
+            tier: 1,
         }
+    }
+
+    /// Ticks one job takes (one ore mined, one plate smelted).
+    pub fn work_ticks(&self) -> u32 {
+        let base = match self.kind {
+            MachineKind::Miner => MINE_TICKS,
+            MachineKind::Smelter => SMELT_TICKS,
+            MachineKind::SteamGenerator | MachineKind::Station => return 0,
+        };
+        base / super::shop::speedup(self.tier)
     }
 
     /// Can this machine take `item` into its input right now?
@@ -112,9 +126,10 @@ impl Machine {
         if !powered || !self.enabled || self.output.len() >= BUFFER_CAP {
             return None;
         }
-        let (ticks, made) = match self.kind {
-            MachineKind::Miner => (MINE_TICKS, self.ore?),
-            MachineKind::Smelter => (SMELT_TICKS, items::smelt(*self.input.first()?)?),
+        let ticks = self.work_ticks();
+        let made = match self.kind {
+            MachineKind::Miner => self.ore?,
+            MachineKind::Smelter => items::smelt(*self.input.first()?)?,
             MachineKind::SteamGenerator | MachineKind::Station => return None,
         };
         self.progress += 1;

@@ -62,18 +62,23 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 
 | Key or button | What it does |
 |---------------|--------------|
-| **▶ Run** | Run `main.py` and update the factory to match it |
-| **F1** or **? Help** | Every command explained, with examples you can insert |
-| **F2** or **📖 Manual** | Chapters, examples and contracts |
+| **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match it |
+| **F1** or **Help** | Every command and name explained, with examples you can insert |
+| **F2** or **Manual** | Chapters, examples and contracts |
+| **F3** or **Shop** | Spend coins on faster belts and machines |
+| **Files > + New file** | Add another file (type `PPL` and it becomes `PPL.py`); `main.py` uses it with `import PPL` |
+| **⚙ Settings** | Theme, font, text size, mouse pointer, island bobbing |
+| Drag empty space | Move the world side to side (middle/right button drags from anywhere) |
+| **Mouse wheel** | Zoom in and out around the pointer |
+| **Home** | Center the island again |
 | **Tab** / **Enter** | Accept an autocomplete suggestion (arrows pick, Esc closes) |
 | Mouse over the island | Shows the tile's `x` and `y`, plus a polaroid card for machines and belts |
 | **Space** | Pause / play |
 | **.** (period) | Step one tick while paused |
 | **1 / 2 / 3** | Speed 1x / 2x / 4x |
 | **M** | Sound on / off |
-| **◀** | Hide the code panel (small windows) |
 
-Your script is saved automatically as you type, and the factory every minute and when you quit.
+Every code window, the console, Help, Manual, Shop and Settings float: drag them by their title, resize them from the edges, and close them with x (the top bar brings them back). Your scripts are saved automatically as you type, and the factory every minute and when you quit.
 
 ---
 
@@ -93,11 +98,16 @@ Your script is saved automatically as you type, and the factory every minute and
 - **Engineering Manual (F2) and campaign.** Seven chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts) with 14 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
 - **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
 - **`console` module.** Color your output and clear the console for ASCII dashboards.
+- **Your own workspace.** Floating, resizable windows for every file and the console, over a world you can drag and zoom, so there is always room for your code.
+- **Many files.** Split your code into files and `import` them from `main.py`. Errors name the file and line.
+- **`tick()` and events.** Run code 20 times a second, react to `on_train(coins)` and `on_contract_complete(title)`, read `sensors`, `stats` and `clock`, and switch machines on and off.
+- **The Shop.** Spend train coins on Fast/Express belts and Mk2/Mk3 miners and smelters, then use them with `tier=2` or `tier=3` in your script.
+- **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, and a switch to stop the island bobbing.
 
 ### Coming next
-- **Chapters 8-10.** Imports and modules (cartridges), events and sensors, generators and `tick()`.
+- **Chapters 8-10.** Manual chapters and contracts for imports and modules, events and sensors, generators and `tick()`.
 - **Line debugger.** Step through your script one line at a time and watch your variables.
-- **Factory stats.** A dashboard and a `stats` module for items per minute, steam use, and bottlenecks.
+- **Factory stats.** A dashboard for items per minute, steam use, and bottlenecks.
 
 ### Mid and late game (planned)
 - **Day/night and thermal management.** Boilers run hotter by day and cooler by night. Read the clock and plan around it in code.
@@ -106,6 +116,7 @@ Your script is saved automatically as you type, and the factory every minute and
 - **LED matrix panels.** Control 8x8 and 16x16 pixel displays with `display.set_pixel(x, y, "green")`.
 - **ASCII dashboards.** Print progress bars and custom success banners to the in-game console.
 - **Terminal themes.** Unlockable border skins for your editor and UI.
+- **Prestige: a new language every time.** Start over with a permanent bonus, and your scripts switch to a new programming language. The higher you go, the fussier it gets: Python, then Lua, JavaScript, a C-like language, a belt assembly language, and finally an esoteric one where the belts are the tape.
 
 ---
 
@@ -140,7 +151,9 @@ A **16-bit, GBA-inspired look**: top-down 3/4 view, 16x16 tiles, limited palette
 | **1. MVP** | First automated factory | `auto` API, belts, miner, smelter, generator, editor, error highlighting |
 | **2. Alpha** | It feels like PypeLine | Floating plots, polaroid UI, wires, cargo train, save/load, Time Dials, boot splash |
 | **3. Beta** | The learning loop works | Manual chapters, contracts, debugger, stats, snippets, day/night, cartridges |
+| **3C. Workspace** | Room to code | Floating windows, many files, drag and zoom, Shop and tiers, Settings and themes |
 | **4. 1.0** | Shippable | Sandbox mode, blueprints, micro-chips, LED panels, themes, accessibility, polish |
+| **4B. Prestige** | A long game | Prestige resets with a bonus, and a new, harder language each time |
 | **5. Post-launch** | Community | Workshop sharing, leaderboards, web demo, more chapters |
 
 Each phase has an exit test that must pass before the next one begins.

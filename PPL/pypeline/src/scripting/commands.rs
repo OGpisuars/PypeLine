@@ -5,10 +5,11 @@
 //! applied to the factory only if the whole script finishes (roadmap: the
 //! command queue + transactional reconcile).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
+use crate::factory::shop::{self, MAX_TIER, Upgrade};
 use crate::factory::{Dir, PLOT_HEIGHT, PLOT_WIDTH, Pos};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,11 +18,69 @@ pub struct PlannedMachine {
     pub pos: Pos,
     pub dir: Dir,
     pub ore: Option<ItemKind>,
+    pub tier: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedBelt {
+    pub dir: Dir,
+    pub tier: u8,
+}
+
+impl PlannedBelt {
+    pub fn new(dir: Dir) -> Self {
+        Self { dir, tier: 1 }
+    }
+}
+
+/// Check a `tier=` for belts against what the Shop has unlocked.
+pub fn belt_tier(tier: i64, unlocked: &BTreeSet<Upgrade>) -> Result<u8, String> {
+    let tier = tier_in_range(tier)?;
+    match shop::belt_upgrade(tier) {
+        Some(upgrade) if !unlocked.contains(&upgrade) => Err(locked(tier, "belts", upgrade)),
+        _ => Ok(tier),
+    }
+}
+
+/// Check a `tier=` for a machine against what the Shop has unlocked.
+pub fn machine_tier(
+    kind: MachineKind,
+    tier: i64,
+    unlocked: &BTreeSet<Upgrade>,
+) -> Result<u8, String> {
+    let tier = tier_in_range(tier)?;
+    if tier > 1 && !shop::has_tiers(kind) {
+        return Err(format!(
+            "a {} has only one tier; leave tier= out",
+            kind.name()
+        ));
+    }
+    match shop::machine_upgrade(kind, tier) {
+        Some(upgrade) if !unlocked.contains(&upgrade) => {
+            Err(locked(tier, &format!("{}s", kind.name()), upgrade))
+        }
+        _ => Ok(tier),
+    }
+}
+
+fn tier_in_range(tier: i64) -> Result<u8, String> {
+    match u8::try_from(tier) {
+        Ok(t) if (1..=MAX_TIER).contains(&t) => Ok(t),
+        _ => Err(format!("tier must be 1, 2 or 3, not {tier}")),
+    }
+}
+
+fn locked(tier: u8, what: &str, upgrade: Upgrade) -> String {
+    format!(
+        "tier {tier} {what} are locked: buy \"{}\" in the Shop (F3) for {} coins",
+        upgrade.title(),
+        upgrade.price()
+    )
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BuildPlan {
-    pub conveyors: BTreeMap<Pos, Dir>,
+    pub conveyors: BTreeMap<Pos, PlannedBelt>,
     pub machines: BTreeMap<String, PlannedMachine>,
     /// Machine name -> generator name.
     pub power: BTreeMap<String, String>,
@@ -30,9 +89,9 @@ pub struct BuildPlan {
 }
 
 impl BuildPlan {
-    pub fn place_conveyor(&mut self, pos: Pos, dir: Dir) -> Result<(), String> {
+    pub fn place_conveyor(&mut self, pos: Pos, belt: PlannedBelt) -> Result<(), String> {
         self.claim(pos, "a conveyor".into())?;
-        self.conveyors.insert(pos, dir);
+        self.conveyors.insert(pos, belt);
         Ok(())
     }
 
@@ -127,13 +186,29 @@ mod tests {
             pos: Pos::new(x, y),
             dir: Dir::East,
             ore: Some(ItemKind::IronOre),
+            tier: 1,
         }
+    }
+
+    #[test]
+    fn tiers_need_the_shop() {
+        let none = BTreeSet::new();
+        assert_eq!(belt_tier(1, &none), Ok(1));
+        let err = belt_tier(2, &none).unwrap_err();
+        assert!(err.contains("Fast belt"), "{err}");
+        assert!(belt_tier(4, &none).is_err());
+        let bought = BTreeSet::from([Upgrade::FastBelt, Upgrade::MinerMk2]);
+        assert_eq!(belt_tier(2, &bought), Ok(2));
+        assert_eq!(machine_tier(MachineKind::Miner, 2, &bought), Ok(2));
+        assert!(machine_tier(MachineKind::Smelter, 2, &bought).is_err());
+        assert!(machine_tier(MachineKind::Station, 2, &bought).is_err());
     }
 
     #[test]
     fn tiles_cannot_be_used_twice() {
         let mut plan = BuildPlan::default();
-        plan.place_conveyor(Pos::new(1, 0), Dir::East).unwrap();
+        plan.place_conveyor(Pos::new(1, 0), PlannedBelt::new(Dir::East))
+            .unwrap();
         let err = plan.place_machine("m", miner(1, 0)).unwrap_err();
         assert!(err.contains("already has a conveyor"), "{err}");
     }
@@ -141,11 +216,9 @@ mod tests {
     #[test]
     fn placements_must_be_on_the_plot() {
         let mut plan = BuildPlan::default();
-        assert!(plan.place_conveyor(Pos::new(-1, 0), Dir::East).is_err());
-        assert!(
-            plan.place_conveyor(Pos::new(PLOT_WIDTH, 0), Dir::East)
-                .is_err()
-        );
+        let belt = PlannedBelt::new(Dir::East);
+        assert!(plan.place_conveyor(Pos::new(-1, 0), belt).is_err());
+        assert!(plan.place_conveyor(Pos::new(PLOT_WIDTH, 0), belt).is_err());
     }
 
     #[test]

@@ -178,7 +178,7 @@ fn track_contract(
     if done < target {
         return;
     }
-    let shape = concepts::analyze(&last_good.source).unwrap_or_default();
+    let shape = concepts::analyze_program(last_good.program.sources());
     let missing = missing_requirements(contract, &shape);
     if !missing.is_empty() {
         if !active.warned {

@@ -1,5 +1,5 @@
 //! The floating island: everything on the plot hangs off one root entity that
-//! bobs up and down by a whole pixel, and two layers of clouds drift behind it
+//! bobs up and down by a whole pixel (unless switched off in Settings), and two layers of clouds drift behind it
 //! at different speeds (parallax). Render-only.
 
 use bevy::prelude::*;
@@ -44,9 +44,16 @@ fn spawn_island_root(mut commands: Commands) {
     commands.insert_resource(Island { root, bob: 0.0 });
 }
 
-fn bob_island(time: Res<Time<Real>>, mut island: ResMut<Island>, mut roots: Query<&mut Transform>) {
+fn bob_island(
+    time: Res<Time<Real>>,
+    settings: Option<Res<super::ui::settings::Settings>>,
+    mut island: ResMut<Island>,
+    mut roots: Query<&mut Transform>,
+) {
     let phase = time.elapsed_secs() / BOB_PERIOD * std::f32::consts::TAU;
-    let bob = phase.sin().round();
+    // Switched off in Settings (or View): the island stays still.
+    let bobbing = settings.is_none_or(|s| s.island_bob);
+    let bob = if bobbing { phase.sin().round() } else { 0.0 };
     if island.bob != bob {
         island.bob = bob;
         if let Ok(mut transform) = roots.get_mut(island.root) {

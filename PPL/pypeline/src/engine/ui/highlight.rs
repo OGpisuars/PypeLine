@@ -6,9 +6,11 @@
 use std::ops::Range;
 
 use bevy_egui::egui::{
-    Color32, FontId,
+    FontId,
     text::{LayoutJob, TextFormat},
 };
+
+use crate::engine::themes::{Syntax, rgb};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -57,6 +59,9 @@ const BUILTINS: &[&str] = &[
     "machines",
     "power",
     "console",
+    "sensors",
+    "stats",
+    "clock",
 ];
 
 /// Split Python source into colored pieces covering every byte.
@@ -145,18 +150,16 @@ fn char_len(src: &str, i: usize) -> usize {
     src[i..].chars().next().map_or(1, char::len_utf8)
 }
 
-fn color(kind: Kind) -> Color32 {
+fn color(kind: Kind, syntax: &Syntax) -> [u8; 3] {
     match kind {
-        Kind::Plain => Color32::from_rgb(40, 32, 48),
-        Kind::Keyword => Color32::from_rgb(152, 48, 120),
-        Kind::Builtin => Color32::from_rgb(40, 88, 168),
-        Kind::Str => Color32::from_rgb(48, 120, 40),
-        Kind::Number => Color32::from_rgb(184, 96, 24),
-        Kind::Comment => Color32::from_rgb(128, 120, 104),
+        Kind::Plain => syntax.plain,
+        Kind::Keyword => syntax.keyword,
+        Kind::Builtin => syntax.builtin,
+        Kind::Str => syntax.string,
+        Kind::Number => syntax.number,
+        Kind::Comment => syntax.comment,
     }
 }
-
-const ERROR_LINE_BG: Color32 = Color32::from_rgb(255, 208, 200);
 
 /// Byte range of 1-based line `line` (including its newline), if it exists.
 fn line_range(src: &str, line: usize) -> Option<Range<usize>> {
@@ -171,7 +174,7 @@ fn line_range(src: &str, line: usize) -> Option<Range<usize>> {
 }
 
 /// Build the colored layout for the editor.
-pub fn layout(src: &str, font: FontId, error_line: Option<usize>) -> LayoutJob {
+pub fn layout(src: &str, font: FontId, error_line: Option<usize>, syntax: &Syntax) -> LayoutJob {
     let error = error_line.and_then(|line| line_range(src, line));
     let mut job = LayoutJob::default();
     for (range, kind) in tokenize(src) {
@@ -187,12 +190,12 @@ pub fn layout(src: &str, font: FontId, error_line: Option<usize>) -> LayoutJob {
         cuts.sort_unstable();
         for pair in cuts.windows(2) {
             let (a, b) = (pair[0], pair[1]);
-            let mut format = TextFormat::simple(font.clone(), color(kind));
+            let mut format = TextFormat::simple(font.clone(), rgb(color(kind, syntax)));
             if error
                 .as_ref()
                 .is_some_and(|err| err.start <= a && b <= err.end)
             {
-                format.background = ERROR_LINE_BG;
+                format.background = rgb(syntax.error_line);
             }
             job.append(&src[a..b], 0.0, format);
         }
@@ -251,11 +254,12 @@ mod tests {
     #[test]
     fn error_line_is_marked() {
         let src = "a = 1\nb = oops\nc = 3\n";
+        let syntax = crate::engine::themes::CLASSIC.syntax;
         let marked = |line| {
-            layout(src, FontId::monospace(12.0), line)
+            layout(src, FontId::monospace(12.0), line, &syntax)
                 .sections
                 .iter()
-                .filter(|s| s.format.background == ERROR_LINE_BG)
+                .filter(|s| s.format.background == rgb(syntax.error_line))
                 .count()
         };
         assert_eq!(line_range(src, 2), Some(6..15));

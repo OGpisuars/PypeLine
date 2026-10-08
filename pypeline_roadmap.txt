@@ -155,6 +155,17 @@ CODE EDITOR        : bevy_egui (egui)
     same integer scale as the game, use a pixel font at its
     native size multiples, and disable egui font smoothing /
     use nearest sampling. Prototype this in Phase 0.
+  - WORKSPACE (player feedback, Oct 2026): every file gets its
+    own floating, movable, resizable window, and so does the
+    console. A thin top bar holds Run, Files, Help, Manual,
+    Shop, Settings, View and the Time Dials. The world fills
+    the whole window behind them and can be dragged side to
+    side and zoomed (whole-number steps, so pixels stay crisp),
+    like "The Farmer Was Replaced", so the code always has room.
+  - FILES: main.py is where Run starts. "+ New file" makes
+    more files; typing "PPL" saves PPL.py, typing "PPL.py"
+    keeps it. Other files are modules: main.py uses them with
+    "import PPL". Errors name the file and the line.
 
 TIME DIALS +       : LOCKED (merges with the earlier debugger idea)
   DEBUGGER
@@ -216,6 +227,55 @@ TERMINAL THEMES    : LOCKED (cosmetic, low priority)
     Indigo Dusk, Ember, Glasswork, Mint Cart, Gold Gear.
   - Themes are data files (palette + frame sprites), so more
     can be added later without code changes.
+  - STATUS (Oct 2026): six themes ship in Settings now (Classic
+    cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight
+    high contrast). Each restyles windows, syntax colors, the
+    text caret AND the mouse pointer (a pixel arrow: dark on
+    light themes, light on dark ones; or pick black-on-white,
+    white-on-black or the system pointer). Settings also pick
+    the font (JetBrains Mono, Maple Mono, Noto Sans Mono, Hack),
+    text size, and whether the island bobs. Saved in
+    settings.ron. Unlockable frame skins are still Phase 4.
+
+SHOP + UPGRADES    : LOCKED (Oct 2026)
+  - Coins from the cargo train buy upgrades in the Shop (F3):
+    Fast/Express belts, Miner Mk2/Mk3, Smelter Mk2/Mk3. Each
+    tier works 2x / 4x as fast and needs the tier below first.
+  - An upgrade only UNLOCKS a `tier=` argument; nothing changes
+    until the script asks for it:
+        conveyors.place(x=1, y=0, dir="east", tier=2)
+        machines.place("smelter", name="s", x=5, y=0, tier=3)
+    So upgrading is still programming, and a locked tier fails
+    on its line with "buy X in the Shop".
+  - Unlocks live in the factory save and survive Clean Run.
+    Upgrading a placed machine or belt keeps its items.
+  - Later: more upgrades (bigger plots, station capacity,
+    generator range) as new content lands. Prices are data.
+
+PRESTIGE + LANGUAGES: PLANNED (after 1.0 content, see Phase 4B)
+  - Prestige = start over: the factory, coins and Shop upgrades
+    reset, the Manual progress stays, and you keep a permanent
+    Prestige bonus (for example better train prices).
+  - EVERY prestige switches the scripting language, and the
+    higher the prestige, the harder and fussier the language:
+        0  Python      (where everyone starts)
+        1  Lua         (1-based lists, "end", ~= for "not equal")
+        2  JavaScript  (braces, semicolons, === vs ==)
+        3  PypeC       (our own C-like language: declared types,
+                        semicolons required, no implicit casts)
+        4  Belt Assembly (our own: registers, labels, jumps,
+                        a tiny step budget)
+        5  Beltf*ck    (esoteric finale: the belts are the tape)
+  - Same game API in every language (place, connect, tick(),
+    events), the same sandbox rules (step budget, memory cap,
+    watchdog), and the same determinism. Each language is a
+    backend behind one Language trait: check, run, tick, event,
+    highlight, autocomplete, friendly errors.
+  - Every language must be pure Rust, embeddable, sandboxable
+    and deterministic (e.g. piccolo for Lua, boa for JS); our
+    own languages get small hand-written interpreters.
+  - The Manual gets a "translation" page per language: the
+    Python you already know, side by side with the new syntax.
 
 LED MATRIX PANELS  : LOCKED (Phase 4, scoped small)
   - Display blocks, 8x8 and 16x16, set from Python:
@@ -243,6 +303,9 @@ CARTRIDGES         : LOCKED (module system, file-based underneath)
     that changed. Track the import graph to reload dependents.
   - NAMING: do not call them "Game Boy cartridges" (Nintendo
     trademark). Use an original name such as "Paks" or "Carts".
+  - STATUS (Oct 2026): the file-based layer works: extra files
+    are modules main.py imports (see CODE EDITOR > FILES). The
+    physical cart/slot presentation is still to come.
 
 BOOT SPLASH        : LOCKED
   - Original 16-bit startup animation (e.g. gold PYPELINE
@@ -527,20 +590,50 @@ Goal: chapters 8-10 and the systems they unlock.
   [ ] Line debugger: step one line, variable watch, current-
       line marker (trace.rs, on the Phase 0 hook) (Part 4 F)
   [ ] Stats dashboard: IPM, steam use, uptime, bottleneck glow
-  [ ] stats.* Python module (ipm, steam, bottlenecks)
+  [~] stats.* Python module (ipm, steam, bottlenecks)
+      (produced, per_minute, coins; steam and bottlenecks to come)
   [ ] Contracts that use stats.* (e.g. "keep IPM above 30")
-  [ ] Cartridge system (unlocks with ch. 8): slots, carts as
+  [~] Cartridge system (unlocks with ch. 8): slots, carts as
       modules, per-module hot-reload, import-graph tracking
-  [ ] Events and sensors (ch. 9): on_event, sensors.*,
+      (player files as importable modules done; cart/slot visuals to come)
+  [x] Events and sensors (ch. 9): on_event, sensors.*,
       player-defined on_contract_complete banners
-  [ ] Generator tick() support (ch. 10)
+      (on_train, on_contract_complete, sensors.count)
+  [x] Generator tick() support (ch. 10)
   [ ] Day/night cycle (palette shift) + thermal system
-  [ ] clock.* module + boiler temperature readouts
+  [~] clock.* module + boiler temperature readouts
+      (clock.tick, clock.seconds; temperatures come with thermal)
   [ ] Contracts that need thermal planning (after ch. 9)
   [ ] Campaign: contracts for chapters 8-10 (15 total+)
   [ ] Playtest chapters 8-10 with true beginners
 Exit test: a beginner finishes the campaign and can use
 functions, lists, and events unaided.
+
+--------------------------------------------------------------
+PHASE 3C - WORKSPACE, SHOP AND SETTINGS (player feedback)
+--------------------------------------------------------------
+Goal: room to code, a reason to spend coins, and a game that
+looks the way the player likes. Added October 2026.
+  [x] Floating, movable, resizable code windows + console
+  [x] Top bar: Run/Stop/Clean Run, Files, Console, Snippets,
+      Help, Manual, Shop, Settings, View, Time Dials
+  [x] World fills the window: drag to pan, wheel to zoom
+      (whole-number steps), Home to center
+  [x] Many files: + New file (".py" added when missing),
+      delete with a .bak kept, import between files, errors
+      name the file
+  [x] Run from anywhere: Ctrl+Enter or F5
+  [x] Settings window: 6 themes, theme-matched mouse pointer
+      and text caret, 4 fonts, text size, island bobbing on/off
+  [x] Shop: belt and machine tiers bought with coins, used
+      with tier= in scripts, saved with the factory
+  [x] Help: "Names you can use" (machines, items, ores,
+      directions, colors, tiers), every module and function,
+      tick() and events, files, moving around, keys, the Shop
+  [x] Prestige design written down (Part 1 + Phase 4B)
+Exit test: a player can keep main.py, a helper file and the
+console open next to the island, and buy and use a Fast belt
+without reading anything outside the game.
 
 --------------------------------------------------------------
 PHASE 4 - 1.0: SANDBOX, SHARING, POLISH (Week 29-40)
@@ -551,7 +644,8 @@ Goal: shippable.
   [ ] Import/export blueprints via files, treated as
       untrusted: same sandbox + "review before run" (Part 4 B)
   [ ] GBA LCD-grid / color-correction visual toggle
-  [ ] Terminal themes (4-5 original skins, unlockable)
+  [~] Terminal themes (4-5 original skins, unlockable)
+      (6 color themes in Settings; unlockable frame skins to come)
   [ ] LED matrix panels + display.* module (8x8, then 16x16)
   [ ] Stretch: input API + mini-games for LED panels
   [ ] Micro-chips: placement, ports, flash(), micro.* module
@@ -562,8 +656,9 @@ Goal: shippable.
   [ ] More wildlife species + Field Guide manual page
   [ ] Wildlife options: hide / reduce motion
   [ ] Adaptive audio layers tied to throughput
-  [ ] Accessibility: colorblind wire patterns, font scaling,
+  [~] Accessibility: colorblind wire patterns, font scaling,
       rebindable keys, reduced-motion option
+      (text size, fonts, high-contrast theme, island bobbing switch done)
   [ ] Performance pass: hit the Part 4 D target
   [ ] Harden the sandbox: full fuzz run of the escape corpus
   [ ] Script history / undo across sessions (Part 4 A)
@@ -573,6 +668,25 @@ Goal: shippable.
   [ ] Tutorial pass, installers, macOS signing/notarization
 Exit test: 100 playtest hours with no sandbox escapes and no
 save corruption.
+
+--------------------------------------------------------------
+PHASE 4B - PRESTIGE AND NEW LANGUAGES (after 1.0 content)
+--------------------------------------------------------------
+Goal: a long game for players who finished the campaign. See
+Part 1 "PRESTIGE + LANGUAGES" for the design.
+  [ ] Prestige screen: what resets, what stays, the bonus
+  [ ] Language trait: check / run / tick / event / highlight /
+      autocomplete / friendly errors, one per language
+  [ ] Game API bindings shared by every language
+  [ ] Lua backend (prestige 1) + translation page
+  [ ] JavaScript backend (prestige 2) + translation page
+  [ ] PypeC: our own C-like language (prestige 3)
+  [ ] Belt Assembly: our own assembly language (prestige 4)
+  [ ] Beltf*ck esoteric finale (prestige 5)
+  [ ] Golden solutions for every contract in every language
+  [ ] Sandbox escape corpus per language, run in CI
+Exit test: a player who prestiges once can rebuild their
+factory in Lua using only the in-game translation page.
 
 --------------------------------------------------------------
 PHASE 5 - POST-LAUNCH

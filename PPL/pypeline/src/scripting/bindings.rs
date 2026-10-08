@@ -14,7 +14,7 @@ use rustpython_vm::{
     function::ArgSequence,
 };
 
-use super::commands::{BuildPlan, PlannedMachine};
+use super::commands::{self, BuildPlan, PlannedBelt, PlannedMachine};
 use super::console_api::{ConsoleSink, console_module};
 use super::operate::{ApiMode, Op, WorldView};
 use crate::factory::items;
@@ -33,6 +33,8 @@ struct ConveyorArgs {
     y: i64,
     #[pyarg(any)]
     dir: PyStrRef,
+    #[pyarg(any, optional)]
+    tier: Option<i64>,
 }
 
 #[derive(FromArgs)]
@@ -49,6 +51,8 @@ struct MachineArgs {
     dir: Option<PyStrRef>,
     #[pyarg(any, optional)]
     ore: Option<PyStrRef>,
+    #[pyarg(any, optional)]
+    tier: Option<i64>,
 }
 
 #[derive(FromArgs)]
@@ -80,6 +84,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     let place_conveyor = {
         let plan = plan.clone();
         let mode = ctx.mode.clone();
+        let world = ctx.world.clone();
         vm.new_function(
             "place",
             move |args: ConveyorArgs, vm: &VirtualMachine| -> PyResult<()> {
@@ -87,9 +92,13 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                     return Err(vm.new_value_error(BUILD_ONLY));
                 }
                 let pos = pos(args.x, args.y, vm)?;
-                let dir = dir(&args.dir, vm)?;
+                let belt = PlannedBelt {
+                    dir: dir(&args.dir, vm)?,
+                    tier: commands::belt_tier(args.tier.unwrap_or(1), &world.borrow().unlocked)
+                        .map_err(|msg| vm.new_value_error(msg))?,
+                };
                 plan.borrow_mut()
-                    .place_conveyor(pos, dir)
+                    .place_conveyor(pos, belt)
                     .map_err(|msg| vm.new_value_error(msg))
             },
         )
@@ -98,6 +107,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     let place_machine = {
         let plan = plan.clone();
         let mode = ctx.mode.clone();
+        let world = ctx.world.clone();
         vm.new_function(
             "place",
             move |args: MachineArgs, vm: &VirtualMachine| -> PyResult<()> {
@@ -124,6 +134,9 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                     }
                     None => None,
                 };
+                let tier =
+                    commands::machine_tier(kind, args.tier.unwrap_or(1), &world.borrow().unlocked)
+                        .map_err(|msg| vm.new_value_error(msg))?;
                 let machine = PlannedMachine {
                     kind,
                     pos: pos(args.x, args.y, vm)?,
@@ -132,6 +145,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                         None => Dir::East,
                     },
                     ore,
+                    tier,
                 };
                 plan.borrow_mut()
                     .place_machine(&text(&args.name, vm)?, machine)
@@ -300,6 +314,7 @@ fn operate_functions(vm: &VirtualMachine, ctx: &ScriptContext) -> OperateFunctio
                 dict.set_item("output", vm.ctx.new_int(m.output).into(), vm)?;
                 dict.set_item("powered", vm.ctx.new_bool(m.powered).into(), vm)?;
                 dict.set_item("on", vm.ctx.new_bool(m.enabled).into(), vm)?;
+                dict.set_item("tier", vm.ctx.new_int(m.tier).into(), vm)?;
                 Ok(dict.into())
             },
         )

@@ -11,7 +11,8 @@ use super::items::ItemKind;
 pub const TILE_PROGRESS: u8 = 16;
 /// Minimum gap between two items on a belt.
 pub const SPACING: u8 = 8;
-/// Pixels an item moves per tick (20 px/s at 20 ticks/s).
+/// Pixels an item moves per tick on a tier 1 belt (20 px/s at 20 ticks/s).
+/// Faster tiers from the Shop: see `shop::belt_speed`.
 pub const SPEED: u8 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -25,6 +26,13 @@ pub struct Conveyor {
     pub dir: Dir,
     /// Front item first (highest progress).
     pub items: Vec<BeltItem>,
+    /// 1 = plain belt, 2 = fast, 3 = express.
+    #[serde(default = "first_tier")]
+    pub tier: u8,
+}
+
+pub(crate) fn first_tier() -> u8 {
+    1
 }
 
 impl Conveyor {
@@ -32,6 +40,7 @@ impl Conveyor {
         Self {
             dir,
             items: Vec::new(),
+            tier: 1,
         }
     }
 
@@ -50,9 +59,10 @@ impl Conveyor {
     /// Move items forward, keeping them spaced out and stopping at the front
     /// edge. Returns true if the front item is waiting to leave the tile.
     pub fn advance(&mut self) -> bool {
+        let speed = super::shop::belt_speed(self.tier);
         let mut limit = TILE_PROGRESS;
         for item in &mut self.items {
-            item.progress = (item.progress + SPEED).min(limit);
+            item.progress = (item.progress + speed).min(limit);
             limit = item.progress.saturating_sub(SPACING);
         }
         self.items
@@ -80,5 +90,18 @@ mod tests {
         // Front item waits at the edge; the second stops one gap behind it.
         assert_eq!(belt.items[0].progress, TILE_PROGRESS);
         assert_eq!(belt.items[1].progress, TILE_PROGRESS - SPACING);
+    }
+
+    #[test]
+    fn express_belts_are_four_times_as_fast() {
+        let ticks_to_cross = |tier| {
+            let mut belt = Conveyor::new(Dir::East);
+            belt.tier = tier;
+            belt.push_back(ItemKind::IronOre);
+            (1..).find(|_| belt.advance()).unwrap()
+        };
+        assert_eq!(ticks_to_cross(1), 16);
+        assert_eq!(ticks_to_cross(2), 8);
+        assert_eq!(ticks_to_cross(3), 4);
     }
 }

@@ -47,16 +47,19 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
         factory.stash(belt.items.into_iter().map(|i| i.kind));
         report.removed += 1;
     }
-    // New and turned belts. A turned belt keeps its items.
-    for (&pos, &dir) in &plan.conveyors {
+    // New, turned and upgraded belts. A changed belt keeps its items.
+    for (&pos, planned) in &plan.conveyors {
         match factory.conveyors.get_mut(&pos) {
-            Some(belt) if belt.dir == dir => {}
+            Some(belt) if belt.dir == planned.dir && belt.tier == planned.tier => {}
             Some(belt) => {
-                belt.dir = dir;
+                belt.dir = planned.dir;
+                belt.tier = planned.tier;
                 report.changed += 1;
             }
             None => {
-                factory.conveyors.insert(pos, Conveyor::new(dir));
+                let mut belt = Conveyor::new(planned.dir);
+                belt.tier = planned.tier;
+                factory.conveyors.insert(pos, belt);
                 report.created += 1;
             }
         }
@@ -81,9 +84,11 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
     for (name, planned) in &plan.machines {
         match factory.machines.get_mut(name) {
             Some(m) if m.kind == planned.kind && m.pos == planned.pos => {
-                if m.dir != planned.dir || m.ore != planned.ore {
+                // An upgraded machine keeps its items and its job.
+                if m.dir != planned.dir || m.ore != planned.ore || m.tier != planned.tier {
                     m.dir = planned.dir;
                     m.ore = planned.ore;
+                    m.tier = planned.tier;
                     report.changed += 1;
                 }
             }
@@ -96,10 +101,9 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
                 } else {
                     report.created += 1;
                 }
-                factory.machines.insert(
-                    name.clone(),
-                    Machine::new(planned.kind, planned.pos, planned.dir, planned.ore),
-                );
+                let mut machine = Machine::new(planned.kind, planned.pos, planned.dir, planned.ore);
+                machine.tier = planned.tier;
+                factory.machines.insert(name.clone(), machine);
             }
         }
     }

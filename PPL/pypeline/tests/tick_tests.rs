@@ -63,6 +63,7 @@ fn switching_machines_is_queued_and_refused_while_building() {
             output: 0,
             powered: true,
             enabled: true,
+            tier: 1,
         },
     );
     rt.set_world(world);
@@ -127,6 +128,7 @@ fn stats_and_sensors_read_the_snapshot() {
         per_minute: BTreeMap::from([(ItemKind::IronPlate, 20)]),
         machines: BTreeMap::new(),
         belts: BTreeMap::from([(Pos::new(2, 0), 3)]),
+        ..Default::default()
     });
     let report = rt.run(
         "import stats, sensors, clock\nprint(stats.produced('iron_plate'), stats.per_minute('iron_plate'), stats.coins())\nprint(sensors.count(2, 0), sensors.count(9, 9), clock.seconds())",

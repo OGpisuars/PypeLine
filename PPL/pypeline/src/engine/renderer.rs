@@ -30,8 +30,19 @@ const SWITCHED_OFF: Color = Color::srgb(0.4, 0.4, 0.48);
 #[derive(Component)]
 struct LayoutSprite;
 
+/// A belt's direction and how many animation frames it moves per tick
+/// (faster tiers scroll faster).
 #[derive(Component)]
-pub struct BeltSprite(Dir);
+pub struct BeltSprite(Dir, u64);
+
+/// Tint for faster belts: warm for tier 2, cool for tier 3.
+fn belt_tint(tier: u8) -> Color {
+    match tier {
+        0 | 1 => Color::WHITE,
+        2 => Color::srgb(1.0, 0.78, 0.72),
+        _ => Color::srgb(0.72, 0.85, 1.0),
+    }
+}
 
 /// A machine's sprite and its normal color (dimmed when unpowered).
 #[derive(Component)]
@@ -97,10 +108,15 @@ fn sync_layout(
     }
 
     for (&pos, belt) in &factory.conveyors {
+        let mut sprite = Sprite::from_image(sheet.belt(belt.dir, 0));
+        sprite.color = belt_tint(belt.tier);
         commands.spawn((
-            Sprite::from_image(sheet.belt(belt.dir, 0)),
+            sprite,
             Transform::from_translation(plot_tile_center(pos, Z_BELT)),
-            BeltSprite(belt.dir),
+            BeltSprite(
+                belt.dir,
+                u64::from(crate::factory::shop::belt_speed(belt.tier)),
+            ),
             LayoutSprite,
             WORLD_LAYER,
             ChildOf(island.root),
@@ -128,6 +144,22 @@ fn sync_layout(
             WORLD_LAYER,
             ChildOf(island.root),
         ));
+
+        // Mk2 and Mk3 machines wear one or two copper rivets in a corner.
+        for pip in 1..machine.tier {
+            let at = Vec3::new(
+                TILE as f32 / 2.0 - 2.0 - 3.0 * f32::from(pip - 1),
+                TILE as f32 / 2.0 - 2.0,
+                0.2,
+            );
+            commands.spawn((
+                Sprite::from_color(palette::COPPER, Vec2::splat(2.0)),
+                Transform::from_translation(center + at),
+                LayoutSprite,
+                WORLD_LAYER,
+                ChildOf(island.root),
+            ));
+        }
 
         // A small brass port on the side items come out of.
         if machine.kind.has_output() {
@@ -157,8 +189,8 @@ fn animate_belts(
     mut belts: Query<(&BeltSprite, &mut Sprite)>,
 ) {
     // Driven by the factory's own tick, so belts freeze while halted.
-    let frame = (factory.ticks % sprites::BELT_FRAMES as u64) as usize;
     for (belt, mut sprite) in &mut belts {
+        let frame = (factory.ticks * belt.1 % sprites::BELT_FRAMES as u64) as usize;
         sprite.image = sheet.belt(belt.0, frame);
     }
 }

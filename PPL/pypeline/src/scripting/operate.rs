@@ -5,10 +5,11 @@
 //! fixed order on the next step. Build calls (place/connect) are only allowed
 //! while main.py runs (roadmap: build once, operate every tick).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
+use crate::factory::shop::Upgrade;
 use crate::factory::{Factory, Pos};
 
 /// Which calls a script may make right now.
@@ -29,6 +30,7 @@ pub struct MachineView {
     pub output: usize,
     pub powered: bool,
     pub enabled: bool,
+    pub tier: u8,
 }
 
 /// What scripts can see of the factory during one tick.
@@ -42,6 +44,8 @@ pub struct WorldView {
     pub machines: BTreeMap<String, MachineView>,
     /// Items on each belt tile.
     pub belts: BTreeMap<Pos, usize>,
+    /// Shop upgrades bought, which decide the `tier=` main.py may use.
+    pub unlocked: BTreeSet<Upgrade>,
 }
 
 impl WorldView {
@@ -63,6 +67,7 @@ impl WorldView {
                         output: m.output.len(),
                         powered,
                         enabled: m.enabled,
+                        tier: m.tier,
                     };
                     (name.clone(), view)
                 })
@@ -72,6 +77,7 @@ impl WorldView {
                 .iter()
                 .map(|(&pos, belt)| (pos, belt.items.len()))
                 .collect(),
+            unlocked: factory.unlocked.clone(),
         }
     }
 }

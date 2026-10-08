@@ -3,8 +3,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-use super::editor::EditorState;
-use super::{palette, rgb};
+use super::editor::Workspace;
 use crate::factory::Factory;
 use crate::progression::chapters::{self, Block, Chapter, Contract};
 use crate::progression::contracts::{self, Progress};
@@ -51,7 +50,7 @@ pub fn manual_window(
     mut contexts: EguiContexts,
     mut manual: ResMut<ManualState>,
     mut progress: ResMut<Progress>,
-    mut editor: ResMut<EditorState>,
+    mut workspace: ResMut<Workspace>,
     factory: Res<Factory>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -96,7 +95,7 @@ pub fn manual_window(
                     ui.heading(&chapter.title);
                     if progress.chapter_unlocked(chapter.number) {
                         for block in &chapter.blocks {
-                            show_block(ui, block, &mut editor);
+                            show_block(ui, block, &mut workspace);
                         }
                     } else {
                         ui.label(format!(
@@ -116,7 +115,7 @@ pub fn manual_window(
     Ok(())
 }
 
-fn show_block(ui: &mut egui::Ui, block: &Block, editor: &mut EditorState) {
+fn show_block(ui: &mut egui::Ui, block: &Block, workspace: &mut Workspace) {
     match block {
         Block::Heading(text) => {
             ui.add_space(8.0);
@@ -142,8 +141,8 @@ fn show_block(ui: &mut egui::Ui, block: &Block, editor: &mut EditorState) {
         }
         Block::Code { code, snippet } => {
             egui::Frame::new()
-                .fill(egui::Color32::from_rgb(255, 252, 240))
-                .stroke(egui::Stroke::new(1.0, rgb(palette::UI_BORDER)))
+                .fill(ui.visuals().code_bg_color)
+                .stroke(egui::Stroke::new(1.0, ui.visuals().window_stroke.color))
                 .inner_margin(6.0)
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
@@ -151,14 +150,13 @@ fn show_block(ui: &mut egui::Ui, block: &Block, editor: &mut EditorState) {
                 });
             ui.horizontal(|ui| {
                 if ui.small_button("Insert into main.py").clicked() {
-                    if !editor.source.ends_with('\n') {
-                        editor.source.push('\n');
-                    }
-                    editor.source.push_str(code);
+                    workspace.insert_into_main(code);
                 }
                 // Whole examples can replace the script outright.
                 if code.contains("import") && ui.small_button("Use as main.py").clicked() {
-                    editor.source = code.clone();
+                    let main = workspace.main();
+                    main.source = code.clone();
+                    main.open = true;
                 }
                 if let Some(name) = snippet {
                     ui.weak(format!("snippet: {name}"));

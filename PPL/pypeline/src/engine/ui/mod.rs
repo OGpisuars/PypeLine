@@ -1,8 +1,9 @@
-//! egui-based UI: code editor, console, and the debug overlay.
+//! egui-based UI: the top bar, floating code windows, console, Manual,
+//! Help, Shop, Settings, and the debug overlay.
 //!
-//! egui draws at window resolution, not inside the 480x320 canvas. It is
-//! styled with the FireRed-style palette and uses JetBrains Mono for all text
-//! (see ASSET_LICENSES.md).
+//! egui draws at window resolution, not inside the 480x320 canvas. Its look
+//! comes from the theme and font picked in Settings (see `themes.rs` and
+//! ASSET_LICENSES.md).
 
 pub mod autocomplete;
 pub mod console;
@@ -11,7 +12,10 @@ pub mod help;
 pub mod highlight;
 pub mod manual;
 pub mod polaroid;
+pub mod settings;
+pub mod shop;
 pub mod time_dials;
+pub mod top_bar;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -24,37 +28,50 @@ use crate::factory::tick::SimControl;
 use crate::factory::{Factory, SimTick};
 
 use super::camera::{HoveredTile, PixelScale};
-use super::palette;
 
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
-            .init_resource::<editor::EditorState>()
+            .init_resource::<editor::Workspace>()
             .init_resource::<help::HelpState>()
             .init_resource::<manual::ManualState>()
-            .add_systems(Startup, editor::load_script)
+            .init_resource::<settings::Settings>()
+            .init_resource::<settings::SettingsWindow>()
+            .init_resource::<shop::ShopWindow>()
+            .add_systems(Startup, (editor::load_scripts, settings::load_settings))
             .add_systems(
                 Update,
-                (help::toggle_help, manual::toggle_manual, announce_sales),
+                (
+                    help::toggle_help,
+                    manual::toggle_manual,
+                    shop::toggle_shop,
+                    announce_sales,
+                    settings::save_settings,
+                ),
             )
-            // In Last, so it sees the AppExit sent when the window closes.
-            .add_systems(Last, editor::autosave)
+            // In Last, so it sees the AppExit sent when the window closes
+            // and the cursor bevy_egui picked this frame.
+            .add_systems(Last, (editor::autosave, settings::update_cursor))
+            // The theme applies during the splash too.
+            .add_systems(EguiPrimaryContextPass, settings::apply_settings)
             .add_systems(
                 EguiPrimaryContextPass,
                 (
-                    apply_theme,
-                    editor::code_panel,
+                    top_bar::top_bar,
+                    editor::code_windows,
                     help::help_window,
                     manual::manual_window,
-                    time_dials::time_dials,
+                    shop::shop_window,
+                    settings::settings_window,
                     time_dials::time_dial_keys,
                     polaroid::polaroid,
                     debug_overlay,
                 )
                     .chain()
-                    // The code panel and overlays appear once the splash is done.
+                    .after(settings::apply_settings)
+                    // The windows and overlays appear once the splash is done.
                     .run_if(super::splash::splash_finished),
             );
     }
@@ -84,46 +101,6 @@ fn announce_sales(
     }
 }
 
-pub(crate) fn rgb([r, g, b]: [u8; 3]) -> egui::Color32 {
-    egui::Color32::from_rgb(r, g, b)
-}
-
-/// FireRed-style dialogue boxes: cream fill, dark ink, rounded blue border.
-fn apply_theme(mut contexts: EguiContexts, mut applied: Local<bool>) -> Result {
-    if *applied {
-        return Ok(());
-    }
-    let ctx = contexts.ctx_mut()?;
-    let mut visuals = egui::Visuals::light();
-    visuals.window_fill = rgb(palette::UI_CREAM);
-    visuals.panel_fill = rgb(palette::UI_CREAM);
-    visuals.extreme_bg_color = egui::Color32::from_rgb(255, 252, 240);
-    visuals.code_bg_color = egui::Color32::from_rgb(255, 252, 240);
-    visuals.override_text_color = Some(rgb(palette::UI_INK));
-    visuals.window_stroke = egui::Stroke::new(3.0, rgb(palette::UI_BORDER));
-    visuals.window_corner_radius = egui::CornerRadius::same(8);
-    visuals.window_shadow = egui::Shadow::NONE;
-    ctx.set_visuals(visuals);
-
-    let mut fonts = egui::FontDefinitions::default();
-    fonts.font_data.insert(
-        "jetbrains_mono".to_owned(),
-        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-            "../../../assets/fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
-        ))),
-    );
-    for family in [egui::FontFamily::Monospace, egui::FontFamily::Proportional] {
-        fonts
-            .families
-            .entry(family)
-            .or_default()
-            .insert(0, "jetbrains_mono".to_owned());
-    }
-    ctx.set_fonts(fonts);
-    *applied = true;
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
 fn debug_overlay(
     mut contexts: EguiContexts,
@@ -143,11 +120,13 @@ fn debug_overlay(
     egui::Area::new(egui::Id::new("debug_overlay"))
         // Under every window, so it never covers the Manual or Help.
         .order(egui::Order::Background)
+        .pivot(egui::Align2::RIGHT_TOP)
         .fixed_pos(area.0.map_or(egui::pos2(8.0, 8.0), |a| {
-            egui::pos2(a.min.x + 8.0, a.min.y + 52.0)
+            egui::pos2(a.max.x - 8.0, a.min.y + 8.0)
         }))
         .interactable(false)
         .show(contexts.ctx_mut()?, |ui| {
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
             let status = match (factory.halted, control.paused) {
                 (true, _) => "  |  HALTED".to_owned(),
                 (false, true) => "  |  PAUSED".to_owned(),

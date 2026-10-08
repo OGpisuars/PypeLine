@@ -8,58 +8,43 @@ use bevy_egui::{EguiContexts, egui};
 
 use crate::factory::tick::{SPEEDS, SimControl};
 
-pub fn time_dials(
-    mut contexts: EguiContexts,
-    mut control: ResMut<SimControl>,
-    mut audio: ResMut<crate::audio::AudioSettings>,
-    area: Res<crate::engine::camera::GameArea>,
-) -> Result {
-    let ctx = contexts.ctx_mut()?;
-    egui::Area::new(egui::Id::new("time_dials"))
-        .pivot(egui::Align2::CENTER_TOP)
-        .fixed_pos(area.0.map_or(egui::pos2(400.0, 8.0), |a| {
-            egui::pos2(a.center().x, a.min.y + 8.0)
-        }))
-        .show(ctx, |ui| {
-            egui::Frame::window(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    let label = if control.paused {
-                        "▶ Play"
-                    } else {
-                        "⏸ Pause"
-                    };
-                    if ui.button(label).on_hover_text("Space").clicked() {
-                        control.paused = !control.paused;
-                    }
-                    let step = ui
-                        .add_enabled(control.paused, egui::Button::new("Step"))
-                        .on_hover_text("Run exactly one tick (period key)");
-                    if step.clicked() {
-                        control.step_requested = true;
-                    }
-                    ui.separator();
-                    for (i, speed) in SPEEDS.into_iter().enumerate() {
-                        let selected = control.speed == speed;
-                        let button = ui
-                            .selectable_label(selected, format!("{speed}x"))
-                            .on_hover_text(format!("key {}", i + 1));
-                        if button.clicked() && !selected {
-                            control.speed = speed;
-                        }
-                    }
-                    ui.separator();
-                    let speaker = if audio.muted { "🔇" } else { "🔊" };
-                    if ui
-                        .button(speaker)
-                        .on_hover_text("Sound on/off (M)")
-                        .clicked()
-                    {
-                        audio.muted = !audio.muted;
-                    }
-                });
-            });
-        });
-    Ok(())
+/// The dials, drawn inside the top bar.
+pub fn time_dials_ui(
+    ui: &mut egui::Ui,
+    control: &mut SimControl,
+    audio: &mut crate::audio::AudioSettings,
+) {
+    let label = if control.paused {
+        "▶ Play"
+    } else {
+        "⏸ Pause"
+    };
+    if ui.button(label).on_hover_text("Space").clicked() {
+        control.paused = !control.paused;
+    }
+    let step = ui
+        .add_enabled(control.paused, egui::Button::new("Step"))
+        .on_hover_text("Run exactly one tick (period key)");
+    if step.clicked() {
+        control.step_requested = true;
+    }
+    for (i, speed) in SPEEDS.into_iter().enumerate() {
+        let selected = control.speed == speed;
+        let button = ui
+            .selectable_label(selected, format!("{speed}x"))
+            .on_hover_text(format!("key {}", i + 1));
+        if button.clicked() && !selected {
+            control.speed = speed;
+        }
+    }
+    let speaker = if audio.muted { "🔇" } else { "🔊" };
+    if ui
+        .button(speaker)
+        .on_hover_text("Sound on/off (M)")
+        .clicked()
+    {
+        audio.muted = !audio.muted;
+    }
 }
 
 pub fn time_dial_keys(

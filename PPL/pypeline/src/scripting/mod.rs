@@ -40,7 +40,7 @@ power.connect(generator="steam_1",
 /// Script source waiting to run on the next tick. The editor's Run button
 /// fills this; scripts only ever run on a tick boundary.
 #[derive(Resource, Default)]
-pub struct PendingRun(pub Option<String>);
+pub struct PendingRun(pub Option<runtime::Program>);
 
 /// The editor's Stop and Clean Run buttons, applied on the next tick.
 #[derive(Resource, Default)]
@@ -104,12 +104,19 @@ impl Console {
     }
 }
 
-/// The last script that ran to the end, which is what built the factory.
+/// The last program that ran to the end, which is what built the factory.
 /// Contracts check their concept requirements against it.
 #[derive(Resource, Default)]
 pub struct LastGoodScript {
-    pub source: String,
+    pub program: runtime::Program,
     pub steps: u64,
+}
+
+impl LastGoodScript {
+    /// Every file's source together (for hints that look for names).
+    pub fn all_sources(&self) -> String {
+        self.program.sources().collect::<Vec<_>>().join("\n")
+    }
 }
 
 /// Events waiting to be delivered to the script's handlers, in order.
@@ -130,9 +137,16 @@ struct Overruns(u32);
 #[derive(Resource, Default)]
 struct FailStreak(u32);
 
-/// The line the last run failed on, for the editor to highlight.
+/// Where the last run failed (file name, line), for the editor to
+/// highlight. The file is "main.py" or one of the player's other files.
 #[derive(Resource, Default)]
-pub struct ErrorLine(pub Option<usize>);
+pub struct ErrorLine(pub Option<(String, usize)>);
+
+impl ErrorLine {
+    fn set(&mut self, file: &Option<String>, line: Option<usize>) {
+        self.0 = line.map(|l| (file.clone().unwrap_or_else(|| "main.py".into()), l));
+    }
+}
 
 /// Why the last run failed, for the failure visuals. Not simulation state:
 /// the sim only knows it is halted.
@@ -193,7 +207,7 @@ fn run_pending_script(
         *failure = LastFailure::None;
         console.push(ConsoleKind::Info, "Stopped. Press Run to start again.");
     }
-    let Some(source) = pending.0.take() else {
+    let Some(program) = pending.0.take() else {
         return;
     };
     let clean = std::mem::take(&mut requests.clean);
@@ -203,10 +217,16 @@ fn run_pending_script(
     ));
 
     console.push(ConsoleKind::Info, format!("> Run (tick {})", tick.0));
-    let report = runtime.run(&source, DEPLOY_BUDGET);
+    let report = runtime.run_program(&program, DEPLOY_BUDGET);
     console.apply(report.console);
 
-    let at = |line: Option<usize>| line.map(|l| format!(" (line {l})")).unwrap_or_default();
+    let file = report.error_file.clone();
+    let at = |line: Option<usize>| match (&file, line) {
+        (Some(file), Some(l)) => format!(" ({file}, line {l})"),
+        (Some(file), None) => format!(" ({file})"),
+        (None, Some(l)) => format!(" (line {l})"),
+        (None, None) => String::new(),
+    };
     error_line.0 = None;
     // Any failed run halts the belts until the next good Run (roadmap:
     // ERROR HANDLING). The factory layout itself is left untouched.
@@ -231,7 +251,7 @@ fn run_pending_script(
     build.0 = report.plan;
     handlers.on_contract_complete = runtime.defines("on_contract_complete");
     if report.outcome == RunOutcome::Finished {
-        last_good.source = source.clone();
+        last_good.program = program.clone();
         last_good.steps = report.steps_used;
         streak.0 = 0;
     } else {
@@ -246,15 +266,16 @@ fn run_pending_script(
             ),
         ),
         RunOutcome::Error { line, message } => {
-            error_line.0 = line;
+            error_line.set(&report.error_file, line);
             console.push(ConsoleKind::Error, format!("Error{}: {message}", at(line)));
-            if let Some(hint) = errors::explain(&message, &source) {
+            let all: Vec<&str> = program.sources().collect();
+            if let Some(hint) = errors::explain(&message, &all.join("\n")) {
                 console.push(ConsoleKind::Info, format!("Hint: {hint}"));
             }
             console.push(ConsoleKind::Error, "Belts halted until the next good Run.");
         }
         RunOutcome::OutOfSteam { line } => {
-            error_line.0 = line;
+            error_line.set(&report.error_file, line);
             console.push(
                 ConsoleKind::Error,
                 format!(
@@ -307,7 +328,13 @@ fn run_script_hooks(
     for (name, report) in reports {
         console.apply(report.console);
         pending_ops.0.extend(report.ops);
-        let at = |line: Option<usize>| line.map(|l| format!(" (line {l})")).unwrap_or_default();
+        let file = report.error_file.clone();
+        let at = |line: Option<usize>| match (&file, line) {
+            (Some(file), Some(l)) => format!(" ({file}, line {l})"),
+            (Some(file), None) => format!(" ({file})"),
+            (None, Some(l)) => format!(" (line {l})"),
+            (None, None) => String::new(),
+        };
         match report.outcome {
             HookOutcome::NotDefined => {}
             HookOutcome::Finished => {
@@ -316,12 +343,12 @@ fn run_script_hooks(
                 }
             }
             HookOutcome::Error { line, message } => {
-                error_line.0 = line;
+                error_line.set(&report.error_file, line);
                 console.push(
                     ConsoleKind::Error,
                     format!("Error in {name}(){}: {message}", at(line)),
                 );
-                if let Some(hint) = errors::explain(&message, &last_good.source) {
+                if let Some(hint) = errors::explain(&message, &last_good.all_sources()) {
                     console.push(ConsoleKind::Info, format!("Hint: {hint}"));
                 }
                 if name == "tick" {
@@ -353,7 +380,7 @@ fn run_script_hooks(
                 if overruns.0 >= 3 {
                     factory.halted = true;
                     *failure = LastFailure::OutOfSteam;
-                    error_line.0 = line;
+                    error_line.set(&report.error_file, line);
                     console.push(
                         ConsoleKind::Error,
                         "The boiler overheated: tick() ran out of steam 3 ticks in a row. Make \

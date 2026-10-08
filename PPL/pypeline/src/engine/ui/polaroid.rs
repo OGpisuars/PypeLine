@@ -6,7 +6,7 @@ use bevy_egui::{EguiContexts, EguiTextureHandle, egui};
 
 use crate::engine::camera::HoveredTile;
 use crate::engine::sprites::SpriteSheet;
-use crate::factory::machines::{BUFFER_CAP, MINE_TICKS, MachineKind, SMELT_TICKS, STATION_CAP};
+use crate::factory::machines::{BUFFER_CAP, MachineKind, STATION_CAP};
 use crate::factory::train::TRAIN_INTERVAL;
 use crate::factory::{Dir, Factory};
 
@@ -25,7 +25,11 @@ pub fn polaroid(
     let card = if let Some(name) = factory.machine_at.get(&pos) {
         let machine = &factory.machines[name];
         let image = sheet.machine(machine.kind);
-        let mut lines = vec![machine.kind.name().replace('_', " ")];
+        let mut title = machine.kind.name().replace('_', " ");
+        if machine.tier > 1 {
+            title.push_str(&format!(" Mk{}", machine.tier));
+        }
+        let mut lines = vec![title];
         let mut progress = None;
         if machine.kind.needs_power() {
             let powered = factory.is_powered(name);
@@ -37,11 +41,7 @@ pub fn polaroid(
             if !machine.enabled {
                 lines.push("switched off by your script".into());
             }
-            let needed = match machine.kind {
-                MachineKind::Miner => MINE_TICKS,
-                _ => SMELT_TICKS,
-            };
-            progress = Some(machine.progress as f32 / needed as f32);
+            progress = Some(machine.progress as f32 / machine.work_ticks().max(1) as f32);
             if let Some(ore) = machine.ore {
                 lines.push(format!("digging: {}", ore.name()));
             }
@@ -65,10 +65,15 @@ pub fn polaroid(
     } else {
         factory.conveyors.get(&pos).map(|belt| {
             let image = sheet.belt(belt.dir, 0);
-            let lines = vec![
+            let mut lines = vec![
                 format!("moving {}", dir_name(belt.dir)),
                 format!("items on it: {}", belt.items.len()),
             ];
+            match belt.tier {
+                2 => lines.push("fast belt (tier 2)".into()),
+                3 => lines.push("express belt (tier 3)".into()),
+                _ => {}
+            }
             (
                 format!("conveyor ({}, {})", pos.x, pos.y),
                 image,

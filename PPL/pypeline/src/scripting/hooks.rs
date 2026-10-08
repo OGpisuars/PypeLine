@@ -72,7 +72,13 @@ impl StepHook {
                                 .get_attr("f_lineno", vm)
                                 .ok()
                                 .and_then(|l| l.try_into_value::<usize>(vm).ok());
-                            budget.record_stop_line(line);
+                            let file = frame
+                                .get_attr("f_code", vm)
+                                .and_then(|code| code.get_attr("co_filename", vm))
+                                .and_then(|name| name.str(vm))
+                                .ok()
+                                .map(|name| name.to_string());
+                            budget.record_stop_line(line, file);
                             stop(OUT_OF_STEAM)
                         }
                     }

@@ -38,12 +38,27 @@ fn members(module: &str) -> Vec<Suggestion> {
             item("conveyors", "belts"),
             item("machines", "miners, smelters..."),
         ],
-        "conveyors" => vec![item("place(", "x, y, dir")],
-        "machines" => vec![item("place(", "kind, name, x, y, dir=\"east\", ore=...")],
+        "conveyors" => vec![item("place(", "x, y, dir, tier=1")],
+        "machines" => vec![
+            item("place(", "kind, name, x, y, dir=\"east\", ore=..., tier=1"),
+            item("enable(", "name  (in tick)"),
+            item("disable(", "name  (in tick)"),
+            item("status(", "name -> dict"),
+        ],
         "power" => vec![item("connect(", "generator, to=[names]")],
         "console" => vec![
             item("color(", "\"green\", \"red\", ... or \"default\""),
             item("clear()", "wipe the console"),
+        ],
+        "sensors" => vec![item("count(", "x, y -> items on that belt")],
+        "stats" => vec![
+            item("produced(", "\"iron_plate\" -> total made"),
+            item("per_minute(", "\"iron_plate\" -> made in the last minute"),
+            item("coins()", "your coins"),
+        ],
+        "clock" => vec![
+            item("tick()", "ticks so far"),
+            item("seconds()", "seconds so far"),
         ],
         _ => Vec::new(),
     }
@@ -89,11 +104,21 @@ pub fn suggest(line_before_cursor: &str) -> Option<Suggestions> {
                 .chain(["default".to_owned()]),
             "color",
         )
+    } else if ["produced(\"", "per_minute(\"", "produced('", "per_minute('"]
+        .iter()
+        .any(|end| before.ends_with(end))
+    {
+        words(
+            crate::factory::items::ItemKind::ALL
+                .iter()
+                .map(|i| i.id().to_owned()),
+            "item",
+        )
     } else if before.trim_start() == "from auto import " {
         members("auto")
     } else if before.trim_start() == "import " {
         words(
-            ["auto", "power", "console"].map(String::from),
+            ["auto", "power", "console", "sensors", "stats", "clock"].map(String::from),
             "game module",
         )
     } else {
@@ -140,12 +165,14 @@ mod tests {
             vec!["iron"]
         );
         assert!(inserts("console.color(\"").contains(&"green".to_owned()));
+        assert_eq!(inserts("stats.produced(\"iron_p"), vec!["iron_plate"]);
     }
 
     #[test]
     fn completes_imports() {
         assert_eq!(inserts("from auto import "), vec!["conveyors", "machines"]);
         assert_eq!(inserts("import p"), vec!["power"]);
+        assert_eq!(inserts("import st"), vec!["stats"]);
     }
 
     #[test]

@@ -8,9 +8,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use rustpython_vm::{
-    AsObject, Interpreter, PyObjectRef, PyResult, Settings, VirtualMachine,
-    builtins::PyBaseExceptionRef, compiler::Mode, function::FuncArgs, scope::Scope,
+    AsObject, Interpreter, PyObjectRef, PyRef, PyResult, Settings, VirtualMachine,
+    builtins::{PyBaseExceptionRef, PyCode, PyStrRef},
+    compiler::Mode,
+    function::FuncArgs,
+    scope::Scope,
 };
 
 use super::bindings::{self, ModuleTable, ScriptContext};
@@ -38,6 +43,37 @@ pub enum RunOutcome {
     OutOfSteam { line: Option<usize> },
 }
 
+/// main.py plus the player's other files, which main.py can import.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Program {
+    pub main: String,
+    /// Module name (the file name without `.py`) to source.
+    pub modules: BTreeMap<String, String>,
+}
+
+impl Program {
+    pub fn main_only(source: &str) -> Self {
+        Self {
+            main: source.to_owned(),
+            modules: BTreeMap::new(),
+        }
+    }
+
+    /// Every file's source, main.py first.
+    pub fn sources(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.main.as_str()).chain(self.modules.values().map(String::as_str))
+    }
+}
+
+/// The player's own modules for one run: compiled up front, executed the
+/// first time they are imported.
+#[derive(Default)]
+struct UserModules {
+    code: BTreeMap<String, PyRef<PyCode>>,
+    loaded: BTreeMap<String, PyObjectRef>,
+    loading: BTreeSet<String>,
+}
+
 /// Result of one script run: console output plus how it ended.
 #[derive(Debug, Clone)]
 pub struct RunReport {
@@ -48,6 +84,8 @@ pub struct RunReport {
     pub outcome: RunOutcome,
     pub steps_used: u64,
     pub steps_limit: u64,
+    /// The file an error or stop happened in, if it was not main.py.
+    pub error_file: Option<String>,
     /// What the script asked to build. Only present if it finished, so a
     /// failed run can never change the factory.
     pub plan: Option<BuildPlan>,
@@ -76,6 +114,8 @@ pub struct HookReport {
     pub console: Vec<ConsoleOp>,
     /// Operations to apply on the next factory step.
     pub ops: Vec<Op>,
+    /// The file an error or stop happened in, if it was not main.py.
+    pub error_file: Option<String>,
 }
 
 /// A value passed to an event handler.
@@ -100,8 +140,11 @@ pub struct ScriptRuntime {
     budget: Rc<Budget>,
     ctx: ScriptContext,
     modules: Rc<RefCell<ModuleTable>>,
+    user_modules: Rc<RefCell<UserModules>>,
     hook: hooks::StepHook,
     session: RefCell<Option<Session>>,
+    /// Where the last error happened (file, line), filled by `locate`.
+    error_file: RefCell<Option<String>>,
 }
 
 impl ScriptRuntime {
@@ -115,10 +158,12 @@ impl ScriptRuntime {
         let budget = Rc::new(Budget::default());
         let ctx = ScriptContext::default();
         let modules = Rc::new(RefCell::new(ModuleTable::new()));
+        let user_modules = Rc::new(RefCell::new(UserModules::default()));
 
         interpreter.enter(|vm| {
             install_print(vm, ctx.console.clone()).expect("failed to install print()");
-            install_import_guard(vm, modules.clone()).expect("failed to install the import guard");
+            install_import_guard(vm, modules.clone(), user_modules.clone())
+                .expect("failed to install the import guard");
             sandbox::trim_builtins(vm).expect("failed to trim builtins");
             // Deep recursion gets a clean RecursionError long before the
             // game's own stack is at risk.
@@ -131,8 +176,10 @@ impl ScriptRuntime {
             budget,
             ctx,
             modules,
+            user_modules,
             hook,
             session: RefCell::new(None),
+            error_file: RefCell::new(None),
         }
     }
 
@@ -160,6 +207,13 @@ impl ScriptRuntime {
 
     /// Compile and run `source` as a fresh module with `step_limit` steps.
     pub fn run(&self, source: &str, step_limit: u64) -> RunReport {
+        self.run_program(&Program::main_only(source), step_limit)
+    }
+
+    /// Run main.py, which may import the program's other files.
+    pub fn run_program(&self, program: &Program, step_limit: u64) -> RunReport {
+        let source = program.main.as_str();
+        self.error_file.replace(None);
         self.ctx.console.borrow_mut().reset();
         self.ctx.ops.borrow_mut().clear();
         self.ctx.mode.set(ApiMode::Build);
@@ -168,18 +222,28 @@ impl ScriptRuntime {
         // A new Run replaces the old session, even if it fails.
         *self.session.borrow_mut() = None;
 
-        if let Err(rejection) = sandbox::check(source) {
-            return RunReport {
-                output: Vec::new(),
-                console: Vec::new(),
-                plan: None,
-                outcome: RunOutcome::Error {
-                    line: Some(rejection.line),
-                    message: rejection.message,
-                },
-                steps_used: 0,
-                steps_limit: step_limit,
-            };
+        // Every file passes the sandbox check before anything runs.
+        let files = std::iter::once((MAIN_FILE.to_owned(), source)).chain(
+            program
+                .modules
+                .iter()
+                .map(|(name, src)| (format!("{name}.py"), src.as_str())),
+        );
+        for (file, src) in files {
+            if let Err(rejection) = sandbox::check(src) {
+                return RunReport {
+                    output: Vec::new(),
+                    console: Vec::new(),
+                    plan: None,
+                    outcome: RunOutcome::Error {
+                        line: Some(rejection.line),
+                        message: rejection.message,
+                    },
+                    steps_used: 0,
+                    steps_limit: step_limit,
+                    error_file: (file != MAIN_FILE).then_some(file),
+                };
+            }
         }
 
         let mut finished_scope = None;
@@ -191,7 +255,24 @@ impl ScriptRuntime {
                 Ok(table) => *self.modules.borrow_mut() = table,
                 Err(exc) => return error_outcome(vm, &exc),
             }
-            let code = match vm.compile(source, Mode::Exec, "main.py") {
+            // Compile every file first, so a syntax error in any of them is
+            // reported with its own file and line.
+            let mut user = UserModules::default();
+            for (name, src) in &program.modules {
+                let file = format!("{name}.py");
+                match vm.compile(src, Mode::Exec, file.clone()) {
+                    Ok(code) => {
+                        user.code.insert(name.clone(), code);
+                    }
+                    Err(err) => {
+                        self.error_file.replace(Some(file));
+                        let exc = err.into_pyexception(vm, Some(src));
+                        return error_outcome(vm, &exc);
+                    }
+                }
+            }
+            *self.user_modules.borrow_mut() = user;
+            let code = match vm.compile(source, Mode::Exec, MAIN_FILE) {
                 Ok(code) => code,
                 Err(err) => {
                     let exc = err.into_pyexception(vm, Some(source));
@@ -211,10 +292,16 @@ impl ScriptRuntime {
                     finished_scope = Some(scope);
                     RunOutcome::Finished
                 }
-                Err(exc) if self.budget.is_exhausted() => RunOutcome::OutOfSteam {
-                    line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
-                },
-                Err(exc) => error_outcome(vm, &exc),
+                Err(exc) if self.budget.is_exhausted() => {
+                    self.error_file.replace(self.budget.stop_file());
+                    RunOutcome::OutOfSteam {
+                        line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
+                    }
+                }
+                Err(exc) => {
+                    self.error_file.replace(deepest_file(&exc));
+                    error_outcome(vm, &exc)
+                }
             }
         });
 
@@ -234,7 +321,16 @@ impl ScriptRuntime {
             outcome,
             steps_used: self.budget.used(),
             steps_limit: self.budget.limit(),
+            error_file: self.reported_file(),
         }
+    }
+
+    /// The file of the last error, unless it was main.py.
+    fn reported_file(&self) -> Option<String> {
+        self.error_file
+            .borrow()
+            .clone()
+            .filter(|file| file != MAIN_FILE)
     }
 
     /// Call `tick()` (or advance its generator) with `step_limit` steps.
@@ -293,6 +389,7 @@ impl ScriptRuntime {
             output: Vec::new(),
             console: Vec::new(),
             ops: Vec::new(),
+            error_file: None,
         }
     }
 
@@ -307,6 +404,7 @@ impl ScriptRuntime {
         self.ctx.ops.borrow_mut().clear();
         self.ctx.mode.set(ApiMode::Operate);
         self.budget.reset(step_limit);
+        self.error_file.replace(None);
         let mut session = self.session.borrow_mut();
         let Some(session) = session.as_mut() else {
             return self.not_defined();
@@ -318,10 +416,16 @@ impl ScriptRuntime {
             match call(vm, session) {
                 Ok(Some(())) => HookOutcome::Finished,
                 Ok(None) => HookOutcome::NotDefined,
-                Err(exc) if self.budget.is_exhausted() => HookOutcome::OutOfSteam {
-                    line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
-                },
-                Err(exc) => hook_error(vm, &exc),
+                Err(exc) if self.budget.is_exhausted() => {
+                    self.error_file.replace(self.budget.stop_file());
+                    HookOutcome::OutOfSteam {
+                        line: self.budget.stop_line().or_else(|| deepest_line(&exc)),
+                    }
+                }
+                Err(exc) => {
+                    self.error_file.replace(deepest_file(&exc));
+                    hook_error(vm, &exc)
+                }
             }
         });
         let sink = std::mem::take(&mut *self.ctx.console.borrow_mut());
@@ -330,6 +434,7 @@ impl ScriptRuntime {
             output: sink.lines,
             console: sink.ops,
             ops: std::mem::take(&mut *self.ctx.ops.borrow_mut()),
+            error_file: self.reported_file(),
         }
     }
 }
@@ -404,7 +509,11 @@ fn install_print(vm: &VirtualMachine, output: Rc<RefCell<ConsoleSink>>) -> PyRes
 /// Even without the stdlib, RustPython has built-in modules like `sys`, and
 /// `sys.settrace(None)` would switch off the step budget. Every `import`
 /// statement goes through `builtins.__import__`, so this closes that door.
-fn install_import_guard(vm: &VirtualMachine, modules: Rc<RefCell<ModuleTable>>) -> PyResult<()> {
+fn install_import_guard(
+    vm: &VirtualMachine,
+    modules: Rc<RefCell<ModuleTable>>,
+    user: Rc<RefCell<UserModules>>,
+) -> PyResult<()> {
     let guard = vm.new_function(
         "__import__",
         move |args: FuncArgs, vm: &VirtualMachine| -> PyResult {
@@ -424,6 +533,10 @@ fn install_import_guard(vm: &VirtualMachine, modules: Rc<RefCell<ModuleTable>>) 
                 .map(|list| list.clone().try_to_bool(vm))
                 .transpose()?
                 .unwrap_or(false);
+            // The player's own files: run once, the first time imported.
+            if user.borrow().code.contains_key(&full) {
+                return import_user_module(vm, &user, &full, name);
+            }
             let modules = modules.borrow();
             match (modules.get(&full), modules.get(&top_level)) {
                 (Some(module), _) if fromlist => Ok(module.clone()),
@@ -436,6 +549,53 @@ fn install_import_guard(vm: &VirtualMachine, modules: Rc<RefCell<ModuleTable>>) 
         },
     );
     vm.builtins.set_attr("__import__", guard, vm)
+}
+
+const MAIN_FILE: &str = "main.py";
+
+fn import_user_module(
+    vm: &VirtualMachine,
+    user: &Rc<RefCell<UserModules>>,
+    name: &str,
+    name_obj: PyStrRef,
+) -> PyResult {
+    if let Some(module) = user.borrow().loaded.get(name) {
+        return Ok(module.clone());
+    }
+    if !user.borrow_mut().loading.insert(name.to_owned()) {
+        return Err(vm.new_import_error(
+            format!("'{name}' imports itself in a circle (a imports b, b imports a)"),
+            name_obj,
+        ));
+    }
+    let code = user.borrow().code.get(name).cloned();
+    let result = code
+        .ok_or_else(|| vm.new_import_error(format!("module '{name}' is missing"), name_obj))
+        .and_then(|code| {
+            let scope = vm.new_scope_with_builtins();
+            scope
+                .globals
+                .set_item("__name__", vm.ctx.new_str(name).into(), vm)?;
+            vm.run_code_obj(code, scope.clone())?;
+            Ok(vm.new_module(name, scope.globals.clone(), None).into())
+        });
+    let mut user = user.borrow_mut();
+    user.loading.remove(name);
+    let module: PyObjectRef = result?;
+    user.loaded.insert(name.to_owned(), module.clone());
+    Ok(module)
+}
+
+/// The file of the innermost traceback entry.
+fn deepest_file(exc: &PyBaseExceptionRef) -> Option<String> {
+    let mut tb = exc.traceback()?;
+    loop {
+        let next = tb.next.lock().clone();
+        match next {
+            Some(n) => tb = n,
+            None => return Some(tb.frame.f_code().source_path().as_str().to_owned()),
+        }
+    }
 }
 
 fn error_outcome(vm: &VirtualMachine, exc: &PyBaseExceptionRef) -> RunOutcome {

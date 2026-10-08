@@ -27,6 +27,7 @@ pub struct Budget {
     used: Cell<u64>,
     exhausted: Cell<bool>,
     stop_line: Cell<Option<usize>>,
+    stop_file: std::cell::RefCell<Option<String>>,
     memory_baseline: Cell<isize>,
     started: Cell<Option<Instant>>,
 }
@@ -38,6 +39,7 @@ impl Budget {
         self.used.set(0);
         self.exhausted.set(false);
         self.stop_line.set(None);
+        self.stop_file.replace(None);
         self.memory_baseline.set(memory::live_bytes());
         self.started.set(Some(Instant::now()));
     }
@@ -85,10 +87,16 @@ impl Budget {
 
     /// Remember the script line that was running when steam ran out. Only
     /// the first call counts; later ones come from unwinding.
-    pub fn record_stop_line(&self, line: Option<usize>) {
+    pub fn record_stop_line(&self, line: Option<usize>, file: Option<String>) {
         if self.stop_line.get().is_none() {
             self.stop_line.set(line);
+            self.stop_file.replace(file);
         }
+    }
+
+    /// The file that was running when steam ran out.
+    pub fn stop_file(&self) -> Option<String> {
+        self.stop_file.borrow().clone()
     }
 
     pub fn stop_line(&self) -> Option<usize> {

@@ -69,6 +69,17 @@ pub fn analyze(source: &str) -> Option<ScriptShape> {
     })
 }
 
+/// Concepts used anywhere in a program, and its total code lines. Files
+/// that do not parse are skipped.
+pub fn analyze_program<'a>(sources: impl Iterator<Item = &'a str>) -> ScriptShape {
+    let mut total = ScriptShape::default();
+    for shape in sources.filter_map(analyze) {
+        total.concepts.extend(shape.concepts);
+        total.code_lines += shape.code_lines;
+    }
+    total
+}
+
 #[derive(Default)]
 struct Finder {
     found: BTreeSet<Concept>,

@@ -7,10 +7,11 @@
 pub mod conveyors;
 pub mod items;
 pub mod machines;
+pub mod shop;
 pub mod tick;
 pub mod train;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -106,6 +107,8 @@ pub struct Factory {
     pub halted: bool,
     /// Bumped on every layout change so the renderer knows to rebuild.
     pub layout_version: u64,
+    /// Upgrades bought in the Shop.
+    pub unlocked: BTreeSet<shop::Upgrade>,
 }
 
 impl Factory {
@@ -251,11 +254,13 @@ impl Factory {
         })
     }
 
-    /// Clear the plot for a Clean Run. Coins, totals and the clock are kept:
+    /// Clear the plot for a Clean Run. Coins, upgrades, totals and the clock
+    /// are kept:
     /// they are the player's progress, not the layout.
     pub fn clean_reset(&mut self) {
         *self = Self {
             coins: self.coins,
+            unlocked: std::mem::take(&mut self.unlocked),
             produced: std::mem::take(&mut self.produced),
             last_sale: self.last_sale.take(),
             ticks: self.ticks,
