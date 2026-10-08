@@ -5290,9 +5290,11 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "dirs",
+ "ron",
  "rustpython-host_env",
  "rustpython-ruff_text_size",
  "rustpython-vm",
+ "serde",
 ]
 
 [[package]]

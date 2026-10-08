@@ -12,6 +12,7 @@ pub mod tick;
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub use tick::{SimPlugin, SimSet, SimTick};
 
@@ -25,7 +26,7 @@ pub const PLOT_HEIGHT: i32 = 10;
 
 /// A tile on the plot. (0, 0) is the bottom-left buildable tile; x grows to
 /// the east, y grows to the north.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
@@ -46,7 +47,7 @@ impl Pos {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Dir {
     North,
     East,
@@ -79,7 +80,7 @@ impl Dir {
 }
 
 /// The whole factory on the plot.
-#[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Resource, Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Factory {
     pub conveyors: BTreeMap<Pos, Conveyor>,
     /// Machines by their stable name.

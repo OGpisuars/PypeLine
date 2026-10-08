@@ -2,7 +2,9 @@
 
 /// Every kind of item in the game. Phase 1 hardcodes these; they move to
 /// assets/data/recipes.ron once content becomes data-driven.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum ItemKind {
     IronOre,
     IronPlate,

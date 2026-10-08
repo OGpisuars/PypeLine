@@ -14,13 +14,13 @@ pub const SPACING: u8 = 8;
 /// Pixels an item moves per tick (20 px/s at 20 ticks/s).
 pub const SPEED: u8 = 1;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BeltItem {
     pub kind: ItemKind,
     pub progress: u8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Conveyor {
     pub dir: Dir,
     /// Front item first (highest progress).

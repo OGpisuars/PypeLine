@@ -31,7 +31,9 @@ impl Plugin for UiPlugin {
             .init_resource::<editor::EditorState>()
             .init_resource::<help::HelpState>()
             .add_systems(Startup, editor::load_script)
-            .add_systems(Update, (help::toggle_help, editor::autosave))
+            .add_systems(Update, help::toggle_help)
+            // In Last, so it sees the AppExit sent when the window closes.
+            .add_systems(Last, editor::autosave)
             .add_systems(
                 EguiPrimaryContextPass,
                 (

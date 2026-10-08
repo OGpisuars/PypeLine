@@ -2,6 +2,7 @@
 
 pub mod engine;
 pub mod factory;
+pub mod progression;
 pub mod scripting;
 
 use bevy::prelude::*;
@@ -30,6 +31,7 @@ impl Plugin for PypelinePlugin {
                 engine::grid::GridPlugin,
                 engine::renderer::FactoryRenderPlugin,
                 engine::ui::UiPlugin,
+                progression::saves::SavePlugin,
             ));
     }
 }

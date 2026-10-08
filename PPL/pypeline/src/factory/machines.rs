@@ -11,7 +11,9 @@ pub const SMELT_TICKS: u32 = 60;
 /// Items a machine can hold in its input and in its output.
 pub const BUFFER_CAP: usize = 10;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum MachineKind {
     Miner,
     Smelter,
@@ -45,7 +47,7 @@ impl MachineKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Machine {
     pub kind: MachineKind,
     pub pos: Pos,
