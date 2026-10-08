@@ -24,6 +24,8 @@ pub struct EditorState {
     pub source: String,
     /// What is on disk, to know when there are unsaved changes.
     pub saved: String,
+    /// Code panel hidden, so the game gets the whole window.
+    pub hidden: bool,
 }
 
 impl Default for EditorState {
@@ -31,6 +33,7 @@ impl Default for EditorState {
         Self {
             source: STARTER_SCRIPT.to_owned(),
             saved: String::new(),
+            hidden: false,
         }
     }
 }
@@ -116,6 +119,27 @@ pub fn code_panel(
             .layer_id(egui::LayerId::background())
             .max_rect(screen),
     );
+    if state.hidden {
+        // Just a small button to bring the panel back.
+        egui::Area::new(egui::Id::new("show_code"))
+            .fixed_pos(screen.min + egui::vec2(8.0, 8.0))
+            .show(&ctx, |ui| {
+                if ui
+                    .button("▶ Code")
+                    .on_hover_text("Show the code panel")
+                    .clicked()
+                {
+                    state.hidden = false;
+                }
+            });
+        game_area.0 = Some(Rect::new(
+            screen.min.x,
+            screen.min.y,
+            screen.max.x,
+            screen.max.y,
+        ));
+        return Ok(());
+    }
     let default_width = (screen.width() * 0.4).clamp(320.0, 640.0);
     let panel = egui::Panel::left("code_panel")
         .resizable(true)
@@ -123,6 +147,13 @@ pub fn code_panel(
         .min_size(280.0)
         .show(&mut root, |ui| {
             ui.horizontal(|ui| {
+                if ui
+                    .small_button("◀")
+                    .on_hover_text("Hide the code panel")
+                    .clicked()
+                {
+                    state.hidden = true;
+                }
                 ui.strong("main.py");
                 let queued = pending.0.is_some();
                 let run = ui.add_enabled(!queued, egui::Button::new("▶ Run"));
