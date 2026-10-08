@@ -17,3 +17,9 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# RustPython 0.6 bug: on Windows, rustpython-host_env always uses its internal
+# `ctypes` helpers, which only exist with this feature. Turning it on here does
+# NOT give scripts a ctypes module (rustpython-vm's `host_env` feature stays off).
+[target.'cfg(windows)'.dependencies]
+rustpython-host_env = { version = "=0.6.0", features = ["ctypes"] }
