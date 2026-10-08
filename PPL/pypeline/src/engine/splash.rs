@@ -22,7 +22,7 @@ const BAR_HEIGHT: f32 = 4.0;
 const BAR_Y: f32 = -44.0;
 
 /// 5x7 pixel letters for the title.
-fn letter(c: char) -> [&'static str; 7] {
+pub fn letter(c: char) -> [&'static str; 7] {
     match c {
         'P' => [
             "####.", "#...#", "#...#", "####.", "#....", "#....", "#....",

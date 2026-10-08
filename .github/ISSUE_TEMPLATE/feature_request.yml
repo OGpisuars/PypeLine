@@ -1,0 +1,22 @@
+name: Idea or feature request
+description: Suggest something for PypeLine.
+labels: ["idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What would you like, and what would it let you do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it would help
+      description: What is hard or missing today? Is it about learning Python, building factories, or something else?
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: If it is about scripting, show the Python you would like to write.
+      render: python

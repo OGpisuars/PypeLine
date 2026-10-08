@@ -240,11 +240,17 @@ pub fn settings_window(
 ) -> Result {
     let mut open = window.open;
     let mut edited = settings.clone();
+    let mut done = false;
+    let ctx = contexts.ctx_mut()?;
+    // Centered, so it opens in the same place from the title, the pause
+    // menu and the top bar.
+    let center = ctx.viewport_rect().center();
     egui::Window::new("Settings")
         .open(&mut open)
         .resizable(false)
-        .default_pos(egui::pos2(360.0, 80.0))
-        .show(contexts.ctx_mut()?, |ui| {
+        .pivot(egui::Align2::CENTER_CENTER)
+        .default_pos(center)
+        .show(ctx, |ui| {
             egui::Grid::new("settings_grid")
                 .num_columns(2)
                 .spacing([16.0, 10.0])
@@ -316,11 +322,16 @@ pub fn settings_window(
                     ui.end_row();
                 });
             ui.add_space(6.0);
-            if ui.button("Back to defaults").clicked() {
-                edited = Settings::default();
-            }
+            ui.horizontal(|ui| {
+                if ui.button("Back to defaults").clicked() {
+                    edited = Settings::default();
+                }
+                if ui.button("Done").clicked() {
+                    done = true;
+                }
+            });
         });
-    window.open = open;
+    window.open = open && !done;
     if edited != *settings {
         *settings = edited;
     }

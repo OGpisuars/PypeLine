@@ -293,8 +293,9 @@ fn partial(path: &[Pos2], p: f32) -> Vec<Pos2> {
     out
 }
 
-/// A bold K in a `w` by `h` box: a bar and two slanted arms.
-fn letter_k(w: f32, h: f32) -> [Vec<(f32, f32)>; 3] {
+/// A bold K in a `w` by `h` box: a bar, two slanted arms, and the joint
+/// where the arms meet the bar (without it a notch shows between them).
+fn letter_k(w: f32, h: f32) -> [Vec<(f32, f32)>; 4] {
     let t = w * 0.32;
     let tw = t * 1.25;
     let a = h * 0.6;
@@ -302,6 +303,7 @@ fn letter_k(w: f32, h: f32) -> [Vec<(f32, f32)>; 3] {
         vec![(0.0, 0.0), (t, 0.0), (t, h), (0.0, h)],
         vec![(t, a), (w - tw, 0.0), (w, 0.0), (t + tw, a)],
         vec![(t, h - a), (t + tw, h - a), (w, h), (w - tw, h)],
+        vec![(t, h - a), (t + tw, h - a), (t + tw, a), (t, a)],
     ]
 }
 

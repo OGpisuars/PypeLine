@@ -2,7 +2,7 @@
 //!
 //! Every channel is a multiple of 8, i.e. a real GBA 15-bit color (5 bits per
 //! channel). This is a placeholder until the art pass locks the real palette
-//! in assets/palettes/master.pal and docs/ART_STYLE.md.
+//! (see docs/ART_STYLE.md).
 
 use bevy::prelude::Color;
 

@@ -18,11 +18,16 @@ ron = "0.12.2"
 winit = { version = "0.30.13", default-features = false }
 
 # Fast iteration: optimize dependencies in debug builds, keep our code quick to compile.
+# Debug info is the biggest memory cost of a build, so dependencies get none and
+# our code gets line numbers only (backtraces still show files and lines). This
+# keeps builds usable on machines with little RAM.
 [profile.dev]
 opt-level = 1
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 # RustPython 0.6 bug: on Windows, rustpython-host_env always uses its internal
 # `ctypes` helpers, which only exist with this feature. Turning it on here does

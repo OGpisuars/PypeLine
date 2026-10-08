@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in PypeLine does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! If a script can escape the sandbox (read files, run programs, use the network), please do not post it here: email KiloKiloGames@gmail.com instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: script
+    attributes:
+      label: Your script
+      description: The smallest main.py (and other files) that shows the problem, if it involves code.
+      render: python
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output or error message
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Build
+      description: The version at the bottom of the title menu, or the download date / commit.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true

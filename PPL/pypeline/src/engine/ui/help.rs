@@ -51,6 +51,7 @@ const KEYS: &[(&str, &str)] = &[
     ("F6", "Debug: record main.py line by line"),
     ("F7 / F8", "debugger: back / forward one line"),
     ("F1 / F2 / F3 / F4", "Help / Manual / Shop / Stats"),
+    ("Esc", "pause menu: resume, settings, title screen, quit"),
     ("Space", "pause or play (when not typing)"),
     (". (period)", "step one tick while paused"),
     ("1 / 2 / 3", "speed 1x / 2x / 4x"),
@@ -340,103 +341,219 @@ pub fn help_window(
 }
 
 /// Every name the API takes, straight from the game's own tables.
-fn names(ui: &mut egui::Ui) {
-    ui.label(egui::RichText::new("Machine kinds: machines.place(\"...\")").strong());
-    let machines = MachineKind::ALL.iter().map(|&kind| {
-        let what = match kind {
-            MachineKind::Miner => format!(
-                "digs one ore every {} s; needs ore=\"iron\" and power",
-                MINE_TICKS / 20
-            ),
-            MachineKind::Smelter => format!(
-                "turns ore into a plate every {} s; needs power",
-                SMELT_TICKS / 20
-            ),
-            MachineKind::SteamGenerator => "powers machines you connect to it".to_owned(),
-            MachineKind::Station => format!(
-                "holds items; the train buys them every {} s",
-                train::TRAIN_INTERVAL / 20
-            ),
-        };
-        (format!("\"{}\"", kind.name()), what)
-    });
-    table(ui, "machine_names", machines);
+/// Machine kinds and what they do.
+fn machine_rows() -> Vec<(String, String)> {
+    MachineKind::ALL
+        .iter()
+        .map(|&kind| {
+            let what = match kind {
+                MachineKind::Miner => format!(
+                    "digs one ore every {} s; needs ore=\"iron\" and power",
+                    MINE_TICKS / 20
+                ),
+                MachineKind::Smelter => format!(
+                    "turns ore into a plate every {} s; needs power",
+                    SMELT_TICKS / 20
+                ),
+                MachineKind::SteamGenerator => "powers machines you connect to it".to_owned(),
+                MachineKind::Station => format!(
+                    "holds items; the train buys them every {} s",
+                    train::TRAIN_INTERVAL / 20
+                ),
+            };
+            (format!("\"{}\"", kind.name()), what)
+        })
+        .collect()
+}
 
-    ui.add_space(6.0);
-    ui.label(egui::RichText::new("Items: stats.produced(\"...\")").strong());
-    let items = ItemKind::ALL.iter().map(|&item| {
-        let made = match item {
-            ItemKind::IronOre => "dug by miners",
-            ItemKind::IronPlate => "made by smelters from iron ore",
-        };
-        (
-            format!("\"{}\"", item.id()),
-            format!(
-                "{}: {made}; the train pays {}",
-                item.name(),
-                train::price(item)
-            ),
-        )
-    });
-    table(ui, "item_names", items);
+fn item_rows() -> Vec<(String, String)> {
+    ItemKind::ALL
+        .iter()
+        .map(|&item| {
+            let made = match item {
+                ItemKind::IronOre => "dug by miners",
+                ItemKind::IronPlate => "made by smelters from iron ore",
+            };
+            (
+                format!("\"{}\"", item.id()),
+                format!(
+                    "{}: {made}; the train pays {}",
+                    item.name(),
+                    train::price(item)
+                ),
+            )
+        })
+        .collect()
+}
 
-    ui.add_space(6.0);
-    ui.label(egui::RichText::new("Ores: ore=\"...\"").strong());
-    let ores = ["iron"]
+fn ore_rows() -> Vec<(String, String)> {
+    ["iron"]
         .into_iter()
         .filter_map(|name| items::ore_by_name(name).map(|item| (name, item)))
-        .map(|(name, item)| (format!("\"{name}\""), format!("digs {}", item.name())));
-    table(ui, "ore_names", ores);
+        .map(|(name, item)| (format!("\"{name}\""), format!("digs {}", item.name())))
+        .collect()
+}
 
-    ui.add_space(6.0);
-    ui.label(egui::RichText::new("Directions: dir=\"...\"").strong());
-    let dirs = Dir::ALL.iter().map(|&d| {
-        let name = format!("{d:?}").to_lowercase();
-        let way = match d {
-            Dir::North => "up (y + 1)",
-            Dir::East => "right (x + 1)",
-            Dir::South => "down (y - 1)",
-            Dir::West => "left (x - 1)",
-        };
-        (format!("\"{name}\""), way.to_owned())
-    });
-    table(ui, "dir_names", dirs);
+fn dir_rows() -> Vec<(String, String)> {
+    Dir::ALL
+        .iter()
+        .map(|&d| {
+            let name = format!("{d:?}").to_lowercase();
+            let way = match d {
+                Dir::North => "up (y + 1)",
+                Dir::East => "right (x + 1)",
+                Dir::South => "down (y - 1)",
+                Dir::West => "left (x - 1)",
+            };
+            (format!("\"{name}\""), way.to_owned())
+        })
+        .collect()
+}
 
-    ui.add_space(6.0);
-    ui.label(egui::RichText::new("Console colors: console.color(\"...\")").strong());
-    let colors: Vec<String> = ConsoleColor::NAMES
+fn color_names() -> Vec<String> {
+    ConsoleColor::NAMES
         .iter()
         .map(|(n, _)| format!("\"{n}\""))
         .chain(["\"default\"".to_owned()])
-        .collect();
-    ui.label(egui::RichText::new(colors.join("  ")).monospace());
+        .collect()
+}
 
+fn upgrade_rows() -> Vec<(String, String)> {
+    Upgrade::ALL
+        .iter()
+        .map(|u| (format!("{} ({} coins)", u.title(), u.price()), u.about()))
+        .collect()
+}
+
+const SHOP_INTRO: &str = "The cargo train pays coins for everything in your stations. Spend \
+     them in the Shop (F3) on faster parts. A bought upgrade does nothing until your script \
+     asks for it with tier=, so you choose where the fast parts go.";
+const PRESTIGE: &str = "Start over with a fresh factory and keep a permanent bonus. Every \
+     prestige switches your scripts to a different programming language, and the higher you \
+     go, the trickier and fussier the language gets.";
+
+fn names(ui: &mut egui::Ui) {
+    ui.label(egui::RichText::new("Machine kinds: machines.place(\"...\")").strong());
+    table(ui, "machine_names", machine_rows().into_iter());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new("Items: stats.produced(\"...\")").strong());
+    table(ui, "item_names", item_rows().into_iter());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new("Ores: ore=\"...\"").strong());
+    table(ui, "ore_names", ore_rows().into_iter());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new("Directions: dir=\"...\"").strong());
+    table(ui, "dir_names", dir_rows().into_iter());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new("Console colors: console.color(\"...\")").strong());
+    ui.label(egui::RichText::new(color_names().join("  ")).monospace());
     ui.add_space(6.0);
     ui.label(egui::RichText::new("Tiers: tier=1, 2 or 3").strong());
     ui.label("1 is the normal part. 2 and 3 are bought in the Shop (F3).");
 }
 
 fn shop_help(ui: &mut egui::Ui) {
-    ui.label(
-        "The cargo train pays coins for everything in your stations. Spend them in the \
-         Shop (F3) on faster parts. A bought upgrade does nothing until your script asks \
-         for it with tier=, so you choose where the fast parts go.",
-    );
-    let offers = Upgrade::ALL
-        .iter()
-        .map(|u| (format!("{} ({} coins)", u.title(), u.price()), u.about()));
-    table(ui, "upgrades", offers);
+    ui.label(SHOP_INTRO);
+    table(ui, "upgrades", upgrade_rows().into_iter());
     ui.label(format!(
         "Changing a tier keeps the machine's items. Tier {} is the highest for now.",
         shop::MAX_TIER
     ));
     ui.add_space(4.0);
     ui.label(egui::RichText::new("Coming later: Prestige").strong());
-    ui.label(
-        "Start over with a fresh factory and keep a permanent bonus. Every prestige \
-         switches your scripts to a different programming language, and the higher \
-         you go, the trickier and fussier the language gets.",
+    ui.label(PRESTIGE);
+}
+
+/// The Help window's content as Markdown: `docs/API.md` is this, and a test
+/// keeps the file up to date.
+pub fn api_markdown() -> String {
+    use std::fmt::Write;
+    let mut md = String::new();
+    let table = |md: &mut String, head: (&str, &str), rows: &[(String, String)]| {
+        let _ = writeln!(md, "| {} | {} |\n|---|---|", head.0, head.1);
+        for (a, b) in rows {
+            let _ = writeln!(md, "| `{}` | {} |", a.replace('|', "\\|"), b);
+        }
+        md.push('\n');
+    };
+    let paragraphs = |md: &mut String, lines: &[&str]| {
+        for line in lines {
+            let _ = writeln!(md, "{line}\n");
+        }
+    };
+    let code = |md: &mut String, code: &str| {
+        let _ = writeln!(md, "```python\n{}\n```\n", code.trim_end());
+    };
+    md.push_str(
+        "# PypeLine scripting API\n\n\
+         <!-- Generated from src/engine/ui/help.rs, the in-game Help (F1). Do not edit by \
+         hand: run `PYPELINE_WRITE_DOCS=1 cargo test api_doc` to update it. -->\n\n\
+         Everything a PypeLine script can use. The same text is in the game's Help window \
+         (F1), where each example can be inserted into `main.py`. Every example here runs: \
+         the test suite runs them all.\n\n",
     );
+    md.push_str("## How it works\n\n");
+    paragraphs(&mut md, BASICS);
+    md.push_str("## The grid\n\n");
+    paragraphs(&mut md, GRID);
+    md.push_str("## Imports\n\nPut these at the top of `main.py` to use every command:\n\n");
+    code(&mut md, IMPORTS);
+    let modules: Vec<(String, String)> = MODULES
+        .iter()
+        .map(|(m, v)| (m.to_string(), v.to_string()))
+        .collect();
+    table(&mut md, ("Module", "What it is for"), &modules);
+    md.push_str("## Names you can use\n\n### Machine kinds: `machines.place(\"...\")`\n\n");
+    table(&mut md, ("Name", "What it does"), &machine_rows());
+    md.push_str("### Items: `stats.produced(\"...\")`\n\n");
+    table(&mut md, ("Name", "What it is"), &item_rows());
+    md.push_str("### Ores: `ore=\"...\"`\n\n");
+    table(&mut md, ("Name", "What it does"), &ore_rows());
+    md.push_str("### Directions: `dir=\"...\"`\n\n");
+    table(&mut md, ("Name", "Which way"), &dir_rows());
+    let _ = writeln!(
+        md,
+        "### Console colors: `console.color(\"...\")`\n\n{}\n",
+        color_names()
+            .iter()
+            .map(|c| format!("`{c}`"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    md.push_str(
+        "### Tiers: `tier=1`, `2` or `3`\n\n1 is the normal part. 2 and 3 are bought in the \
+         Shop (F3).\n\n",
+    );
+    for (title, commands) in [
+        ("Building (in main.py)", BUILD),
+        ("Running (in tick() and events)", OPERATE),
+    ] {
+        let _ = writeln!(md, "## {title}\n");
+        for command in commands {
+            let _ = writeln!(md, "### `{}`\n", command.signature);
+            paragraphs(&mut md, command.about);
+            code(&mut md, command.example);
+        }
+    }
+    md.push_str("## Your own files\n\n");
+    paragraphs(&mut md, FILES);
+    md.push_str("## The debugger\n\n");
+    paragraphs(&mut md, DEBUGGING);
+    let _ = writeln!(md, "## The Shop and tiers\n\n{SHOP_INTRO}\n");
+    table(&mut md, ("Upgrade", "What it does"), &upgrade_rows());
+    let _ = writeln!(
+        md,
+        "Changing a tier keeps the machine's items. Tier {} is the highest for now.\n\n\
+         **Coming later: Prestige.** {PRESTIGE}\n",
+        shop::MAX_TIER
+    );
+    md.push_str("## When something goes wrong\n\n");
+    let fixes: Vec<(String, String)> = TROUBLESHOOTING
+        .iter()
+        .map(|(p, f)| (p.to_string(), f.to_string()))
+        .collect();
+    table(&mut md, ("You see", "What to do"), &fixes);
+    md.trim_end().to_owned() + "\n"
 }
 
 fn command_section(ui: &mut egui::Ui, command: &Command, workspace: &mut Workspace) {
@@ -489,7 +606,7 @@ fn example(ui: &mut egui::Ui, workspace: &mut Workspace, code: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{BUILD, IMPORTS, OPERATE};
+    use super::{BUILD, IMPORTS, OPERATE, api_markdown};
     use crate::factory::Factory;
     use crate::factory::shop::Upgrade;
     use crate::scripting::budget::{DEPLOY_BUDGET, TICK_BUDGET};
@@ -549,5 +666,21 @@ mod tests {
             let report = runtime.run(&script, DEPLOY_BUDGET);
             assert_eq!(report.outcome, RunOutcome::Finished, "{script}");
         }
+    }
+
+    /// docs/API.md matches the in-game Help. Set PYPELINE_WRITE_DOCS=1 to
+    /// write it after changing the Help.
+    #[test]
+    fn api_doc_is_up_to_date() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/API.md");
+        let generated = api_markdown();
+        if std::env::var_os("PYPELINE_WRITE_DOCS").is_some() {
+            std::fs::write(path, &generated).expect("write docs/API.md");
+        }
+        let on_disk = std::fs::read_to_string(path).unwrap_or_default();
+        assert!(
+            on_disk == generated,
+            "docs/API.md is out of date: run PYPELINE_WRITE_DOCS=1 cargo test api_doc"
+        );
     }
 }

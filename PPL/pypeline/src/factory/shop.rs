@@ -54,12 +54,12 @@ impl Upgrade {
 
     pub fn price(self) -> u64 {
         match self {
-            Self::FastBelt => 150,
-            Self::ExpressBelt => 600,
-            Self::MinerMk2 => 200,
-            Self::MinerMk3 => 800,
-            Self::SmelterMk2 => 300,
-            Self::SmelterMk3 => 1200,
+            Self::FastBelt => 600,
+            Self::ExpressBelt => 2500,
+            Self::MinerMk2 => 800,
+            Self::MinerMk3 => 3500,
+            Self::SmelterMk2 => 1200,
+            Self::SmelterMk3 => 5000,
         }
     }
 
@@ -213,18 +213,18 @@ mod tests {
     #[test]
     fn buying_costs_coins_and_needs_the_tier_below() {
         let mut factory = Factory {
-            coins: 1000,
+            coins: 4000,
             ..Default::default()
         };
         assert!(factory.buy(Upgrade::ExpressBelt).is_err());
         factory.buy(Upgrade::FastBelt).unwrap();
-        assert_eq!(factory.coins, 850);
+        assert_eq!(factory.coins, 3400);
         assert!(factory.buy(Upgrade::FastBelt).is_err());
         factory.buy(Upgrade::ExpressBelt).unwrap();
-        assert_eq!(factory.coins, 250);
+        assert_eq!(factory.coins, 900);
         assert_eq!(
             cannot_buy(&factory, Upgrade::SmelterMk2).as_deref(),
-            Some("needs 50 more coins")
+            Some("needs 300 more coins")
         );
     }
 

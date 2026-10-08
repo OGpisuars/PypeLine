@@ -1,19 +1,23 @@
 <div align="center">
 
-# 🚂 PypeLine
+<img src="PPL/pypeline/docs/images/icon.png" alt="PypeLine icon" width="160">
 
-**Write real Python. Build mega-factories. Master software engineering.**
+# PypeLine
 
-A cozy 16-bit, GBA-style industrial automation game where your factory runs on code you write yourself.
+**Write real Python. Build factories. Learn to code.**
 
+A cozy 16-bit, GBA-style automation game where your factory runs on Python you write yourself.
+
+[![CI](https://github.com/OGpisuars/PypeLine/actions/workflows/ci.yml/badge.svg)](https://github.com/OGpisuars/PypeLine/actions/workflows/ci.yml)
+[![Windows build](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml/badge.svg)](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
-![Rust](https://img.shields.io/badge/built%20with-Rust-b7410e)
-![Engine](https://img.shields.io/badge/engine-Bevy-232326)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Rust](https://img.shields.io/badge/Rust-1.99-b7410e?logo=rust)
+![Bevy](https://img.shields.io/badge/Bevy-0.19-232326)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<!-- Replace with a real GIF once you have one -->
-<!-- ![PypeLine gameplay](docs/images/gameplay.gif) -->
+[**⬇ Download for Windows**](https://github.com/OGpisuars/PypeLine/releases/tag/latest) · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Roadmap](#-roadmap)
+
+<img src="PPL/pypeline/docs/images/factory.png" alt="A PypeLine factory: three production lines built by a for loop, with the code window open" width="860">
 
 </div>
 
@@ -23,219 +27,191 @@ A cozy 16-bit, GBA-style industrial automation game where your factory runs on c
 
 PypeLine blends the code-driven automation of *Factorio* and *The Farmer Was Replaced* with the warm, colorful look of classic handheld RPG overworlds.
 
-You live on a floating industrial island. You don't place every machine by hand. Instead you write Python scripts that deploy equipment, wire terminals together, and manage steam power. Sell your output to the cargo train, unlock new chapters in your Engineering Manual, and use what you learn (loops, functions, imports) to build bigger and smarter factories.
-
-> **Project status:** PypeLine is in early development. Features below marked **(planned)** are designed but not built yet. See the [Roadmap](#-roadmap).
-
----
-
-## 🕹️ A Taste of the Code
+You run a floating industrial island. Instead of placing every machine by hand, you write Python that builds your factory: miners, belts, smelters, steam power. Sell what you make to the cargo train, work through the Engineering Manual, and use each new idea (loops, functions, modules, generators) to build bigger and smarter factories.
 
 ```python
 from auto import conveyors, machines
 import power
 
-# A steam generator and an iron miner
-machines.place("steam_generator", name="steam_1", x=0, y=2)
-machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
-
-# Lay a conveyor line heading east into a smelter
-for x in range(1, 5):
-    conveyors.place(x=x, y=0, dir="east")
-machines.place("smelter", name="smelter_1", x=5, y=0)
-
-# Power the miner and smelter
-power.connect(generator="steam_1", to=["miner_1", "smelter_1"])
+machines.place("steam_generator", name="steam", x=8, y=9)
+for n, y in enumerate([1, 4, 7]):
+    machines.place("miner", name=f"miner_{n}", x=0, y=y, ore="iron")
+    for x in range(1, 6):
+        conveyors.place(x=x, y=y, dir="east")
+    machines.place("smelter", name=f"smelter_{n}", x=6, y=y)
+    power.connect(generator="steam", to=[f"miner_{n}", f"smelter_{n}"])
 ```
 
-Hit the **Run** arrow and your factory comes to life. Change the script and run it again: your factory floor keeps its state, and the engine updates only what changed.
+Press **Run** and the factory matches your script. Change it and run again: the game adds, updates and removes only what changed, and a script with an error changes nothing.
 
----
-
-## ⬇️ Try It
-
-**Windows:** download `PypeLine-windows.zip` from the [latest build](https://github.com/OGpisuars/PypeLine/releases/tag/latest), unzip it, and run `PypeLine.exe`. It is rebuilt automatically from every change to `main`.
-
-**Linux and macOS:** build from source (see [Getting Started](#-getting-started)).
-
-### Controls
-
-| Key or button | What it does |
-|---------------|--------------|
-| Any key or click | Skip the logo and loading screen at startup |
-| **Enter** or **▶ Play** | Start playing from the title menu |
-| **View > Title screen** | Back to the title menu (the factory waits there) |
-| **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match it |
-| **F1** or **Help** | Every command and name explained, with examples you can insert |
-| **F2** or **Manual** | Chapters, examples and contracts |
-| **F3** or **Shop** | Spend coins on faster belts and machines |
-| **F4** or **Stats** | Items per minute, steam, uptime, and bottlenecks |
-| **F6** or **🐞 Debug** | Record `main.py` line by line; **F7 / F8** step back / forward |
-| **Files > + New file** | Add another file (type `PPL` and it becomes `PPL.py`); `main.py` uses it with `import PPL` |
-| **⚙ Settings** | Theme, font, text size, mouse pointer, island bobbing, music and volume |
-| Drag empty space | Move the world side to side (middle/right button drags from anywhere) |
-| **Mouse wheel** | Zoom in and out around the pointer |
-| **Home** | Center the island again |
-| **Tab** / **Enter** | Accept an autocomplete suggestion (arrows pick, Esc closes) |
-| Mouse over the island | Shows the tile's `x` and `y`, plus a polaroid card for machines and belts |
-| **Space** | Pause / play |
-| **.** (period) | Step one tick while paused |
-| **1 / 2 / 3** | Speed 1x / 2x / 4x |
-| **M** | Sound on / off |
-
-Every code window, the console, Help, Manual, Shop and Settings float: drag them by their title, resize them from the edges, and close them with x (the top bar brings them back). Your scripts are saved automatically as you type, and the factory every minute and when you quit.
+> **Status: pre-alpha.** Ten chapters are playable today. Features marked *planned* are designed but not built yet.
 
 ---
 
 ## ✨ Features
 
-### Playable now
-- **Real Python scripting.** Write actual Python in `main.py`. No made-up language.
-- **Hot-reload on Run.** Edit and re-run without wiping your factory. The script describes the whole factory, so re-running never duplicates machines, and a script with an error changes nothing.
-- **Belts, miners, smelters, steam power.** Build with `conveyors.place`, `machines.place` and `power.connect`. Brass wires with moving pulses show what powers what.
-- **The cargo train.** Send goods to a station; every 30 seconds the train buys them for coins.
-- **Visible failures.** An error halts the belts and highlights the broken line. An infinite loop runs out of steam and the boiler overheats, puffing steam.
-- **Code has a cost.** Scripts run on a steam budget, so an infinite loop can never freeze the game.
-- **Polaroid UI.** Hover over a machine or belt for a snapshot with live stats.
-- **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
-- **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
-- **A proper start.** The KiloKilo Games logo, a retro loading screen with a startup chime, and a title menu with Play, Settings and Quit.
-- **Floating island, music and steam-moths.** "Joystick Sunday" plays in the background (or the old chiptune loop, or nothing: your pick in Settings). The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
-- **Engineering Manual (F2) and campaign.** Ten chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts, imports and modules, events and sensors, `tick()` and generators) with 22 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
-- **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
-- **`console` module.** Color your output and clear the console for ASCII dashboards.
-- **Your own workspace.** Floating, resizable windows for every file and the console, over a world you can drag and zoom, so there is always room for your code.
-- **Many files.** Split your code into files and `import` them from `main.py`. Errors name the file and line.
-- **`tick()` and events.** Run code 20 times a second, react to `on_train(coins)` and `on_contract_complete(title)`, read `sensors`, `stats` and `clock`, and switch machines on and off.
-- **Day, night and hot boilers.** A four-minute day turns over the island. Boilers run hotter by day; a big one overheats around noon unless your `tick()` reads `sensors.temperature()` and `clock.time_of_day()` and eases off.
-- **Line debugger (F6).** Record a run of `main.py` and step through it line by line, forwards or backwards, with the current line marked and your variables listed. It never changes your factory.
-- **Stats (F4).** Items and coins per minute, steam use, uptime, and what every machine is doing. Blocked machines blink red on the island, and `stats.bottlenecks()` gives your scripts the same list.
-- **The Shop.** Spend train coins on Fast/Express belts and Mk2/Mk3 miners and smelters, then use them with `tier=2` or `tier=3` in your script.
-- **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, a switch to stop the island bobbing, and the music track and volume.
+<table>
+<tr>
+<td width="50%"><img src="PPL/pypeline/docs/images/manual.png" alt="The Engineering Manual"></td>
+<td width="50%"><img src="PPL/pypeline/docs/images/stats.png" alt="The Stats window"></td>
+</tr>
+<tr>
+<td align="center"><sub>The Engineering Manual: lessons, examples you can insert, and contracts</sub></td>
+<td align="center"><sub>Stats (F4): items per minute, steam, uptime and every machine's state</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="PPL/pypeline/docs/images/title.png" alt="The title menu"></td>
+<td width="50%"><img src="PPL/pypeline/docs/images/logo.png" alt="The KiloKilo Games logo intro"></td>
+</tr>
+<tr>
+<td align="center"><sub>The title menu</sub></td>
+<td align="center"><sub>The animated KiloKilo Games intro</sub></td>
+</tr>
+</table>
 
-### Coming next
+**Learn by building**
+- **Real Python**, not a made-up language. Variables, f-strings, loops, functions, lists and dicts, modules, events, `tick()` and generators.
+- **Engineering Manual (F2):** ten chapters and 22 contracts that pay coins and unlock the next chapter. Experienced coders can take each chapter's test to skip ahead.
+- **Help when stuck:** friendly error messages ("did you mean `conveyors`?"), hints that open one at a time, autocomplete, and snippets that unlock as you learn.
+- **Line debugger (F6):** record a run and step through it forwards and backwards, with your variables shown.
 
-### Mid and late game (planned)
-- **Cartridges.** Split your code into modules, shown in-game as physical carts you slot into terminals.
-- **Micro-chips.** Tiny chips on sorters and valves run fast, local micro-scripts: edge vs. central computing.
-- **LED matrix panels.** Control 8x8 and 16x16 pixel displays with `display.set_pixel(x, y, "green")`.
-- **ASCII dashboards.** Print progress bars and custom success banners to the in-game console.
-- **Terminal themes.** Unlockable border skins for your editor and UI.
-- **Prestige: a new language every time.** Start over with a permanent bonus, and your scripts switch to a new programming language. The higher you go, the fussier it gets: Python, then Lua, JavaScript, a C-like language, a belt assembly language, and finally an esoteric one where the belts are the tape.
+**Run a real factory**
+- **Miners, belts, smelters, steam power and a cargo train**, all placed by your code. Brass wires pulse to show what powers what.
+- **`tick()` and events:** code that runs 20 times a second and reacts to train visits, with `sensors`, `stats` and `clock` to read the factory.
+- **Day, night and hot boilers:** big boilers overheat at noon unless your script eases off.
+- **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts and machines.
+
+**Made to be comfortable**
+- **Your own workspace:** floating windows for every file, many files with `import`, and a world you can drag and zoom.
+- **Code has a cost:** scripts run on a steam budget, so an infinite loop can never freeze the game.
+- **Never lose work:** autosave, rolling backups and crash-safe writes.
+- **Six themes, four fonts**, a matching mouse pointer, and your choice of music.
+
+<details>
+<summary><b>Planned for later</b></summary>
+
+- **Cartridges:** your modules shown as physical carts you slot into terminals.
+- **Micro-chips:** tiny chips on sorters and valves running fast local scripts (edge vs. central computing).
+- **LED matrix panels:** control 8x8 and 16x16 pixel displays from Python.
+- **Sandbox mode and blueprints.**
+- **Prestige, with a new language each time:** start over with a permanent bonus while your scripts switch language, each fussier than the last: Python, Lua, JavaScript, a C-like language, a belt assembly language, and an esoteric finale.
+
+</details>
 
 ---
 
-## 🎨 Art Style
+## 🎮 Controls
 
-A **16-bit, GBA-inspired look**: top-down 3/4 view, 16x16 tiles, limited palettes, flat shading with clean outlines, and cozy dialogue-box UI. The game renders at **480x320** (exactly 2x the GBA's 240x160) and scales by whole-number factors so every pixel stays razor sharp. All art is original.
+| Key or button | What it does |
+|---------------|--------------|
+| Any key or click | Skip the logo and loading screen |
+| **Enter** or **▶ Play** | Start from the title menu |
+| **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match |
+| **Esc** or **☰ Menu** | Pause menu: Resume, Settings, Title screen, Quit |
+| **F1** / **F2** / **F3** / **F4** | Help / Manual / Shop / Stats |
+| **F6**, then **F7** / **F8** | Debug: record a run, then step back / forward |
+| **Files > + New file** | Add a file (type `PPL` and it becomes `PPL.py`); use it with `import PPL` |
+| Drag empty space / **mouse wheel** | Move / zoom the world (**Home** centers it again) |
+| **Space** / **.** / **1 2 3** | Pause / step one tick / speed 1x 2x 4x |
+| **M** | Sound on or off |
 
----
-
-## 🛠️ Tech Stack
-
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Language | **Rust** | Fast, safe, great for simulation |
-| Engine | **Bevy** (ECS) | Factories are thousands of similar entities |
-| Scripting | **RustPython** | Embeddable, cappable, deterministic |
-| Code editor UI | **bevy_egui** | Text input and scrolling out of the box, styled to match the game |
-| Content | **RON / TOML / Markdown** | Chapters and contracts are data, no recompiling |
-
-**Design principles**
-- **Deterministic simulation.** A fixed 20 Hz tick, separate from rendering. Same script plus same seed always gives the same result, which makes saves, replays, and fair scoring possible.
-- **Sandboxed scripts.** A static AST check, an import allowlist, a per-tick step budget, and a watchdog. Scripts cannot touch your files or system.
-- **Never lose your work.** Autosave, rolling backups, and atomic writes.
+Every window can be dragged, resized and closed; the top bar brings it back. Scripts save as you type, and the factory every minute and when you quit.
 
 ---
 
 ## 🗺️ Roadmap
 
-| Phase | Goal | Highlights |
-|-------|------|------------|
-| **0. Foundation** | Window, loop, Python runs | Bevy window, fixed tick, RustPython, egui editor prototype, 3-OS CI |
-| **1. MVP** | First automated factory | `auto` API, belts, miner, smelter, generator, editor, error highlighting |
-| **2. Alpha** | It feels like PypeLine | Floating plots, polaroid UI, wires, cargo train, save/load, Time Dials, boot splash |
-| **3. Beta** | The learning loop works | Manual chapters, contracts, debugger, stats, snippets, day/night, cartridges |
-| **3C. Workspace** | Room to code | Floating windows, many files, drag and zoom, Shop and tiers, Settings and themes |
-| **4. 1.0** | Shippable | Sandbox mode, blueprints, micro-chips, LED panels, themes, accessibility, polish |
-| **4B. Prestige** | A long game | Prestige resets with a bonus, and a new, harder language each time |
-| **5. Post-launch** | Community | Workshop sharing, leaderboards, web demo, more chapters |
+| Phase | Goal | Status |
+|-------|------|--------|
+| **0. Foundation** | Window, fixed tick, Python with a step budget, 3-OS CI | ✅ Done |
+| **1. MVP** | First automated factory: belts, miners, smelters, power, editor | ✅ Done |
+| **2. Alpha** | Floating island, polaroids, wires, train, saves, Time Dials, boot splash | ✅ Done |
+| **3A. Teaching loop** | Manual chapters 1–7, contracts, friendly errors, snippets | ✅ Done |
+| **3B. Beta tools** | Debugger, stats, day/night, chapters 8–10 | ✅ Code done, playtests next |
+| **3C. Workspace** | Floating windows, many files, drag and zoom, Shop, Settings | ✅ Done |
+| **4. 1.0** | Sandbox mode, blueprints, micro-chips, LED panels, real art, accessibility | 🔜 Next |
+| **4B. Prestige** | Prestige resets with a bonus and a new language each time | 📝 Planned |
+| **5. Post-launch** | Workshop sharing, leaderboards, web demo, more chapters | 📝 Planned |
 
-Each phase has an exit test that must pass before the next one begins.
+The full plan, with the reasoning behind every decision, is in [`pypeline_roadmap.txt`](pypeline_roadmap.txt). What changed and when: [`CHANGELOG.md`](PPL/pypeline/CHANGELOG.md).
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ How it works
 
-> Early but playable: Phases 0–2 and the Phase 3A teaching loop are built. On Linux, install the ALSA and udev development packages first (on Debian/Ubuntu: `libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Language | **Rust** | Fast and safe, great for simulation |
+| Engine | **[Bevy](https://bevyengine.org) 0.19** | Data-driven, with a fixed-timestep schedule |
+| Scripting | **[RustPython](https://rustpython.github.io)** | Pure Rust, embeddable, and can be capped and stepped deterministically |
+| UI | **[egui](https://github.com/emilk/egui)** via bevy_egui | Text editing and windows out of the box, themed to match the game |
+| Content | **Markdown + RON** | Chapters and contracts are data files |
 
-**Requirements**
-- [Rust](https://www.rust-lang.org/tools/install) (the version is pinned in `rust-toolchain.toml` and installed automatically)
-- A GPU with Vulkan, Metal, or DirectX 12 support
+- **Deterministic.** A fixed 20 Hz simulation in integer math. The same script always gives the same factory, checked by a state hash on Windows, Linux and macOS in CI.
+- **Sandboxed.** No Python standard library, refused dunders and dangerous built-ins, plus a step budget, a memory cap and a watchdog. Scripts cannot touch your files or network. See [`SANDBOX.md`](PPL/pypeline/docs/SANDBOX.md).
+- **Tested content.** Every Manual example, every Help example and every contract's reference solution runs in CI.
 
-**Build and run**
+More: [Architecture](PPL/pypeline/docs/ARCHITECTURE.md) · [Scripting API](PPL/pypeline/docs/API.md) · [Design decisions](PPL/pypeline/docs/DECISIONS.md) · [Art style](PPL/pypeline/docs/ART_STYLE.md)
+
+---
+
+## 🚀 Build from source
+
+**Requirements:** [Rust](https://www.rust-lang.org/tools/install) (the exact version is pinned in `rust-toolchain.toml` and installed automatically) and a GPU with Vulkan, Metal or DirectX 12. On Linux, also install the audio and input headers (Debian/Ubuntu: `sudo apt install libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
+
 ```bash
 git clone https://github.com/OGpisuars/PypeLine.git
 cd PypeLine/PPL/pypeline
 cargo run --release
 ```
 
-**Run the tests**
-```bash
-cargo test
-```
+The first build compiles Bevy and RustPython and takes a while. On a machine with little memory, limit the parallel jobs: `cargo run --release -j 4`.
 
-**Run a script without a window** (prints what the factory made and its state hash)
 ```bash
-cargo run --bin headless -- path/to/main.py 600
+cargo test                                         # all tests
+cargo run --bin headless -- path/to/main.py 600   # run a script for 600 ticks without a window
 ```
 
 ---
 
-## 🗂️ Project Structure
+## 🗂️ Project structure
 
 ```text
-pypeline/
-├── Cargo.toml
-├── README.md
-├── assets/              # Sprites, fonts, palettes, audio, shaders, data
-├── python_runtime/      # In-game Python modules (auto, power, ...) and player scripts
-├── src/
-│   ├── engine/          # Rendering, grid, wires, UI (editor, polaroid, console)
-│   ├── factory/         # Conveyors, machines, power, trains, failures
-│   ├── scripting/       # RustPython bridge, sandbox, budget, hot-reload
-│   ├── progression/     # Economy, contracts, manual unlocks, saves
-│   ├── audio/
-│   └── settings/
-├── tests/               # Sandbox, determinism, and content tests
-├── docs/                # API reference, architecture, content guide
-└── tools/               # Asset packing and content validation
+PypeLine/
+├── PPL/pypeline/          # The game (a Rust crate)
+│   ├── src/
+│   │   ├── factory/       # The deterministic simulation
+│   │   ├── scripting/     # RustPython, the sandbox, game modules, hot-reload
+│   │   ├── progression/   # Manual chapters, contracts, saves
+│   │   ├── engine/        # Rendering, startup screens, egui UI
+│   │   └── audio/         # Synthesized sound effects and music
+│   ├── assets/            # Fonts, icon, music, Manual chapters and contracts
+│   ├── tests/             # Determinism, sandbox, contracts, modules
+│   └── docs/              # Architecture, API, sandbox, content guide, decisions
+├── pypeline_roadmap.txt   # The full design and plan
+└── .github/               # CI, the Windows build, issue templates
 ```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome once the foundation is in place. Good ways to help:
+Help is welcome, and you do not need to know Rust:
 
-- **Playtesting**, especially if you are new to Python.
-- **Sandbox testing.** Try to break out of the script sandbox, then report it.
+- **Playtest**, especially if you are new to Python. Notes go in [`PLAYTEST.md`](PPL/pypeline/PLAYTEST.md).
+- **Write Manual chapters and contracts:** they are Markdown and RON files. See the [content guide](PPL/pypeline/docs/CONTENT_GUIDE.md).
+- **Try to break the sandbox**, and report what you find privately (see [`SECURITY.md`](SECURITY.md)).
 - **Pixel art and music** in the project's style.
-- **Manual chapters and contracts**, which are data files.
 
-Please read `CONTRIBUTING.md` before opening a pull request.
-
----
-
-## 🙏 Inspiration
-
-*Factorio*, *The Farmer Was Replaced*, and the cozy overworlds of classic handheld RPGs.
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first, and open an issue before starting anything big.
 
 ---
 
-## 📜 License and Credits
+## 📜 License and credits
 
-- **Code:** MIT. See [`LICENSE`](LICENSE).
+- **Code:** [MIT](LICENSE).
+- **Fonts, music and other assets:** see [`ASSET_LICENSES.md`](PPL/pypeline/ASSET_LICENSES.md).
+- Made by **KiloKilo Games**.
+- Inspired by *Factorio*, *The Farmer Was Replaced*, and the cozy overworlds of classic handheld RPGs.
 
-
-PypeLine is an independent project. It is not affiliated with or endorsed by Nintendo, Game Freak, or the Python Software Foundation. The GBA-inspired look is a style reference only, and all art, music, and names are original. "Python" is a trademark of the Python Software Foundation.
+PypeLine is an independent project. It is not affiliated with or endorsed by Nintendo, Game Freak or the Python Software Foundation. The GBA-inspired look is a style reference only; all art, music and names are original. "Python" is a trademark of the Python Software Foundation.

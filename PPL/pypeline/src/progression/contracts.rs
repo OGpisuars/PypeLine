@@ -82,6 +82,9 @@ impl Progress {
     }
 
     pub fn accept(&mut self, contract: &Contract, factory: &Factory) {
+        if self.completed.contains(&contract.id) {
+            return;
+        }
         self.active = Some(ActiveContract {
             id: contract.id.clone(),
             produced_at_start: factory.produced.clone(),
@@ -165,10 +168,12 @@ pub struct ContractPlugin;
 
 impl Plugin for ContractPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Progress>().add_systems(
-            FixedUpdate,
-            (track_contract, train_events).in_set(SimSet::Progress),
-        );
+        app.init_resource::<Progress>()
+            .init_resource::<super::saves::SaveNow>()
+            .add_systems(
+                FixedUpdate,
+                (track_contract, train_events).in_set(SimSet::Progress),
+            );
     }
 }
 
@@ -182,6 +187,7 @@ fn track_contract(
     handlers: Res<DefinedHandlers>,
     mut events: ResMut<ScriptEvents>,
     history: Res<crate::factory::ProductionHistory>,
+    mut save_now: ResMut<super::saves::SaveNow>,
     mut was_hot: Local<bool>,
 ) {
     let hot = factory.machines.values().any(|m| m.overheated);
@@ -194,6 +200,11 @@ fn track_contract(
         progress.active = None;
         return;
     };
+    // Each contract pays once. (Older saves could hold one that was both.)
+    if progress.completed.contains(&contract.id) {
+        progress.active = None;
+        return;
+    }
     if contract.keep_cool && hot {
         // Start over from now, so the goal counts only cool running.
         progress.accept(contract, &factory);
@@ -220,11 +231,19 @@ fn track_contract(
         if !active.warned {
             console.push(
                 ConsoleKind::Error,
-                format!(
-                    "Goal reached! But \"{}\" also needs {}. Change your script and Run again.",
-                    contract.title,
-                    missing.join(" and ")
-                ),
+                if last_good.program.main.trim().is_empty() {
+                    // Loaded from an older save that did not keep the script.
+                    format!(
+                        "Goal reached! Press Run once so \"{}\" can check your script.",
+                        contract.title
+                    )
+                } else {
+                    format!(
+                        "Goal reached! But \"{}\" also needs {}. Change your script and Run again.",
+                        contract.title,
+                        missing.join(" and ")
+                    )
+                },
             );
             if let Some(active) = progress.active.as_mut() {
                 active.warned = true;
@@ -237,6 +256,8 @@ fn track_contract(
     factory.coins += contract.reward;
     progress.completed.insert(contract.id.clone());
     progress.active = None;
+    // Save now, so a crash or quit cannot hand out the same contract again.
+    save_now.0 = true;
     let score = Score {
         lines: shape.code_lines,
         steam: last_good.steps,
@@ -329,6 +350,16 @@ mod tests {
         assert!(progress.chapter_done(3));
         assert!(progress.chapter_unlocked(4));
         assert!(!progress.chapter_unlocked(5));
+    }
+
+    #[test]
+    fn a_finished_contract_cannot_be_taken_again() {
+        let (chapter, contract) = chapters::contract("ch3_long_haul").unwrap();
+        let mut progress = Progress::default();
+        progress.completed.insert(contract.id.clone());
+        assert!(!progress.can_accept(chapter, contract));
+        progress.accept(contract, &Factory::default());
+        assert_eq!(progress.active, None);
     }
 
     #[test]

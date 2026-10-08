@@ -45,7 +45,7 @@ pub enum RunOutcome {
 }
 
 /// main.py plus the player's other files, which main.py can import.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Program {
     pub main: String,
     /// Module name (the file name without `.py`) to source.

@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use super::contracts::Progress;
 use crate::factory::{Factory, SimTick};
 use crate::scripting::files::write_atomic;
-use crate::scripting::{Console, ConsoleKind};
+use crate::scripting::runtime::Program;
+use crate::scripting::{Console, ConsoleKind, LastGoodScript};
 
 /// Bump this when the save format changes, and add a migration in `load`.
 pub const SAVE_VERSION: u32 = 1;
@@ -31,7 +32,16 @@ pub struct SaveFile {
     /// Manual progress. Older saves have none, which loads as a fresh start.
     #[serde(default)]
     pub progress: Progress,
+    /// The script that built this factory, so contracts can check it after
+    /// a load without the player pressing Run first. Older saves have none.
+    #[serde(default)]
+    pub script: Program,
 }
+
+/// Set to save at the end of this frame instead of waiting for the next
+/// autosave: after a contract completes, or when leaving to the title.
+#[derive(Resource, Default)]
+pub struct SaveNow(pub bool);
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -131,7 +141,8 @@ pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_game)
+        app.init_resource::<SaveNow>()
+            .add_systems(Startup, load_game)
             .add_systems(Last, autosave_game);
     }
 }
@@ -141,6 +152,7 @@ fn load_game(
     mut factory: ResMut<Factory>,
     mut tick: ResMut<SimTick>,
     mut progress: ResMut<Progress>,
+    mut last_good: ResMut<LastGoodScript>,
     mut console: ResMut<Console>,
 ) {
     let Some(store) = SaveStore::default_location() else {
@@ -151,6 +163,7 @@ fn load_game(
             *factory = save.factory;
             tick.0 = save.tick;
             *progress = save.progress;
+            last_good.program = save.script;
             console.push(ConsoleKind::Info, "Factory loaded from your last session.");
         }
         Ok(None) => {}
@@ -176,21 +189,25 @@ fn autosave_game(
     factory: Res<Factory>,
     tick: Res<SimTick>,
     progress: Res<Progress>,
+    last_good: Res<LastGoodScript>,
+    mut now: ResMut<SaveNow>,
     mut console: ResMut<Console>,
     mut exit: MessageReader<AppExit>,
 ) {
     let Some(store) = store else { return };
     *since += time.delta_secs();
     let exiting = exit.read().count() > 0;
-    if !exiting && *since < AUTOSAVE_SECS {
+    if !exiting && !now.0 && *since < AUTOSAVE_SECS {
         return;
     }
     *since = 0.0;
+    now.0 = false;
     let save = SaveFile {
         version: SAVE_VERSION,
         tick: tick.0,
         factory: factory.clone(),
         progress: progress.clone(),
+        script: last_good.program.clone(),
     };
     if let Err(err) = store.save(&save) {
         console.push(
@@ -231,6 +248,7 @@ mod tests {
                     tick,
                     factory: factory.clone(),
                     progress: Progress::default(),
+                    script: Program::main_only(CANONICAL_SAMPLE),
                 })
                 .unwrap();
         }
@@ -239,6 +257,7 @@ mod tests {
         // Same state, only bumped so it gets drawn.
         loaded.factory.layout_version -= 1;
         assert_eq!(loaded.factory, factory);
+        assert_eq!(loaded.script.main, CANONICAL_SAMPLE);
         assert!(store.path(2).exists() && !store.path(3).exists());
         fs::remove_dir_all(&dir).unwrap();
     }

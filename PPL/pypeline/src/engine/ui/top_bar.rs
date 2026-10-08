@@ -32,6 +32,7 @@ pub struct Toggles<'w> {
     debugger: ResMut<'w, super::debugger::Debugger>,
     prefs: ResMut<'w, super::settings::Settings>,
     screen: ResMut<'w, NextState<crate::engine::screens::Screen>>,
+    pause: ResMut<'w, super::pause_menu::PauseMenu>,
 }
 
 #[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
@@ -135,6 +136,13 @@ pub fn top_bar(
                 .clicked()
             {
                 toggles.stats.open = !toggles.stats.open;
+            }
+            if ui
+                .button("☰ Menu")
+                .on_hover_text("Pause, settings, title screen, quit (Esc)")
+                .clicked()
+            {
+                toggles.pause.open = true;
             }
             if ui
                 .selectable_label(toggles.settings.open, "⚙ Settings")
