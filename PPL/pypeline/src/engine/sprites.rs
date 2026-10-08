@@ -75,6 +75,63 @@ const GENERATOR: [&str; 16] = [
     "...kkk....kkk...",
 ];
 
+const STATION: [&str; 16] = [
+    "................",
+    ".....kkkkkk.....",
+    "....kRRRRRRk....",
+    "...kRrrrrrrRk...",
+    "..kRrrrrrrrrRk..",
+    ".kkkkkkkkkkkkkk.",
+    "..kCccccccccCk..",
+    "..kCckkkkkkcCk..",
+    "..kCckyyyykcCk..",
+    "..kCckyYYykcCk..",
+    "..kCckyyyykcCk..",
+    "..kCckkkkkkcCk..",
+    "..kCccccccccCk..",
+    "..kCCCCCCCCCCk..",
+    "..kkkkkkkkkkkk..",
+    "................",
+];
+
+const LOCOMOTIVE: [&str; 16] = [
+    "................",
+    "................",
+    "..kkk...........",
+    "..kmk..kkkkkk...",
+    ".kkmkkkkcwwck...",
+    ".kcccccccwwck...",
+    ".kcccccccccck...",
+    ".kyyyyyyyyyyk...",
+    ".kcccccccccckk..",
+    ".kccccccccccCCk.",
+    ".kkkkkkkkkkkkkk.",
+    "..kDk.kDk.kDk...",
+    "..kkk.kkk.kkk...",
+    "................",
+    "................",
+    "................",
+];
+
+const CARGO_CAR: [&str; 16] = [
+    "................",
+    "................",
+    "................",
+    "................",
+    ".kkkkkkkkkkkkkk.",
+    ".kmmmmmmmmmmmmk.",
+    ".kmgbgmmpwpmmmk.",
+    ".kmggbmmppppmmk.",
+    ".kmmmmmmmmmmmmk.",
+    ".kddddddddddddk.",
+    ".kkkkkkkkkkkkkk.",
+    "..kDk......kDk..",
+    "..kkk......kkk..",
+    "................",
+    "................",
+    "................",
+];
+
 const ORE: [&str; 6] = [".kkkk.", "kgbggk", "kggggk", "kgggbk", "kggggk", ".kkkk."];
 
 const PLATE: [&str; 6] = ["kkkkkk", "kwpppk", "kppppk", "kppppk", "kpppdk", "kkkkkk"];
@@ -173,6 +230,9 @@ pub struct SpriteSheet {
     miner: Handle<Image>,
     smelter: Handle<Image>,
     generator: Handle<Image>,
+    station: Handle<Image>,
+    pub locomotive: Handle<Image>,
+    pub cargo_car: Handle<Image>,
     ore: Handle<Image>,
     plate: Handle<Image>,
 }
@@ -194,6 +254,7 @@ impl SpriteSheet {
             MachineKind::Miner => self.miner.clone(),
             MachineKind::Smelter => self.smelter.clone(),
             MachineKind::SteamGenerator => self.generator.clone(),
+            MachineKind::Station => self.station.clone(),
         }
     }
 
@@ -219,6 +280,9 @@ pub fn build_sprite_sheet(mut commands: Commands, mut images: ResMut<Assets<Imag
         miner: images.add(to_image(&grid(&MINER))),
         smelter: images.add(to_image(&grid(&SMELTER))),
         generator: images.add(to_image(&grid(&GENERATOR))),
+        station: images.add(to_image(&grid(&STATION))),
+        locomotive: images.add(to_image(&grid(&LOCOMOTIVE))),
+        cargo_car: images.add(to_image(&grid(&CARGO_CAR))),
         ore: images.add(to_image(&grid(&ORE))),
         plate: images.add(to_image(&grid(&PLATE))),
     });
@@ -234,6 +298,9 @@ mod tests {
             ("miner", &MINER[..]),
             ("smelter", &SMELTER),
             ("generator", &GENERATOR),
+            ("station", &STATION),
+            ("locomotive", &LOCOMOTIVE),
+            ("cargo car", &CARGO_CAR),
         ] {
             for (i, row) in rows.iter().enumerate() {
                 assert_eq!(
@@ -247,7 +314,16 @@ mod tests {
             assert!(rows.iter().all(|row| row.len() == 6));
         }
         // Every color key is known (color_of panics otherwise).
-        for rows in [&MINER[..], &SMELTER, &GENERATOR, &ORE, &PLATE] {
+        for rows in [
+            &MINER[..],
+            &SMELTER,
+            &GENERATOR,
+            &STATION,
+            &LOCOMOTIVE,
+            &CARGO_CAR,
+            &ORE,
+            &PLATE,
+        ] {
             rows.iter().flat_map(|r| r.chars()).for_each(|c| {
                 color_of(c);
             });

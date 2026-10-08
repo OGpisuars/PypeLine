@@ -59,6 +59,9 @@ const COMMANDS: &[Command] = &[
             "  \"smelter\": turns iron ore into an iron plate every 3 seconds. Needs power. \
              It takes ore from belts that point into it.",
             "  \"steam_generator\": powers the machines you connect to it.",
+            "  \"station\": collects items from belts that point into it. Every 30 \
+             seconds the cargo train buys everything in your stations: 1 coin per ore, \
+             4 coins per plate. No power needed.",
         ],
         example: "machines.place(\"miner\", name=\"miner_1\", x=0, y=0, ore=\"iron\")\n",
     },

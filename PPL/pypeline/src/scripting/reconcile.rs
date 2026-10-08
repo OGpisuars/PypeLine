@@ -152,6 +152,26 @@ mod tests {
     }
 
     #[test]
+    fn the_train_buys_from_stations() {
+        let runtime = ScriptRuntime::new();
+        let mut factory = Factory::default();
+        // The sample, but the smelter feeds a belt into a station.
+        let script = CANONICAL_SAMPLE.replace(
+            "machines.place(\"smelter\", name=\"smelter_1\", x=5, y=0)",
+            "machines.place(\"smelter\", name=\"smelter_1\", x=5, y=0)\n\
+             conveyors.place(x=6, y=0, dir=\"east\")\n\
+             machines.place(\"station\", name=\"station_1\", x=7, y=0)",
+        );
+        build(&runtime, &mut factory, &script);
+        for _ in 0..1200 {
+            factory.step();
+        }
+        let sale = factory.last_sale.as_ref().expect("the train came");
+        assert!(sale.items.contains_key(&ItemKind::IronPlate), "{sale:?}");
+        assert!(factory.coins >= 4);
+    }
+
+    #[test]
     fn running_twice_changes_nothing() {
         let runtime = ScriptRuntime::new();
         let mut factory = Factory::default();

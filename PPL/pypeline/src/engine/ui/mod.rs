@@ -32,7 +32,7 @@ impl Plugin for UiPlugin {
             .init_resource::<editor::EditorState>()
             .init_resource::<help::HelpState>()
             .add_systems(Startup, editor::load_script)
-            .add_systems(Update, help::toggle_help)
+            .add_systems(Update, (help::toggle_help, announce_sales))
             // In Last, so it sees the AppExit sent when the window closes.
             .add_systems(Last, editor::autosave)
             .add_systems(
@@ -49,6 +49,26 @@ impl Plugin for UiPlugin {
                 )
                     .chain(),
             );
+    }
+}
+
+/// Tell the player in the console each time the train buys something.
+fn announce_sales(
+    factory: Res<Factory>,
+    mut console: ResMut<crate::scripting::Console>,
+    mut announced: Local<Option<u64>>,
+) {
+    let Some(sale) = &factory.last_sale else {
+        return;
+    };
+    // The first time, just note the sale already in a loaded save.
+    if announced.is_none() {
+        *announced = Some(sale.tick);
+        return;
+    }
+    if *announced != Some(sale.tick) {
+        *announced = Some(sale.tick);
+        console.push(crate::scripting::ConsoleKind::Info, sale.summary());
     }
 }
 
@@ -121,7 +141,8 @@ fn debug_overlay(
                     tick.0, scale.0
                 ),
                 format!(
-                    "ore mined {}  |  plates made {}",
+                    "coins {}  |  ore mined {}  |  plates made {}",
+                    factory.coins,
                     factory.produced(ItemKind::IronOre),
                     factory.produced(ItemKind::IronPlate)
                 ),

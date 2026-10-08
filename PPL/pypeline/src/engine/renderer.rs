@@ -5,11 +5,13 @@
 
 use bevy::prelude::*;
 
+use super::camera::RES_WIDTH;
 use super::camera::{HoveredTile, WORLD_LAYER};
-use super::grid::{TILE, plot_tile_center};
+use super::grid::{TILE, canvas_tile_center, plot_tile_center};
 use super::palette;
 use super::sprites::{self, SpriteSheet};
 use crate::factory::conveyors::TILE_PROGRESS;
+use crate::factory::train::TRAIN_INTERVAL;
 use crate::factory::{Dir, Factory};
 
 /// Draw order inside the world.
@@ -33,17 +35,36 @@ struct ItemSprite;
 #[derive(Component)]
 struct HoverHighlight;
 
+/// One piece of the train; 0 is the locomotive at the front.
+#[derive(Component)]
+struct TrainPart(usize);
+
+/// Canvas row the rail runs along, below the island.
+const RAIL_ROW: i32 = 1;
+const TRAIN_PARTS: usize = 3;
+
 pub struct FactoryRenderPlugin;
 
 impl Plugin for FactoryRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
-            (sprites::build_sprite_sheet, spawn_hover_highlight),
+            (
+                sprites::build_sprite_sheet,
+                (spawn_hover_highlight, spawn_rail_and_train),
+            )
+                .chain(),
         )
         .add_systems(
             Update,
-            (sync_layout, animate_belts, sync_items, move_hover_highlight).chain(),
+            (
+                sync_layout,
+                animate_belts,
+                sync_items,
+                move_hover_highlight,
+                move_train,
+            )
+                .chain(),
         );
     }
 }
@@ -87,7 +108,7 @@ fn sync_layout(
         ));
 
         // A small brass port on the side items come out of.
-        if machine.kind.needs_power() {
+        if machine.kind.has_output() {
             let (dx, dy) = machine.dir.offset();
             let half = TILE as f32 / 2.0 - 1.0;
             let size = if dx != 0 {
@@ -184,5 +205,93 @@ fn move_hover_highlight(
             *visibility = Visibility::Inherited;
         }
         None => *visibility = Visibility::Hidden,
+    }
+}
+
+fn spawn_rail_and_train(mut commands: Commands, sheet: Res<SpriteSheet>) {
+    let row = canvas_tile_center(0, RAIL_ROW, 0.5);
+    let width = RES_WIDTH as f32;
+    // Two rails and a sleeper every 4 pixels, all on whole pixels.
+    for (dy, color) in [(-6.0, palette::OUTLINE), (-4.0, palette::METAL)] {
+        commands.spawn((
+            Sprite::from_color(color, Vec2::new(width, 1.0)),
+            Transform::from_xyz(0.0, row.y + dy + 0.5, row.z),
+            WORLD_LAYER,
+        ));
+    }
+    for i in 0..(RES_WIDTH / 4) {
+        commands.spawn((
+            Sprite::from_color(palette::DIRT_DARK, Vec2::new(2.0, 3.0)),
+            Transform::from_xyz(i as f32 * 4.0 - width / 2.0 + 1.0, row.y - 5.5, row.z - 0.1),
+            WORLD_LAYER,
+        ));
+    }
+    for part in 0..TRAIN_PARTS {
+        let image = if part == 0 {
+            sheet.locomotive.clone()
+        } else {
+            sheet.cargo_car.clone()
+        };
+        commands.spawn((
+            Sprite::from_image(image),
+            Transform::from_xyz(0.0, row.y, Z_MACHINE),
+            Visibility::Hidden,
+            TrainPart(part),
+            WORLD_LAYER,
+        ));
+    }
+}
+
+/// Where the train's front is at factory tick `ticks`, if it is on screen.
+/// It rolls in over 3 s, waits 2 s while the train buys (on the visit tick),
+/// then rolls out. Computed from the sim clock, so it pauses with the factory.
+pub fn train_front_x(ticks: u64) -> Option<f32> {
+    const ROLL: i64 = 60;
+    const WAIT: i64 = 20;
+    let interval = TRAIN_INTERVAL as i64;
+    let ticks = ticks as i64;
+    let visit = ((ticks + interval / 2) / interval) * interval;
+    if visit == 0 {
+        return None;
+    }
+    let t = ticks - visit;
+    let edge = RES_WIDTH as f32 / 2.0 + 3.0 * TILE as f32;
+    let x = match t {
+        _ if t < -(ROLL + WAIT) || t > ROLL + WAIT => return None,
+        _ if t < -WAIT => -edge * (-(t + WAIT)) as f32 / ROLL as f32,
+        _ if t <= WAIT => 0.0,
+        _ => edge * (t - WAIT) as f32 / ROLL as f32,
+    };
+    Some(x.round())
+}
+
+fn move_train(
+    factory: Res<Factory>,
+    mut parts: Query<(&TrainPart, &mut Transform, &mut Visibility)>,
+) {
+    let front = train_front_x(factory.ticks);
+    for (part, mut transform, mut visibility) in &mut parts {
+        match front {
+            Some(x) => {
+                transform.translation.x = x - part.0 as f32 * TILE as f32;
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn train_stops_mid_screen_on_visit_ticks() {
+        assert_eq!(train_front_x(0), None);
+        assert_eq!(train_front_x(300), None);
+        assert_eq!(train_front_x(TRAIN_INTERVAL), Some(0.0));
+        // Rolling in from the left, then out to the right.
+        assert!(train_front_x(TRAIN_INTERVAL - 50).unwrap() < 0.0);
+        assert!(train_front_x(TRAIN_INTERVAL + 50).unwrap() > 0.0);
     }
 }

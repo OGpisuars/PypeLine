@@ -8,6 +8,7 @@ pub mod conveyors;
 pub mod items;
 pub mod machines;
 pub mod tick;
+pub mod train;
 
 use std::collections::BTreeMap;
 
@@ -81,6 +82,8 @@ impl Dir {
 
 /// The whole factory on the plot.
 #[derive(Resource, Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+// Fields added later load as their defaults from older saves.
+#[serde(default)]
 pub struct Factory {
     pub conveyors: BTreeMap<Pos, Conveyor>,
     /// Machines by their stable name.
@@ -93,6 +96,10 @@ pub struct Factory {
     pub inventory: BTreeMap<ItemKind, u64>,
     /// Total items made since the game started.
     pub produced: BTreeMap<ItemKind, u64>,
+    /// Money earned from the cargo train.
+    pub coins: u64,
+    /// The train's most recent visit.
+    pub last_sale: Option<train::Sale>,
     /// Ticks the factory has actually run (it stops while halted).
     pub ticks: u64,
     /// Set when the last Run failed: belts stop until the next good Run.
@@ -146,10 +153,40 @@ impl Factory {
         for pos in belts {
             self.move_belt(pos);
         }
+
+        if train::arrives_at(self.ticks) {
+            self.sell_to_train();
+        }
+    }
+
+    /// The cargo train buys everything in stations and the station inventory.
+    fn sell_to_train(&mut self) {
+        let mut sale = train::Sale {
+            tick: self.ticks,
+            ..Default::default()
+        };
+        let mut goods: Vec<ItemKind> = Vec::new();
+        for machine in self.machines.values_mut() {
+            if machine.kind == MachineKind::Station {
+                goods.append(&mut machine.input);
+            }
+        }
+        for (item, count) in std::mem::take(&mut self.inventory) {
+            goods.extend(std::iter::repeat_n(item, count as usize));
+        }
+        for item in goods {
+            *sale.items.entry(item).or_default() += 1;
+            sale.coins += train::price(item);
+        }
+        self.coins += sale.coins;
+        self.last_sale = Some(sale);
     }
 
     fn push_machine_output(&mut self, name: &str) {
         let machine = &self.machines[name];
+        if !machine.kind.has_output() {
+            return;
+        }
         let Some(&item) = machine.output.first() else {
             return;
         };

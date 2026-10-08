@@ -10,6 +10,8 @@ pub const MINE_TICKS: u32 = 40;
 pub const SMELT_TICKS: u32 = 60;
 /// Items a machine can hold in its input and in its output.
 pub const BUFFER_CAP: usize = 10;
+/// Items a station can hold for the train.
+pub const STATION_CAP: usize = 50;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -18,6 +20,8 @@ pub enum MachineKind {
     Miner,
     Smelter,
     SteamGenerator,
+    /// Holds items for the cargo train to buy.
+    Station,
 }
 
 impl MachineKind {
@@ -27,6 +31,7 @@ impl MachineKind {
             "miner" => Some(Self::Miner),
             "smelter" => Some(Self::Smelter),
             "steam_generator" => Some(Self::SteamGenerator),
+            "station" => Some(Self::Station),
             _ => None,
         }
     }
@@ -36,14 +41,25 @@ impl MachineKind {
             Self::Miner => "miner",
             Self::Smelter => "smelter",
             Self::SteamGenerator => "steam_generator",
+            Self::Station => "station",
         }
     }
 
-    pub const ALL: [Self; 3] = [Self::Miner, Self::Smelter, Self::SteamGenerator];
+    pub const ALL: [Self; 4] = [
+        Self::Miner,
+        Self::Smelter,
+        Self::SteamGenerator,
+        Self::Station,
+    ];
 
     /// Does this machine need steam power to work?
     pub fn needs_power(self) -> bool {
-        !matches!(self, Self::SteamGenerator)
+        matches!(self, Self::Miner | Self::Smelter)
+    }
+
+    /// Does this machine send items out of its `dir` side?
+    pub fn has_output(self) -> bool {
+        matches!(self, Self::Miner | Self::Smelter)
     }
 }
 
@@ -78,6 +94,7 @@ impl Machine {
     pub fn accepts(&self, item: ItemKind) -> bool {
         match self.kind {
             MachineKind::Smelter => items::smelt(item).is_some() && self.input.len() < BUFFER_CAP,
+            MachineKind::Station => self.input.len() < STATION_CAP,
             MachineKind::Miner | MachineKind::SteamGenerator => false,
         }
     }
@@ -90,7 +107,7 @@ impl Machine {
         let (ticks, made) = match self.kind {
             MachineKind::Miner => (MINE_TICKS, self.ore?),
             MachineKind::Smelter => (SMELT_TICKS, items::smelt(*self.input.first()?)?),
-            MachineKind::SteamGenerator => return None,
+            MachineKind::SteamGenerator | MachineKind::Station => return None,
         };
         self.progress += 1;
         if self.progress < ticks {

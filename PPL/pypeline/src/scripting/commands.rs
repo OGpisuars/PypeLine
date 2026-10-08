@@ -79,8 +79,11 @@ impl BuildPlan {
                         "there is no machine named '{name}' (place it before connecting it)"
                     ));
                 }
-                Some(m) if !m.kind.needs_power() => {
+                Some(m) if m.kind == MachineKind::SteamGenerator => {
                     return Err(format!("'{name}' makes power, it does not need any"));
+                }
+                Some(m) if !m.kind.needs_power() => {
+                    return Err(format!("a {} does not need power", m.kind.name()));
                 }
                 Some(_) => {}
             }

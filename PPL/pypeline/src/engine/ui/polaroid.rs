@@ -6,7 +6,8 @@ use bevy_egui::{EguiContexts, EguiTextureHandle, egui};
 
 use crate::engine::camera::HoveredTile;
 use crate::engine::sprites::SpriteSheet;
-use crate::factory::machines::{BUFFER_CAP, MINE_TICKS, MachineKind, SMELT_TICKS};
+use crate::factory::machines::{BUFFER_CAP, MINE_TICKS, MachineKind, SMELT_TICKS, STATION_CAP};
+use crate::factory::train::TRAIN_INTERVAL;
 use crate::factory::{Dir, Factory};
 
 /// Size of the photo in the card (a 16 px sprite at 4x).
@@ -46,6 +47,13 @@ pub fn polaroid(
             }
             lines.push(format!("output: {}/{BUFFER_CAP}", machine.output.len()));
             lines.push(format!("faces: {}", dir_name(machine.dir)));
+        } else if machine.kind == MachineKind::Station {
+            lines.push(format!(
+                "waiting for the train: {}/{STATION_CAP}",
+                machine.input.len()
+            ));
+            let next = TRAIN_INTERVAL - factory.ticks % TRAIN_INTERVAL;
+            lines.push(format!("next train in {} s", next / 20));
         } else {
             let powering = factory.power.values().filter(|g| *g == name).count();
             lines.push(format!("powering {powering} machine(s)"));
