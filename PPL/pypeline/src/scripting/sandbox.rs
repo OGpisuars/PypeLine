@@ -16,6 +16,18 @@ use rustpython_vm::{
 /// Dunder spellings scripts may use.
 const ALLOWED_DUNDERS: &[&str] = &["__name__", "\"__main__\"", "'__main__'"];
 
+/// Names that would let a script catch the game's own stop (out of steam,
+/// memory, watchdog), which derives from BaseException. `mro` is here because
+/// `ValueError.mro()` lists BaseException without naming it.
+const UNCATCHABLE: &[&str] = &[
+    "BaseException",
+    "KeyboardInterrupt",
+    "SystemExit",
+    "GeneratorExit",
+    "BaseExceptionGroup",
+    "mro",
+];
+
 /// Built-in functions removed from every script's reach. Without `getattr`
 /// a string can never become an attribute access, and without `eval`/`exec`/
 /// `compile` a string can never become code.
@@ -55,21 +67,50 @@ pub fn check(source: &str) -> Result<(), Rejection> {
     let Ok(parsed) = parser::parse_module(source) else {
         return Ok(());
     };
-    for token in parsed.tokens() {
-        if token.kind() == TokenKind::Comment {
-            continue;
-        }
+    let tokens: Vec<_> = parsed
+        .tokens()
+        .iter()
+        .filter(|t| t.kind() != TokenKind::Comment)
+        .collect();
+    let line_of = |offset: usize| source[..offset].matches('\n').count() + 1;
+    for (i, token) in tokens.iter().enumerate() {
         let range = token.range();
-        let text = &source[usize::from(range.start())..usize::from(range.end())];
+        let start = usize::from(range.start());
+        let text = &source[start..usize::from(range.end())];
+        let refuse = |message: String| {
+            Err(Rejection {
+                line: line_of(start),
+                message,
+            })
+        };
+        match token.kind() {
+            TokenKind::Except
+                if tokens
+                    .get(i + 1)
+                    .is_some_and(|t| t.kind() == TokenKind::Colon) =>
+            {
+                return refuse(
+                    "a bare \"except:\" is not allowed; name the error you expect, \
+                     like \"except ValueError:\""
+                        .into(),
+                );
+            }
+            TokenKind::Finally => {
+                return refuse("\"finally:\" is not available in PypeLine scripts yet".into());
+            }
+            TokenKind::Name if UNCATCHABLE.contains(&text) => {
+                return refuse(format!(
+                    "\"{text}\" is not available in PypeLine scripts; catch a specific error \
+                     like ValueError, or Exception for any ordinary error"
+                ));
+            }
+            _ => {}
+        }
         if text.contains("__") && !ALLOWED_DUNDERS.contains(&text) {
-            let line = source[..usize::from(range.start())].matches('\n').count() + 1;
-            return Err(Rejection {
-                line,
-                message: format!(
-                    "names with double underscores (like {}) are not allowed in PypeLine scripts",
-                    shorten(text)
-                ),
-            });
+            return refuse(format!(
+                "names with double underscores (like {}) are not allowed in PypeLine scripts",
+                shorten(text)
+            ));
         }
     }
     Ok(())
@@ -105,6 +146,10 @@ mod tests {
             ("t = f\"{x.__dict__}\"", 1),
             ("def __init__(self):\n    pass", 1),
             ("x = __builtins__", 1),
+            ("try:\n    pass\nexcept:\n    pass", 3),
+            ("try:\n    pass\nexcept BaseException:\n    pass", 3),
+            ("try:\n    pass\nfinally:\n    pass", 3),
+            ("b = ValueError.mro()", 1),
         ] {
             let err = check(src).expect_err(src);
             assert_eq!(err.line, line, "{src}");
@@ -118,6 +163,8 @@ mod tests {
             "# a comment with __dunder__ is fine\nx = 1_000",
             "name_with_one_underscore = 2",
             "def broken(:",
+            "try:\n    x = int('a')\nexcept ValueError:\n    print('not a number')",
+            "try:\n    x = 1 / 0\nexcept Exception as e:\n    print(e)",
         ] {
             assert_eq!(check(src), Ok(()), "{src}");
         }

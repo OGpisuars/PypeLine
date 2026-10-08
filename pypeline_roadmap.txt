@@ -378,6 +378,7 @@ LICENSE            : MIT for code, separate license for assets.
 ==============================================================
 PART 2 - ROADMAP
 ==============================================================
+Progress: [x] done, [~] partly done (see the note), [ ] not started.
 Week numbers assume roughly full-time work. Treat them as
 relative sizes, not deadlines. Items marked (Part 4 X) come
 from the bulletproofing checklist; each checklist item lives
@@ -388,22 +389,25 @@ PHASE 0 - FOUNDATION (Week 1-3)
 --------------------------------------------------------------
 Goal: a window, a loop, and a Python line that runs - and
 proof that the two riskiest pieces (VM hook, egui look) work.
-  [ ] Cargo project with Bevy; window + pixel-perfect camera
-  [ ] Fixed 20 Hz simulation tick separated from render
-  [ ] Explicit Bevy system sets for the sim (fixed order)
-  [ ] 16x16 tile grid + placeholder sprites (GBA palette)
-  [ ] Lock the master palette + art style sheet (ART_STYLE.md)
-  [ ] Embed RustPython; run "print('hello')" from the game
-  [ ] SPIKE: per-instruction hook in RustPython that can
+  [x] Cargo project with Bevy; window + pixel-perfect camera
+  [x] Fixed 20 Hz simulation tick separated from render
+  [x] Explicit Bevy system sets for the sim (fixed order)
+  [x] 16x16 tile grid + placeholder sprites (GBA palette)
+  [~] Lock the master palette + art style sheet (ART_STYLE.md)
+      (provisional palette in engine/palette.rs; locked in the art pass)
+  [x] Embed RustPython; run "print('hello')" from the game
+  [x] SPIKE: per-instruction hook in RustPython that can
       count steps and stop a script (hooks.rs). If this
       fails, switch to the plan B interpreter NOW.
-  [ ] Fixed Python hash seed; math module on pure-Rust libm
-  [ ] bevy_egui editor prototype: pixel font, integer scale,
+  [~] Fixed Python hash seed; math module on pure-Rust libm
+      (hash seed done; no math module exposed yet)
+  [~] bevy_egui editor prototype: pixel font, integer scale,
       palette styling (proves the retro look works)
-  [ ] CI matrix: Windows, Linux, macOS
+      (JetBrains Mono chosen instead of a pixel font)
+  [x] CI matrix: Windows, Linux, macOS
   [ ] Git LFS for sprites/audio; protected main branch
-  [ ] docs/DECISIONS.md started (copy Part 1 into it)
-  [ ] Basic logging/debug overlay (tick count, FPS)
+  [x] docs/DECISIONS.md started (copy Part 1 into it)
+  [x] Basic logging/debug overlay (tick count, FPS)
 Exit test: pressing Run executes a script and prints to an
 in-game console, AND a "while True: pass" script is stopped
 by the step budget without freezing the game.
@@ -412,33 +416,37 @@ by the step budget without freezing the game.
 PHASE 1 - MVP: FIRST AUTOMATED FACTORY (Week 4-8)
 --------------------------------------------------------------
 Goal: one script builds a working belt line.
-  [ ] auto API v0: conveyors.place(), machines.place()
-  [ ] Conveyors move items (modelled as lane segments, not
+  [x] auto API v0: conveyors.place(), machines.place()
+  [~] Conveyors move items (modelled as lane segments, not
       one entity per item); one miner; one smelter
-  [ ] Steam generator (a machine) + power.connect()
-  [ ] Script command queue: API calls applied at end of tick
-  [ ] egui code editor (typing, scrolling, save/load,
+      (per-tile item lists for now; lane segments when profiling asks)
+  [x] Steam generator (a machine) + power.connect()
+  [x] Script command queue: API calls applied at end of tick
+  [x] egui code editor (typing, scrolling, save/load,
       syntax highlighting, error-line highlight)
-  [ ] Script files saved with atomic writes; autosave on Run
+  [x] Script files saved with atomic writes; autosave on Run
       (Part 4 A)
-  [ ] Output console: monospace grid, print() capture,
+  [x] Output console: monospace grid, print() capture,
       wrapping, scrollback ring buffer, sanitized output,
       output cap per tick
-  [ ] Run arrow with hot-reload + Stop + Clean Run
-  [ ] Reconcile system: stable IDs, diff on run,
+  [~] Run arrow with hot-reload + Stop + Clean Run
+      (Run with hot-reload done; Stop and Clean Run to do)
+  [x] Reconcile system: stable IDs, diff on run,
       transactional (only applied if main.py succeeds)
-  [ ] Build vs operate rule: placement calls only in main.py
-  [ ] Error mapping: highlight the broken line, halt belts
-  [ ] Step budget v1: deploy budget for main.py, per-tick
+  [~] Build vs operate rule: placement calls only in main.py
+      (enforced once tick() exists)
+  [x] Error mapping: highlight the broken line, halt belts
+  [~] Step budget v1: deploy budget for main.py, per-tick
       budget for tick(); overrun -> boiler heat
-  [ ] Sandbox v1 (Part 4 B): static AST check, import
+      (deploy budget done; per-tick budget comes with tick())
+  [x] Sandbox v1 (Part 4 B): static AST check, import
       allowlist, whitelisted builtins only, recursion limit,
       memory caps, watchdog interrupt flag
   [ ] Start the sandbox escape corpus (tests/fuzz)
-  [ ] Headless sim mode (no window) (Part 4 E)
-  [ ] State hash + determinism test; cross-OS replay hash
+  [x] Headless sim mode (no window) (Part 4 E)
+  [x] State hash + determinism test; cross-OS replay hash
       check in CI (Part 4 C)
-  [ ] Reload test: running the same script twice = same state
+  [x] Reload test: running the same script twice = same state
 Exit test: the CANONICAL SAMPLE (Part 1) runs and produces
 iron plates, both in the game and headless in CI.
 
@@ -446,24 +454,27 @@ iron plates, both in the game and headless in CI.
 PHASE 2 - ALPHA: THE GAME FEEL (Week 9-14)
 --------------------------------------------------------------
 Goal: it looks and feels like PypeLine.
-  [ ] Floating plot visuals (bobbing island, parallax sky)
-  [ ] Polaroid hover UI with live machine stats
-  [ ] Import-driven wires: "from auto import conveyors" draws
+  [x] Floating plot visuals (bobbing island, parallax sky)
+  [x] Polaroid hover UI with live machine stats
+  [~] Import-driven wires: "from auto import conveyors" draws
       color-coded wires between terminals
-  [ ] Animated data pulses on wires
-  [ ] Failure states: overheating boiler, item spill
-  [ ] Cargo train arrives, buys output, pays currency
-  [ ] Basic GBA-style music loop + SFX
-  [ ] Save/load game state: versioned RON + migrations,
+      (power wires from generators done instead; import wires to decide)
+  [x] Animated data pulses on wires
+  [~] Failure states: overheating boiler, item spill
+      (boiler overheats and puffs steam; errors blink belts red instead of spilling)
+  [x] Cargo train arrives, buys output, pays currency
+  [x] Basic GBA-style music loop + SFX
+  [x] Save/load game state: versioned RON + migrations,
       atomic writes, rolling backups, autosave every N min,
       crash recovery on restart (Part 4 A)
-  [ ] Time Dials v1: pause, play, 1x/2x/4x, step one tick
-  [ ] Boot splash animation + original chime (skippable)
-  [ ] Wildlife v0: one species (steam-moths) reacting to
+  [x] Time Dials v1: pause, play, 1x/2x/4x, step one tick
+  [x] Boot splash animation + original chime (skippable)
+  [x] Wildlife v0: one species (steam-moths) reacting to
       boiler state, for the vertical slice
   [ ] All UI text in string tables from here on (Part 4 H)
   [ ] Benchmark suite in CI + first profiling pass (Part 4 D)
-  [ ] Weekly playable build + PLAYTEST.md notes start
+  [~] Weekly playable build + PLAYTEST.md notes start
+      (Windows build on every push; PLAYTEST.md not started)
 Exit test: a stranger can play 30 minutes and understand
 what is happening without being told. This is the vertical
 slice: if it is not fun yet, fix that before Phase 3.

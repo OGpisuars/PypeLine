@@ -92,6 +92,11 @@ const TROUBLESHOOTING: &[(&str, &str)] = &[
         "The script used too many steps, usually a loop that never ends.",
     ),
     (
+        "\"except:\" or \"finally:\" is not allowed",
+        "Name the error you expect, like except ValueError: (or except Exception: for any \
+         ordinary error). This keeps the game's safety stop from being caught.",
+    ),
+    (
         "A machine is gray",
         "It has no power. Connect it with power.connect.",
     ),

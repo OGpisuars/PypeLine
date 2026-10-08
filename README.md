@@ -52,33 +52,55 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 
 ---
 
+## ⬇️ Try It
+
+**Windows:** download `PypeLine-windows.zip` from the [latest build](https://github.com/OGpisuars/PypeLine/releases/tag/latest), unzip it, and run `PypeLine.exe`. It is rebuilt automatically from every change to `main`.
+
+**Linux and macOS:** build from source (see [Getting Started](#-getting-started)).
+
+### Controls
+
+| Key or button | What it does |
+|---------------|--------------|
+| **▶ Run** | Run `main.py` and update the factory to match it |
+| **F1** or **? Help** | Every command explained, with examples you can insert |
+| Mouse over the island | Shows the tile's `x` and `y`, plus a polaroid card for machines and belts |
+| **Space** | Pause / play |
+| **.** (period) | Step one tick while paused |
+| **1 / 2 / 3** | Speed 1x / 2x / 4x |
+| **M** | Sound on / off |
+| **◀** | Hide the code panel (small windows) |
+
+Your script is saved automatically as you type, and the factory every minute and when you quit.
+
+---
+
 ## ✨ Features
 
-### Core
-- **Real Python scripting.** Write actual Python from a central `main.py`. No made-up language.
-- **Hot-reload on Run.** Edit and re-run without wiping your factory. Scripts are idempotent, so re-running never duplicates machines.
-- **Infrastructure-as-code wires.** Imports like `from auto import conveyors` draw color-coded pixel-art wires between terminals.
-- **Visible failures.** Syntax errors halt belts and highlight the exact broken line. An infinite loop overheats the boiler. An unhandled exception makes a conveyor spill items.
-- **Code has a cost.** Scripts run on a steam budget, so efficient code beats brute force.
-- **Polaroid UI.** Hover over a machine to pull up a vintage snapshot with live stats.
-- **Progressive Engineering Manual.** Sell goods to the cargo train to unlock chapters: variables, strings, `for` and `while` loops, conditionals, functions, lists and dicts, imports, events, and generators.
-- **Campaign and Sandbox.** Structured contracts that teach one concept at a time, plus an open-ended sandbox.
-- **Singleplayer.** A tight, polished solo experience with no netcode.
+### Playable now
+- **Real Python scripting.** Write actual Python in `main.py`. No made-up language.
+- **Hot-reload on Run.** Edit and re-run without wiping your factory. The script describes the whole factory, so re-running never duplicates machines, and a script with an error changes nothing.
+- **Belts, miners, smelters, steam power.** Build with `conveyors.place`, `machines.place` and `power.connect`. Brass wires with moving pulses show what powers what.
+- **The cargo train.** Send goods to a station; every 30 seconds the train buys them for coins.
+- **Visible failures.** An error halts the belts and highlights the broken line. An infinite loop runs out of steam and the boiler overheats, puffing steam.
+- **Code has a cost.** Scripts run on a steam budget, so an infinite loop can never freeze the game.
+- **Polaroid UI.** Hover over a machine or belt for a snapshot with live stats.
+- **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
+- **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
+- **Floating island, chiptune music and steam-moths.** The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
 
-### Debugging and Insight
-- **Time Dials.** Pause, play, speed up, or step the simulation one tick at a time.
-- **Line debugger (planned).** Step through your script one line at a time and watch your variables.
-- **Factory stats (planned).** A dashboard and a `stats` module for items per minute, steam use, and bottlenecks.
-- **Friendly errors (planned).** Python tracebacks translated into helpful hints.
-- **Snippets (planned).** Starter templates that unlock as you finish each manual chapter.
+### Coming next
+- **Engineering Manual and campaign.** Contracts that teach one concept at a time: variables, strings, `for` and `while` loops, conditionals, functions, lists and dicts, imports, events, and generators.
+- **Line debugger.** Step through your script one line at a time and watch your variables.
+- **Factory stats.** A dashboard and a `stats` module for items per minute, steam use, and bottlenecks.
+- **Friendly errors and snippets.** Python errors translated into helpful hints; starter templates per chapter.
 
-### Mid and Late Game (planned)
+### Mid and late game (planned)
 - **Day/night and thermal management.** Boilers run hotter by day and cooler by night. Read the clock and plan around it in code.
 - **Cartridges.** Split your code into modules, shown in-game as physical carts you slot into terminals.
-- **Micro-chips.** Place tiny chips on sorters and valves to run fast, local micro-scripts and learn edge vs. central computing.
-- **LED matrix panels.** Control 8x8 and 16x16 pixel displays with `display.set_pixel(x, y, "green")` to build dashboards.
+- **Micro-chips.** Tiny chips on sorters and valves run fast, local micro-scripts: edge vs. central computing.
+- **LED matrix panels.** Control 8x8 and 16x16 pixel displays with `display.set_pixel(x, y, "green")`.
 - **ASCII dashboards.** Print progress bars and custom success banners to the in-game console.
-- **Factory wildlife.** Charming creatures like steam-moths react to your factory's health. A calm island means a healthy factory.
 - **Terminal themes.** Unlockable border skins for your editor and UI.
 
 ---
@@ -123,22 +145,27 @@ Each phase has an exit test that must pass before the next one begins.
 
 ## 🚀 Getting Started
 
-> The game is not playable yet. These steps are for contributors building from source.
+> Early but playable: Phases 0–2 are built. On Linux, install the ALSA and udev development packages first (on Debian/Ubuntu: `libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
 
 **Requirements**
-- [Rust](https://www.rust-lang.org/tools/install) (version pinned in `rust-toolchain.toml`)
+- [Rust](https://www.rust-lang.org/tools/install) (the version is pinned in `rust-toolchain.toml` and installed automatically)
 - A GPU with Vulkan, Metal, or DirectX 12 support
 
 **Build and run**
 ```bash
-git clone https://github.com/<your-username>/pypeline.git
-cd pypeline
+git clone https://github.com/OGpisuars/PypeLine.git
+cd PypeLine/PPL/pypeline
 cargo run --release
 ```
 
 **Run the tests**
 ```bash
 cargo test
+```
+
+**Run a script without a window** (prints what the factory made and its state hash)
+```bash
+cargo run --bin headless -- path/to/main.py 600
 ```
 
 ---

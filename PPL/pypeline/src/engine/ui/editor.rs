@@ -5,7 +5,7 @@ use bevy_egui::{EguiContexts, egui};
 
 use crate::engine::camera::GameArea;
 use crate::scripting::files::ScriptStore;
-use crate::scripting::{Console, ConsoleKind, ErrorLine, PendingRun};
+use crate::scripting::{Console, ConsoleKind, ErrorLine, PendingRun, RunRequests};
 
 use super::console::console_ui;
 
@@ -109,6 +109,7 @@ pub fn code_panel(
     store: Option<Res<ScriptStore>>,
     mut console: ResMut<Console>,
     mut game_area: ResMut<GameArea>,
+    mut requests: ResMut<RunRequests>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     let screen = ctx.viewport_rect();
@@ -158,6 +159,21 @@ pub fn code_panel(
                 let queued = pending.0.is_some();
                 let run = ui.add_enabled(!queued, egui::Button::new("▶ Run"));
                 if run.clicked() {
+                    pending.0 = Some(state.source.clone());
+                    save(&mut state, store.as_deref(), &mut console);
+                }
+                if ui
+                    .button("■ Stop")
+                    .on_hover_text("Halt the belts")
+                    .clicked()
+                {
+                    requests.stop = true;
+                }
+                let clean = ui
+                    .add_enabled(!queued, egui::Button::new("Clean Run"))
+                    .on_hover_text("Clear the whole factory, then run (coins are kept)");
+                if clean.clicked() {
+                    requests.clean = true;
                     pending.0 = Some(state.source.clone());
                     save(&mut state, store.as_deref(), &mut console);
                 }

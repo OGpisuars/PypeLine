@@ -25,6 +25,13 @@ Layers, in the order a script meets them:
    - Watchdog: a run taking more than 1 second of real time is stopped. This is only a safety net for engine bugs. It never fires in normal play, because the step budget runs out first, and it is the one place where wall-clock time is allowed to affect a run.
    - Recursion limit: 200 nested calls, then a clean `RecursionError`.
 
+**The stop must be uncatchable (found 2026-10-08).** When a trace function raises, RustPython switches tracing off, exactly like CPython. Before this fix, every run after the first "out of steam" had no budget at all, and a script could catch the stop in a caller (`try: spin()` / `except: pass` inside `while True`) and loop forever. Now:
+- the hook is re-armed at the start of every run (`StepHook::arm`);
+- every stop (steam, memory, watchdog) is raised as `pypeline.Stopped`, which derives from `BaseException` like `KeyboardInterrupt`, so `except Exception:` never catches it;
+- the token check refuses the remaining ways to catch it or run code after it: bare `except:`, the names `BaseException`, `KeyboardInterrupt`, `SystemExit`, `GeneratorExit`, `BaseExceptionGroup` and `mro`, and `finally:`.
+
+Normal error handling (`except ValueError:`, `except Exception as e:`) still works, which the error-handling chapter needs. `finally:` can come back once the stop no longer relies on unwinding (for example via RustPython's signal/eval-breaker path). `tests/sandbox_tests.rs` runs all known tricks back-to-back on one runtime.
+
 **Known gap:** a single, enormous allocation inside one native call (`"a" * 10**10`) happens before the hook can check, and can crash the game. That only hurts the player running the script, so it is acceptable for a single-player game, but it must be solved before shared Workshop scripts (Phase 4/5). Options: patch RustPython's sequence repetition to use fallible allocation, or check sizes in the allocator and return null early.
 
 `dir()` is removed because it lists dunder names. A player-friendly replacement can be added to the Help window if needed.

@@ -38,6 +38,16 @@ power.connect(generator="steam_1",
 #[derive(Resource, Default)]
 pub struct PendingRun(pub Option<String>);
 
+/// The editor's Stop and Clean Run buttons, applied on the next tick.
+#[derive(Resource, Default)]
+pub struct RunRequests {
+    /// Halt the belts until the next Run.
+    pub stop: bool,
+    /// Wipe the factory (keeping coins and stats) before building, if the
+    /// pending run succeeds.
+    pub clean: bool,
+}
+
 /// Max lines kept in the console scrollback (ring buffer).
 const CONSOLE_CAPACITY: usize = 500;
 
@@ -95,6 +105,7 @@ impl Plugin for ScriptingPlugin {
         // The interpreter is not thread-safe, so it lives on the main thread.
         app.insert_non_send(ScriptRuntime::new())
             .init_resource::<PendingRun>()
+            .init_resource::<RunRequests>()
             .init_resource::<Console>()
             .init_resource::<ErrorLine>()
             .init_resource::<LastFailure>()
@@ -112,11 +123,18 @@ fn run_pending_script(
     mut factory: ResMut<Factory>,
     mut failure: ResMut<LastFailure>,
     mut sounds: MessageWriter<SoundCue>,
+    mut requests: ResMut<RunRequests>,
     tick: Res<SimTick>,
 ) {
+    if std::mem::take(&mut requests.stop) {
+        factory.halted = true;
+        *failure = LastFailure::None;
+        console.push(ConsoleKind::Info, "Stopped. Press Run to start again.");
+    }
     let Some(source) = pending.0.take() else {
         return;
     };
+    let clean = std::mem::take(&mut requests.clean);
 
     console.push(ConsoleKind::Info, format!("> Run (tick {})", tick.0));
     let report = runtime.run(&source, DEPLOY_BUDGET);
@@ -139,6 +157,13 @@ fn run_pending_script(
         LastFailure::Error => Sfx::Error,
         LastFailure::OutOfSteam => Sfx::Overheat,
     }));
+    if clean && report.plan.is_some() {
+        factory.clean_reset();
+        console.push(
+            ConsoleKind::Info,
+            "Clean Run: the factory was cleared and rebuilt.",
+        );
+    }
     build.0 = report.plan;
     match report.outcome {
         RunOutcome::Finished => console.push(

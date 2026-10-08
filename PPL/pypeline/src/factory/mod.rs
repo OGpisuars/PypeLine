@@ -251,6 +251,19 @@ impl Factory {
         })
     }
 
+    /// Clear the plot for a Clean Run. Coins, totals and the clock are kept:
+    /// they are the player's progress, not the layout.
+    pub fn clean_reset(&mut self) {
+        *self = Self {
+            coins: self.coins,
+            produced: std::mem::take(&mut self.produced),
+            last_sale: self.last_sale.take(),
+            ticks: self.ticks,
+            layout_version: self.layout_version + 1,
+            ..Self::default()
+        };
+    }
+
     /// Move a removed belt's or machine's items into the station inventory.
     pub fn stash(&mut self, items: impl IntoIterator<Item = ItemKind>) {
         for item in items {

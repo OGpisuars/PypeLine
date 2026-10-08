@@ -58,6 +58,7 @@ pub struct ScriptRuntime {
     output: Rc<RefCell<Vec<String>>>,
     plan: Rc<RefCell<BuildPlan>>,
     modules: Rc<RefCell<ModuleTable>>,
+    hook: hooks::StepHook,
 }
 
 impl ScriptRuntime {
@@ -79,8 +80,8 @@ impl ScriptRuntime {
             // Deep recursion gets a clean RecursionError long before the
             // game's own stack is at risk.
             vm.recursion_limit.set(RECURSION_LIMIT);
-            hooks::install(vm, budget.clone()).expect("failed to install the step hook");
         });
+        let hook = interpreter.enter(|vm| hooks::StepHook::install(vm, budget.clone()));
 
         Self {
             interpreter,
@@ -88,6 +89,7 @@ impl ScriptRuntime {
             output,
             plan: Rc::new(RefCell::new(BuildPlan::default())),
             modules,
+            hook,
         }
     }
 
@@ -111,6 +113,9 @@ impl ScriptRuntime {
         }
 
         let outcome = self.interpreter.enter(|vm| {
+            if let Err(exc) = self.hook.arm(vm) {
+                return error_outcome(vm, &exc);
+            }
             match bindings::build_modules(vm, &self.plan) {
                 Ok(table) => *self.modules.borrow_mut() = table,
                 Err(exc) => return error_outcome(vm, &exc),
@@ -299,10 +304,24 @@ mod tests {
     }
 
     #[test]
-    fn try_except_cannot_swallow_the_budget() {
-        let src = "while True:\n    try:\n        pass\n    except BaseException:\n        pass";
+    fn except_exception_cannot_swallow_the_budget() {
+        // The stop is not an Exception, so this handler never sees it.
+        let src = "def spin():\n    while True:\n        pass\nwhile True:\n    try:\n        spin()\n    except Exception:\n        pass";
         let report = run(src);
-        assert!(matches!(report.outcome, RunOutcome::OutOfSteam { .. }));
+        assert!(
+            matches!(report.outcome, RunOutcome::OutOfSteam { .. }),
+            "{:?}",
+            report.outcome
+        );
+    }
+
+    #[test]
+    fn budget_still_works_after_a_stop() {
+        let rt = ScriptRuntime::new();
+        for _ in 0..3 {
+            let report = rt.run("while True: pass", 1_000);
+            assert!(matches!(report.outcome, RunOutcome::OutOfSteam { .. }));
+        }
     }
 
     #[test]
@@ -393,7 +412,7 @@ mod tests {
     #[test]
     fn memory_growth_is_capped() {
         let msg = error_message("s = 'a' * 1000\nwhile True:\n    s = s + s");
-        assert!(msg.starts_with("MemoryError"), "{msg}");
+        assert!(msg.contains("too much memory"), "{msg}");
     }
 
     #[test]
