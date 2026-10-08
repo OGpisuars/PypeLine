@@ -37,6 +37,9 @@ impl Plugin for PypelinePlugin {
             ))
             // Rendering and UI.
             .add_plugins((
+                engine::screens::ScreensPlugin,
+                engine::window_icon::WindowIconPlugin,
+                engine::company_logo::CompanyLogoPlugin,
                 engine::camera::PixelCameraPlugin,
                 engine::floating_plot::FloatingPlotPlugin,
                 engine::grid::GridPlugin,

@@ -15,6 +15,7 @@ rustpython-vm = { version = "0.6.0", default-features = false, features = ["comp
 ruff_text_size = { package = "rustpython-ruff_text_size", version = "=0.16.5" }
 serde = { version = "1", features = ["derive"] }
 ron = "0.12.2"
+winit = { version = "0.30.13", default-features = false }
 
 # Fast iteration: optimize dependencies in debug builds, keep our code quick to compile.
 [profile.dev]
@@ -28,3 +29,7 @@ opt-level = 3
 # NOT give scripts a ctypes module (rustpython-vm's `host_env` feature stays off).
 [target.'cfg(windows)'.dependencies]
 rustpython-host_env = { version = "=0.6.0", features = ["ctypes"] }
+
+[build-dependencies]
+embed-resource = "3"
+image = { version = "0.25.10", default-features = false, features = ["png"] }

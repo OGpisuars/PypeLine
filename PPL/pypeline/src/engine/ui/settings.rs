@@ -1,4 +1,5 @@
-//! Settings window: theme, font, text size and mouse cursor.
+//! Settings window: theme, font, text size, mouse cursor, the island, and
+//! the music.
 //!
 //! Saved as `settings.ron` in the player's data folder, next to the scripts
 //! and saves, and applied the moment they change.
@@ -14,6 +15,7 @@ use bevy::{
 use bevy_egui::{EguiContexts, egui};
 use serde::{Deserialize, Serialize};
 
+use crate::audio::MusicChoice;
 use crate::engine::themes::{Theme, ThemeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -109,6 +111,9 @@ pub struct Settings {
     /// Tint the world for dawn, dusk and night. The day still turns (and
     /// boilers still run hotter by day) when this is off.
     pub day_night: bool,
+    pub music: MusicChoice,
+    /// 0..1.
+    pub music_volume: f32,
 }
 
 impl Default for Settings {
@@ -120,6 +125,8 @@ impl Default for Settings {
             cursor: CursorChoice::default(),
             island_bob: true,
             day_night: true,
+            music: MusicChoice::default(),
+            music_volume: 0.6,
         }
     }
 }
@@ -286,6 +293,27 @@ pub fn settings_window(
                     ui.label("Day and night");
                     ui.checkbox(&mut edited.day_night, "Darken the world at night");
                     ui.end_row();
+
+                    ui.label("Music");
+                    egui::ComboBox::from_id_salt("music")
+                        .selected_text(edited.music.name())
+                        .show_ui(ui, |ui| {
+                            for music in MusicChoice::ALL {
+                                ui.selectable_value(&mut edited.music, music, music.name());
+                            }
+                        });
+                    ui.end_row();
+
+                    ui.label("Music volume");
+                    let mut percent = (edited.music_volume * 100.0).round();
+                    if ui
+                        .add(egui::Slider::new(&mut percent, 0.0..=100.0).suffix("%"))
+                        .on_hover_text("M mutes all sound")
+                        .changed()
+                    {
+                        edited.music_volume = percent / 100.0;
+                    }
+                    ui.end_row();
                 });
             ui.add_space(6.0);
             if ui.button("Back to defaults").clicked() {
@@ -427,6 +455,8 @@ mod tests {
             cursor: CursorChoice::Light,
             island_bob: false,
             day_night: false,
+            music: MusicChoice::Chiptune,
+            music_volume: 0.25,
         };
         let text = ron::to_string(&settings).unwrap();
         assert_eq!(ron::from_str::<Settings>(&text).unwrap(), settings);

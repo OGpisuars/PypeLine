@@ -313,6 +313,17 @@ BOOT SPLASH        : LOCKED
   - Under ~3 seconds, skippable with any key, option to
     disable on load. Do not imitate Nintendo's logo drop or
     startup jingle.
+  - STATUS (Oct 2026): built. Startup runs: the animated
+    KiloKilo Games logo (drawn in code, "ki-lo ki-lo!"
+    jingle) -> the PypeLine loading screen (gold lettering,
+    stars, "pa-ling!" chime, LOADING bar) -> a title menu
+    (Play / Settings / Quit) over the island. Any key or
+    click skips the logo and loading screen. The factory
+    waits on the menu. Game icon: assets/icon/pypeline.png,
+    used for the window and built into the Windows .exe.
+    Background music: "Joystick Sunday" (Settings: track,
+    volume, or off). Still to do: an option to skip the
+    intro on load.
 
 MICRO-CHIPS        : LOCKED (Phase 4, mid-to-late game unlock)
   (EDGE COMPUTING)

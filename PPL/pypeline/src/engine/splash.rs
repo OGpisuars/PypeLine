@@ -1,10 +1,13 @@
-//! Boot splash: gold PYPELINE lettering over a starry sky with the boot chime
-//! (roadmap Part 1 BOOT SPLASH). Under 3 seconds, skippable with any key or
-//! click. Original design: no logo drop, no console startup sound.
+//! The loading screen: gold PYPELINE lettering over a starry sky with the
+//! boot chime and a filling LOADING bar (roadmap Part 1 BOOT SPLASH). Comes
+//! after the KiloKilo Games logo and leads to the title menu. Under 3
+//! seconds, skippable with any key or click. Original design: no logo drop,
+//! no console startup sound.
 
 use bevy::prelude::*;
 
 use super::camera::{RES_HEIGHT, RES_WIDTH, WORLD_LAYER};
+use super::screens::Screen;
 use super::sprites::{grid, to_image};
 use crate::audio::SoundCue;
 use crate::audio::sfx::Sfx;
@@ -13,6 +16,10 @@ const DURATION: f32 = 2.6;
 const FADE: f32 = 0.6;
 const Z_SPLASH: f32 = 50.0;
 const TITLE_SCALE: f32 = 4.0;
+/// The loading bar's inside, in canvas pixels.
+const BAR_WIDTH: f32 = 96.0;
+const BAR_HEIGHT: f32 = 4.0;
+const BAR_Y: f32 = -44.0;
 
 /// 5x7 pixel letters for the title.
 fn letter(c: char) -> [&'static str; 7] {
@@ -35,12 +42,25 @@ fn letter(c: char) -> [&'static str; 7] {
         'N' => [
             "#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#",
         ],
+        'O' => [
+            ".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###.",
+        ],
+        'A' => [
+            ".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#",
+        ],
+        'D' => [
+            "####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####.",
+        ],
+        'G' => [
+            ".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###.",
+        ],
         _ => ["....."; 7],
     }
 }
 
 /// The title as a sprite grid: gold letters with a dark drop shadow.
-fn title_grid(text: &str) -> Vec<String> {
+/// `y` is light gold, `Y` darker gold and `k` the shadow.
+pub fn title_grid(text: &str) -> Vec<String> {
     let width = text.len() * 6;
     let mut rows = vec![vec!['.'; width + 1]; 8];
     for (i, c) in text.chars().enumerate() {
@@ -77,17 +97,20 @@ struct SplashPart {
     alpha: f32,
 }
 
-/// Run condition: true once the splash has finished.
-pub fn splash_finished(splash: Option<Res<Splash>>) -> bool {
-    splash.is_none()
-}
+/// The part of the loading bar that fills up.
+#[derive(Component)]
+struct BarFill;
 
 pub struct SplashPlugin;
 
 impl Plugin for SplashPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, show_splash)
-            .add_systems(Update, run_splash.run_if(resource_exists::<Splash>));
+        app.add_systems(OnEnter(Screen::Boot), show_splash)
+            .add_systems(OnExit(Screen::Boot), hide_splash)
+            .add_systems(
+                Update,
+                run_splash.run_if(in_state(Screen::Boot).and_then(resource_exists::<Splash>)),
+            );
     }
 }
 
@@ -162,29 +185,85 @@ fn show_splash(
         Z_SPLASH + 0.2,
     );
     part(title, at);
+
+    let rows = title_grid("LOADING");
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let image = to_image(&grid(&refs));
+    let size = Vec2::new(image.width() as f32, image.height() as f32);
+    let mut label = Sprite::from_image(images.add(image));
+    label.custom_size = Some(size);
+    part(
+        label,
+        Vec3::new(
+            if (size.x as u32).is_multiple_of(2) {
+                0.0
+            } else {
+                0.5
+            },
+            -30.0,
+            Z_SPLASH + 0.2,
+        ),
+    );
+    // The bar: a dark frame with a gold fill growing from the left.
+    let frame = Vec2::new(BAR_WIDTH + 4.0, BAR_HEIGHT + 4.0);
+    part(
+        Sprite::from_color(Color::srgb_u8(224, 168, 56), frame),
+        Vec3::new(0.0, BAR_Y, Z_SPLASH + 0.2),
+    );
+    part(
+        Sprite::from_color(
+            Color::srgb_u8(40, 32, 48),
+            Vec2::new(BAR_WIDTH + 2.0, BAR_HEIGHT + 2.0),
+        ),
+        Vec3::new(0.0, BAR_Y, Z_SPLASH + 0.3),
+    );
+    commands.spawn((
+        Sprite::from_color(Color::srgb_u8(248, 216, 96), Vec2::new(0.0, BAR_HEIGHT)),
+        Transform::from_xyz(-BAR_WIDTH / 2.0, BAR_Y, Z_SPLASH + 0.4),
+        SplashPart { alpha: 1.0 },
+        BarFill,
+        WORLD_LAYER,
+    ));
+}
+
+/// How full the loading bar is, 0..1, with `remaining` seconds to go. It
+/// fills in whole pixels and is full when the fade starts.
+fn bar_width(remaining: f32) -> f32 {
+    let done = ((DURATION - remaining) / (DURATION - FADE)).clamp(0.0, 1.0);
+    (done * BAR_WIDTH).round()
+}
+
+fn hide_splash(mut commands: Commands, parts: Query<Entity, With<SplashPart>>) {
+    for entity in &parts {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<Splash>();
 }
 
 fn run_splash(
-    mut commands: Commands,
     time: Res<Time<Real>>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut splash: ResMut<Splash>,
-    mut parts: Query<(Entity, &SplashPart, &mut Sprite)>,
+    mut parts: Query<(&SplashPart, &mut Sprite, &mut Transform, Has<BarFill>)>,
+    mut next: ResMut<NextState<Screen>>,
 ) {
-    splash.remaining -= time.delta_secs();
+    // Capped like the logo's clock, so a slow first frame cannot skip it.
+    splash.remaining -= time.delta_secs().min(0.05);
     let skipped =
         keys.get_just_pressed().next().is_some() || mouse.get_just_pressed().next().is_some();
     if splash.remaining <= 0.0 || skipped {
-        for (entity, _, _) in &parts {
-            commands.entity(entity).despawn();
-        }
-        commands.remove_resource::<Splash>();
+        next.set(Screen::Menu);
         return;
     }
     let fade = (splash.remaining / FADE).min(1.0);
-    for (_, part, mut sprite) in &mut parts {
+    let width = bar_width(splash.remaining);
+    for (part, mut sprite, mut transform, is_bar) in &mut parts {
         sprite.color.set_alpha(part.alpha * fade);
+        if is_bar {
+            sprite.custom_size = Some(Vec2::new(width, BAR_HEIGHT));
+            transform.translation.x = -BAR_WIDTH / 2.0 + width / 2.0;
+        }
     }
 }
 
@@ -198,5 +277,16 @@ mod tests {
         assert_eq!(rows.len(), 8);
         assert!(rows.iter().all(|r| r.len() == rows[0].len()));
         assert!(rows.iter().any(|r| r.contains('y')));
+        // Every letter of LOADING is drawn.
+        for c in "LOADING".chars() {
+            assert!(letter(c).iter().any(|row| row.contains('#')), "{c}");
+        }
+    }
+
+    #[test]
+    fn the_bar_fills_before_the_fade() {
+        assert_eq!(bar_width(DURATION), 0.0);
+        assert_eq!(bar_width(FADE), BAR_WIDTH);
+        assert!(bar_width(DURATION / 2.0) > 0.0);
     }
 }

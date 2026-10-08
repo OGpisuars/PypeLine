@@ -15,6 +15,8 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "PypeLine".into(),
+                        // The app id on Linux (Wayland matches it to a .desktop file's icon).
+                        name: Some("pypeline".into()),
                         // Start at 3x the 480x320 canvas.
                         resolution: (RES_WIDTH * 3, RES_HEIGHT * 3).into(),
                         ..default()

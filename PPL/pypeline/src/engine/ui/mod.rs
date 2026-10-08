@@ -11,6 +11,7 @@ pub mod debugger;
 pub mod editor;
 pub mod help;
 pub mod highlight;
+pub mod main_menu;
 pub mod manual;
 pub mod polaroid;
 pub mod settings;
@@ -30,6 +31,7 @@ use crate::factory::tick::SimControl;
 use crate::factory::{Factory, SimTick};
 
 use super::camera::{HoveredTile, PixelScale};
+use super::screens::{Screen, menu_or_playing};
 
 pub struct UiPlugin;
 
@@ -56,15 +58,24 @@ impl Plugin for UiPlugin {
                     shop::toggle_shop,
                     stats_panel::toggle_stats,
                     announce_sales,
-                    settings::save_settings,
                     debugger::run_debugger,
-                ),
+                )
+                    .run_if(in_state(Screen::Playing)),
             )
+            .add_systems(Update, settings::save_settings)
             // In Last, so it sees the AppExit sent when the window closes
             // and the cursor bevy_egui picked this frame.
             .add_systems(Last, (editor::autosave, settings::update_cursor))
-            // The theme applies during the splash too.
+            // The theme applies on every screen.
             .add_systems(EguiPrimaryContextPass, settings::apply_settings)
+            .add_systems(
+                EguiPrimaryContextPass,
+                (
+                    main_menu::main_menu.run_if(in_state(Screen::Menu)),
+                    settings::settings_window.run_if(menu_or_playing),
+                )
+                    .after(settings::apply_settings),
+            )
             .add_systems(
                 EguiPrimaryContextPass,
                 (
@@ -74,7 +85,6 @@ impl Plugin for UiPlugin {
                     manual::manual_window,
                     shop::shop_window,
                     stats_panel::stats_window,
-                    settings::settings_window,
                     debugger::debugger_window,
                     debugger::debug_keys,
                     time_dials::time_dial_keys,
@@ -83,8 +93,8 @@ impl Plugin for UiPlugin {
                 )
                     .chain()
                     .after(settings::apply_settings)
-                    // The windows and overlays appear once the splash is done.
-                    .run_if(super::splash::splash_finished),
+                    // The game's windows and overlays only show while playing.
+                    .run_if(in_state(Screen::Playing)),
             );
     }
 }

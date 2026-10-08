@@ -62,6 +62,9 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 
 | Key or button | What it does |
 |---------------|--------------|
+| Any key or click | Skip the logo and loading screen at startup |
+| **Enter** or **▶ Play** | Start playing from the title menu |
+| **View > Title screen** | Back to the title menu (the factory waits there) |
 | **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match it |
 | **F1** or **Help** | Every command and name explained, with examples you can insert |
 | **F2** or **Manual** | Chapters, examples and contracts |
@@ -69,7 +72,7 @@ Hit the **Run** arrow and your factory comes to life. Change the script and run 
 | **F4** or **Stats** | Items per minute, steam, uptime, and bottlenecks |
 | **F6** or **🐞 Debug** | Record `main.py` line by line; **F7 / F8** step back / forward |
 | **Files > + New file** | Add another file (type `PPL` and it becomes `PPL.py`); `main.py` uses it with `import PPL` |
-| **⚙ Settings** | Theme, font, text size, mouse pointer, island bobbing |
+| **⚙ Settings** | Theme, font, text size, mouse pointer, island bobbing, music and volume |
 | Drag empty space | Move the world side to side (middle/right button drags from anywhere) |
 | **Mouse wheel** | Zoom in and out around the pointer |
 | **Home** | Center the island again |
@@ -96,7 +99,8 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Polaroid UI.** Hover over a machine or belt for a snapshot with live stats.
 - **Time Dials.** Pause, play, 1x/2x/4x, or step one tick at a time.
 - **Never lose your work.** Autosave, rolling backups and crash-safe writes for both your script and your factory.
-- **Floating island, chiptune music and steam-moths.** The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
+- **A proper start.** The KiloKilo Games logo, a retro loading screen with a startup chime, and a title menu with Play, Settings and Quit.
+- **Floating island, music and steam-moths.** "Joystick Sunday" plays in the background (or the old chiptune loop, or nothing: your pick in Settings). The island bobs, clouds drift by, and moths circle warm boilers (they scatter when one overheats).
 - **Engineering Manual (F2) and campaign.** Ten chapters (variables, strings and f-strings, `for` loops, conditionals, `while` loops, functions, lists and dicts, imports and modules, events and sensors, `tick()` and generators) with 22 contracts that pay coins and unlock the next chapter. Each chapter ends with a chapter test, which experienced coders can take straight away to skip ahead.
 - **Help when you are stuck.** Friendly error hints ("did you mean `conveyors`?"), hints that open one at a time, snippets that unlock as you learn, and autocomplete in the editor.
 - **`console` module.** Color your output and clear the console for ASCII dashboards.
@@ -107,7 +111,7 @@ Every code window, the console, Help, Manual, Shop and Settings float: drag them
 - **Line debugger (F6).** Record a run of `main.py` and step through it line by line, forwards or backwards, with the current line marked and your variables listed. It never changes your factory.
 - **Stats (F4).** Items and coins per minute, steam use, uptime, and what every machine is doing. Blocked machines blink red on the island, and `stats.bottlenecks()` gives your scripts the same list.
 - **The Shop.** Spend train coins on Fast/Express belts and Mk2/Mk3 miners and smelters, then use them with `tier=2` or `tier=3` in your script.
-- **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, and a switch to stop the island bobbing.
+- **Settings.** Six themes (Classic cream, Indigo Dusk, Ember, Glasswork, Mint Cart, Midnight high contrast) with a mouse pointer that matches (dark on light, light on dark), four fonts, text size, a switch to stop the island bobbing, and the music track and volume.
 
 ### Coming next
 

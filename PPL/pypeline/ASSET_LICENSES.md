@@ -13,4 +13,13 @@ Original PypeLine art, sprites and music are not listed here; they are covered b
 | `assets/fonts/NotoSansMono-Regular.ttf` | Optional font (Settings) | The Noto Project Authors | SIL Open Font License 1.1 | `assets/fonts/NotoSansMono-OFL.txt` | https://github.com/notofonts/latin-greek-cyrillic |
 | Hack (built into egui) | Optional font (Settings) | Source Foundry | MIT / Bitstream Vera license | shipped inside the `epaint_default_fonts` crate | https://github.com/source-foundry/Hack |
 
+## Supplied by the KiloKilo Games team
+
+| File | What it is | Source | License |
+|------|------------|--------|---------|
+| `assets/audio/music/joystick_sunday.ogg` | Background music "Joystick Sunday" (converted to Ogg Vorbis from the team's mp3) | Supplied by the KiloKilo Games team, October 2026 | **To confirm:** record the composer and license here before a commercial release |
+| `assets/icon/PypeLine.jpg`, `assets/icon/pypeline.png` | Game icon (the PNG is the JPG with a transparent background) | Supplied by the KiloKilo Games team, October 2026 | **To confirm:** record the artist and license here before a commercial release |
+
+The KiloKilo Games logo shown at startup is drawn in code (`src/engine/company_logo.rs`) from the company's own logo.
+
 **OFL notes:** the font may be bundled with the game, including a commercial release, as long as the license file ships with it. The font must not be sold on its own.

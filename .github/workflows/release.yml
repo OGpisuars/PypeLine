@@ -49,7 +49,7 @@ jobs:
           cp target/release/pypeline.exe dist/PypeLine/PypeLine.exe
           cp ../../LICENSE dist/PypeLine/LICENSE.txt
           cp ASSET_LICENSES.md dist/PypeLine/
-          cp assets/fonts/JetBrainsMono-OFL.txt dist/PypeLine/
+          cp assets/fonts/*-OFL.txt dist/PypeLine/
           cd dist && 7z a -tzip PypeLine-windows.zip PypeLine > /dev/null
 
       - name: Publish as the "latest" pre-release

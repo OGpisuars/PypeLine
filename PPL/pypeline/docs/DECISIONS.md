@@ -6,6 +6,15 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Startup: company logo, loading screen, title menu, icon, music
+
+- A `Screen` state (`engine/screens.rs`) runs Logo → Boot → Menu → Playing. The factory's four `SimSet`s only run while Playing, so nothing ticks behind the menu; the game's windows and keys are gated the same way. Settings opens on the menu too. View > Title screen goes back.
+- The KiloKilo Games logo is drawn with egui's painter (vector shapes at window resolution), not as pixel sprites: it is the company mark, not game art, and has to stay crisp at any window size. Fades use colors mixed toward the paper instead of alpha, because the K's parts overlap and alpha would darken the overlaps.
+- The logo and loading screens count at most 1/20 s per frame, so a slow first frame (window creation, shader compiles) cannot skip the animation.
+- Icon: `assets/icon/pypeline.png` (the team's art, with the white outside its rounded frame made transparent). `build.rs` resizes it to `$OUT_DIR/icon.rgba` for the window icon (set through `bevy::winit::WINIT_WINDOWS`, which needs a direct `winit` dependency matching the lockfile) and, when building for Windows, writes a .ico and builds it into the .exe with `embed-resource`. The build script watches the folder, not the file, so a missing file does not rerun it every build; without the file it falls back to the pixel icon drawn in `engine/icon_art.rs`. Wayland ignores window icons; the window's app id is `pypeline` for a future .desktop file.
+- Music: Joystick Sunday is an .ogg (converted from the team's mp3) built into the binary with `include_bytes!`, because the release zip ships only the .exe. Vorbis decoding was already compiled in, so no new crates. Settings picks the track (Joystick Sunday, the old chiptune loop, or off) and volume; it fades in over 2 s on the menu, and the logo and loading screens play only their own jingles.
+- New jingles: "ki-lo ki-lo!" for the logo and a brighter "pa-ling!" boot chime with an echo. Still original tunes, not any console's startup sound (roadmap BOOT SPLASH).
+
 ## 2026-10-08: The line debugger records, then replays
 
 The roadmap warned that pausing the VM mid-line and resuming it is "harder than tick stepping". The debugger avoids pausing altogether:

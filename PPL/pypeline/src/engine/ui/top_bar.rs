@@ -31,6 +31,7 @@ pub struct Toggles<'w> {
     view: ResMut<'w, ViewState>,
     debugger: ResMut<'w, super::debugger::Debugger>,
     prefs: ResMut<'w, super::settings::Settings>,
+    screen: ResMut<'w, NextState<crate::engine::screens::Screen>>,
 }
 
 #[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
@@ -165,6 +166,14 @@ pub fn top_bar(
                     .changed()
                 {
                     toggles.prefs.island_bob = bob;
+                }
+                if ui
+                    .button("Title screen")
+                    .on_hover_text("Back to the title menu (the factory waits there)")
+                    .clicked()
+                {
+                    toggles.screen.set(crate::engine::screens::Screen::Menu);
+                    ui.close();
                 }
                 ui.separator();
                 ui.weak("Drag empty space to move the world.");

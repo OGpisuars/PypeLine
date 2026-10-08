@@ -93,6 +93,30 @@ pub fn mix(mut a: Vec<f32>, b: &[f32]) -> Vec<f32> {
     a
 }
 
+/// Fade samples out exponentially, `rate` times per second (a bell's ring).
+pub fn decay(mut samples: Vec<f32>, rate: f32) -> Vec<f32> {
+    for (i, x) in samples.iter_mut().enumerate() {
+        *x *= (-(i as f32) / SAMPLE_RATE as f32 * rate).exp();
+    }
+    samples
+}
+
+/// Add `taps` quieter repeats, `delay` seconds apart, each `gain` times the
+/// one before: the echo of an old console's sound chip.
+pub fn echo(samples: Vec<f32>, delay: f32, gain: f32, taps: u32) -> Vec<f32> {
+    let step = (delay * SAMPLE_RATE as f32) as usize;
+    let mut out = samples.clone();
+    let mut level = 1.0;
+    for tap in 1..=taps as usize {
+        level *= gain;
+        let delayed: Vec<f32> = std::iter::repeat_n(0.0, step * tap)
+            .chain(samples.iter().map(|x| x * level))
+            .collect();
+        out = mix(out, &delayed);
+    }
+    out
+}
+
 /// Encode samples as a 16-bit mono WAV file.
 pub fn wav(samples: &[f32]) -> Vec<u8> {
     let data_len = (samples.len() * 2) as u32;
@@ -129,29 +153,38 @@ pub enum Sfx {
     Overheat,
     Sale,
     TrainWhistle,
+    /// "Ki-lo ki-lo!": the KiloKilo Games logo.
+    Logo,
 }
 
 impl Sfx {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Boot,
         Self::Run,
         Self::Error,
         Self::Overheat,
         Self::Sale,
         Self::TrainWhistle,
+        Self::Logo,
     ];
 
     pub fn samples(self) -> Vec<f32> {
         match self {
+            // The loading screen's "pa-ling!": a short pickup note, then a
+            // bright ringing ding with an echo, over a soft bass note.
             Self::Boot => {
-                let lead = render(&[
-                    note(72, 0.10, THIN, 0.22),
-                    note(76, 0.10, THIN, 0.22),
-                    note(79, 0.10, THIN, 0.22),
-                    note(84, 0.45, THIN, 0.22),
-                ]);
-                let bass = render(&[rest(0.3), note(48, 0.45, Wave::Triangle, 0.3)]);
-                mix(lead, &bass)
+                let pickup = render(&[note(84, 0.07, Wave::Pulse(0.25), 0.2)]);
+                let ding = decay(render(&[note(91, 0.85, THIN, 0.24)]), 3.2);
+                let shimmer = decay(
+                    render(&[rest(0.07), note(103, 0.6, Wave::Triangle, 0.06)]),
+                    5.0,
+                );
+                let lead = mix([pickup, ding].concat(), &shimmer);
+                let bass = decay(
+                    render(&[rest(0.07), note(48, 0.7, Wave::Triangle, 0.3)]),
+                    2.5,
+                );
+                echo(mix(lead, &bass), 0.13, 0.3, 2)
             }
             Self::Run => render(&[note(84, 0.03, SQ, 0.15), note(91, 0.04, SQ, 0.12)]),
             Self::Error => render(&[note(43, 0.12, SQ, 0.2), note(38, 0.22, SQ, 0.2)]),
@@ -177,6 +210,19 @@ impl Sfx {
                     note(73, 0.5, Wave::Triangle, 0.18),
                 ]);
                 mix(a, &b)
+            }
+            Self::Logo => {
+                let lead = render(&[
+                    note(79, 0.07, Wave::Triangle, 0.25),
+                    note(84, 0.11, Wave::Triangle, 0.25),
+                    rest(0.04),
+                    note(79, 0.07, Wave::Triangle, 0.25),
+                    note(84, 0.11, Wave::Triangle, 0.25),
+                    rest(0.04),
+                    note(91, 0.5, THIN, 0.16),
+                ]);
+                let bass = render(&[rest(0.44), note(48, 0.5, Wave::Triangle, 0.28)]);
+                mix(lead, &bass)
             }
         }
     }
