@@ -6,6 +6,7 @@ pub mod floating_plot;
 pub mod grid;
 pub mod palette;
 pub mod renderer;
+pub mod splash;
 pub mod sprites;
 pub mod ui;
 pub mod wildlife;

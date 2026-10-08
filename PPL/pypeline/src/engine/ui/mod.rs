@@ -46,7 +46,9 @@ impl Plugin for UiPlugin {
                     polaroid::polaroid,
                     debug_overlay,
                 )
-                    .chain(),
+                    .chain()
+                    // The code panel and overlays appear once the splash is done.
+                    .run_if(super::splash::splash_finished),
             );
     }
 }

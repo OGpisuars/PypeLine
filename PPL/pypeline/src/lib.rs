@@ -36,6 +36,7 @@ impl Plugin for PypelinePlugin {
                 engine::wires::WirePlugin,
                 engine::failures::FailurePlugin,
                 engine::wildlife::WildlifePlugin,
+                engine::splash::SplashPlugin,
                 engine::ui::UiPlugin,
                 progression::saves::SavePlugin,
                 audio::GameAudioPlugin,
