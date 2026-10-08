@@ -10,6 +10,8 @@ bevy = "0.19.1"
 bevy_egui = "0.42.0"
 dirs = "7"
 rustpython-vm = { version = "0.6.0", default-features = false, features = ["compiler"] }
+# Pinned: 0.16.10 breaks rustpython-codegen 0.6 (see docs/DECISIONS.md).
+ruff_text_size = { package = "rustpython-ruff_text_size", version = "=0.16.5" }
 
 # Fast iteration: optimize dependencies in debug builds, keep our code quick to compile.
 [profile.dev]

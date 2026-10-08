@@ -18,6 +18,9 @@ use super::budget::Budget;
 
 /// Message carried by the exception raised when steam runs out.
 pub const OUT_OF_STEAM: &str = "out of steam: the script used its whole step budget";
+pub const TOO_MUCH_MEMORY: &str = "the script is using too much memory";
+pub const TOO_SLOW: &str =
+    "the script took too long and was stopped (this is a safety net; please report it)";
 
 pub fn install(vm: &VirtualMachine, budget: Rc<Budget>) -> PyResult<()> {
     let hook = vm.new_function(
@@ -34,7 +37,11 @@ pub fn install(vm: &VirtualMachine, budget: Rc<Budget>) -> PyResult<()> {
                     Ok(vm.trace_func.borrow().clone())
                 }
                 Some("opcode") => {
-                    if budget.charge() {
+                    if budget.over_memory() {
+                        Err(vm.new_memory_error(TOO_MUCH_MEMORY))
+                    } else if budget.watchdog_fired() {
+                        Err(vm.new_runtime_error(TOO_SLOW))
+                    } else if budget.charge() {
                         Ok(vm.ctx.none())
                     } else {
                         // RustPython leaves this frame out of the traceback for

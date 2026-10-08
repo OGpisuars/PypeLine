@@ -17,7 +17,10 @@ use super::bindings::{self, ModuleTable};
 use super::budget::Budget;
 use super::commands::BuildPlan;
 use super::hooks;
+use super::sandbox;
 
+/// Deepest call nesting a script may reach.
+const RECURSION_LIMIT: usize = 200;
 /// Max characters kept from a single `print()` call.
 const MAX_LINE_CHARS: usize = 200;
 /// Max console lines one run may produce.
@@ -72,6 +75,10 @@ impl ScriptRuntime {
         interpreter.enter(|vm| {
             install_print(vm, output.clone()).expect("failed to install print()");
             install_import_guard(vm, modules.clone()).expect("failed to install the import guard");
+            sandbox::trim_builtins(vm).expect("failed to trim builtins");
+            // Deep recursion gets a clean RecursionError long before the
+            // game's own stack is at risk.
+            vm.recursion_limit.set(RECURSION_LIMIT);
             hooks::install(vm, budget.clone()).expect("failed to install the step hook");
         });
 
@@ -90,6 +97,19 @@ impl ScriptRuntime {
         self.budget.reset(step_limit);
         *self.plan.borrow_mut() = BuildPlan::default();
 
+        if let Err(rejection) = sandbox::check(source) {
+            return RunReport {
+                output: Vec::new(),
+                plan: None,
+                outcome: RunOutcome::Error {
+                    line: Some(rejection.line),
+                    message: rejection.message,
+                },
+                steps_used: 0,
+                steps_limit: step_limit,
+            };
+        }
+
         let outcome = self.interpreter.enter(|vm| {
             match bindings::build_modules(vm, &self.plan) {
                 Ok(table) => *self.modules.borrow_mut() = table,
@@ -103,6 +123,13 @@ impl ScriptRuntime {
                 }
             };
             let scope = vm.new_scope_with_builtins();
+            if let Err(exc) =
+                scope
+                    .globals
+                    .set_item("__name__", vm.ctx.new_str("__main__").into(), vm)
+            {
+                return error_outcome(vm, &exc);
+            }
             match vm.run_code_obj(code, scope) {
                 Ok(_) => RunOutcome::Finished,
                 Err(exc) if self.budget.is_exhausted() => RunOutcome::OutOfSteam {
@@ -318,6 +345,55 @@ mod tests {
     fn no_stdlib_to_escape_into() {
         let report = run("import os");
         assert!(matches!(report.outcome, RunOutcome::Error { .. }));
+    }
+
+    fn error_message(src: &str) -> String {
+        match run(src).outcome {
+            RunOutcome::Error { message, .. } => message,
+            other => panic!("expected an error for {src:?}, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dangerous_builtins_are_gone() {
+        for src in [
+            "eval('1')",
+            "exec('x = 1')",
+            "getattr(1, 'real')",
+            "globals()",
+            "open('x')",
+        ] {
+            assert!(error_message(src).starts_with("NameError"), "{src}");
+        }
+    }
+
+    #[test]
+    fn dunder_code_is_refused_before_running() {
+        let report = run("print('ran')\nx = ().__class__");
+        assert!(report.output.is_empty(), "nothing may run");
+        assert!(matches!(
+            report.outcome,
+            RunOutcome::Error { line: Some(2), .. }
+        ));
+    }
+
+    #[test]
+    fn main_guard_works() {
+        let report = run("if __name__ == '__main__':\n    print('main')");
+        assert_eq!(report.output, vec!["main"]);
+    }
+
+    #[test]
+    fn deep_recursion_is_a_clean_error() {
+        assert!(
+            error_message("def f(n):\n    return f(n + 1)\nf(0)").starts_with("RecursionError")
+        );
+    }
+
+    #[test]
+    fn memory_growth_is_capped() {
+        let msg = error_message("s = 'a' * 1000\nwhile True:\n    s = s + s");
+        assert!(msg.starts_with("MemoryError"), "{msg}");
     }
 
     #[test]

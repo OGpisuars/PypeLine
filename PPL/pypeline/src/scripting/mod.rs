@@ -5,8 +5,10 @@ pub mod budget;
 pub mod commands;
 pub mod files;
 pub mod hooks;
+pub mod memory;
 pub mod reconcile;
 pub mod runtime;
+pub mod sandbox;
 
 use bevy::prelude::*;
 

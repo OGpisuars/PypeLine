@@ -6,6 +6,23 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Sandbox v1
+
+Layers, in the order a script meets them:
+1. **Token check before running** (`scripting/sandbox.rs`): any name or string containing `__` is refused with a line number, except `__name__` and `"__main__"`. Checking tokens instead of walking the AST is simpler and catches every place a dunder can hide: attributes, function names, keyword arguments, and format strings like `"{0.__class__}"`.
+2. **Trimmed builtins:** `eval`, `exec`, `compile`, `open`, `input`, `getattr`, `setattr`, `delattr`, `globals`, `locals`, `vars`, `dir`, `breakpoint`, `help`, `exit`, `quit` and `memoryview` are deleted from `builtins`. Without `getattr`, a string built at run time can never become an attribute access; without `eval`/`exec`/`compile`, it can never become code.
+3. **Import guard** (from Phase 0): only the game's own modules can be imported.
+4. **Step budget, memory cap, watchdog**, all checked in the per-instruction hook:
+   - Memory: the global allocator counts live heap bytes per thread. A run that grows its thread's heap by more than 64 MB gets `MemoryError`. Per-thread counting keeps Bevy's render and asset threads (and parallel tests) from counting against a script.
+   - Watchdog: a run taking more than 1 second of real time is stopped. This is only a safety net for engine bugs. It never fires in normal play, because the step budget runs out first, and it is the one place where wall-clock time is allowed to affect a run.
+   - Recursion limit: 200 nested calls, then a clean `RecursionError`.
+
+**Known gap:** a single, enormous allocation inside one native call (`"a" * 10**10`) happens before the hook can check, and can crash the game. That only hurts the player running the script, so it is acceptable for a single-player game, but it must be solved before shared Workshop scripts (Phase 4/5). Options: patch RustPython's sequence repetition to use fallible allocation, or check sizes in the allocator and return null early.
+
+`dir()` is removed because it lists dunder names. A player-friendly replacement can be added to the Help window if needed.
+
+---
+
 ## 2026-10-08: Phase 1, first factory
 
 ### The simulation is plain Rust data, not ECS entities

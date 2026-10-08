@@ -5,6 +5,10 @@ pub mod factory;
 pub mod scripting;
 
 use bevy::prelude::*;
+
+/// Counts heap bytes so scripts can be held to a memory cap.
+#[global_allocator]
+static ALLOCATOR: scripting::memory::CountingAlloc = scripting::memory::CountingAlloc;
 use bevy_egui::{EguiGlobalSettings, EguiPlugin};
 
 /// Everything the game needs on top of Bevy's `DefaultPlugins`.
