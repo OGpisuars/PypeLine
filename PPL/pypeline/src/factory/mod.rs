@@ -201,6 +201,18 @@ impl Factory {
         false
     }
 
+    /// A fingerprint of the whole factory state. Equal states give equal
+    /// hashes on every OS: the state is all integers in BTreeMaps, its
+    /// `Debug` text is fully determined by it, and FNV-1a is a fixed,
+    /// platform-independent hash (unlike std's randomly seeded hasher).
+    pub fn state_hash(&self) -> u64 {
+        const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
+        format!("{self:?}").bytes().fold(OFFSET, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(PRIME)
+        })
+    }
+
     /// Move a removed belt's or machine's items into the station inventory.
     pub fn stash(&mut self, items: impl IntoIterator<Item = ItemKind>) {
         for item in items {

@@ -2,6 +2,7 @@
 name = "pypeline"
 version = "0.1.0"
 edition = "2024"
+default-run = "pypeline"
 license = "MIT"
 description = "A cozy GBA-style factory game where your factory runs on real Python."
 

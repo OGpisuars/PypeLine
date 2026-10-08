@@ -6,6 +6,14 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-08: Headless mode and the golden hash
+
+- `Factory::state_hash()` is FNV-1a over the factory's `Debug` text. The state is only integers, enums and strings in `BTreeMap`s, so the text, and therefore the hash, is identical on every OS. std's `HashMap` hasher is randomly seeded, so it is never used for this.
+- `tests/determinism_tests.rs` checks that the canonical sample gives the same hash twice, and that it equals `GOLDEN_HASH`. CI runs `cargo test` on Windows, Linux and macOS, so this one constant is the cross-OS determinism check from roadmap Part 4 C. **If a deliberate simulation change moves the hash, update the constant in the same commit and say why.**
+- `src/bin/headless.rs` runs any script without a window: `cargo run --bin headless -- main.py 600`. `default-run = "pypeline"` keeps plain `cargo run` starting the game.
+
+---
+
 ## 2026-10-08: Sandbox v1
 
 Layers, in the order a script meets them:
