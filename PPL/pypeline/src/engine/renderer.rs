@@ -11,6 +11,7 @@ use super::grid::{TILE, canvas_tile_center, plot_tile_center};
 use super::palette;
 use super::sprites::{self, SpriteSheet};
 use crate::factory::conveyors::TILE_PROGRESS;
+use crate::factory::machines::MachineKind;
 use crate::factory::train::TRAIN_INTERVAL;
 use crate::factory::{Dir, Factory};
 
@@ -27,7 +28,14 @@ const UNPOWERED: Color = Color::srgb(0.55, 0.55, 0.62);
 struct LayoutSprite;
 
 #[derive(Component)]
-struct BeltSprite(Dir);
+pub struct BeltSprite(Dir);
+
+/// A machine's sprite and its normal color (dimmed when unpowered).
+#[derive(Component)]
+pub struct MachineSprite {
+    pub kind: MachineKind,
+    pub base: Color,
+}
 
 #[derive(Component)]
 struct ItemSprite;
@@ -100,9 +108,14 @@ fn sync_layout(
         if machine.kind.needs_power() && !factory.is_powered(name) {
             sprite.color = UNPOWERED;
         }
+        let base = sprite.color;
         commands.spawn((
             sprite,
             Transform::from_translation(center),
+            MachineSprite {
+                kind: machine.kind,
+                base,
+            },
             LayoutSprite,
             WORLD_LAYER,
         ));

@@ -1,6 +1,7 @@
 //! Rendering and UI.
 
 pub mod camera;
+pub mod failures;
 pub mod grid;
 pub mod palette;
 pub mod renderer;

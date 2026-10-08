@@ -74,6 +74,18 @@ impl Console {
 #[derive(Resource, Default)]
 pub struct ErrorLine(pub Option<usize>);
 
+/// Why the last run failed, for the failure visuals. Not simulation state:
+/// the sim only knows it is halted.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum LastFailure {
+    #[default]
+    None,
+    /// An exception or syntax error: belts halt.
+    Error,
+    /// The step budget ran out: the boiler overheats.
+    OutOfSteam,
+}
+
 pub struct ScriptingPlugin;
 
 impl Plugin for ScriptingPlugin {
@@ -83,6 +95,7 @@ impl Plugin for ScriptingPlugin {
             .init_resource::<PendingRun>()
             .init_resource::<Console>()
             .init_resource::<ErrorLine>()
+            .init_resource::<LastFailure>()
             .add_systems(FixedUpdate, run_pending_script.in_set(SimSet::Scripts));
     }
 }
@@ -94,6 +107,7 @@ fn run_pending_script(
     mut error_line: ResMut<ErrorLine>,
     mut build: ResMut<PendingBuild>,
     mut factory: ResMut<Factory>,
+    mut failure: ResMut<LastFailure>,
     tick: Res<SimTick>,
 ) {
     let Some(source) = pending.0.take() else {
@@ -111,6 +125,11 @@ fn run_pending_script(
     // Any failed run halts the belts until the next good Run (roadmap:
     // ERROR HANDLING). The factory layout itself is left untouched.
     factory.halted = report.outcome != RunOutcome::Finished;
+    *failure = match report.outcome {
+        RunOutcome::Finished => LastFailure::None,
+        RunOutcome::Error { .. } => LastFailure::Error,
+        RunOutcome::OutOfSteam { .. } => LastFailure::OutOfSteam,
+    };
     build.0 = report.plan;
     match report.outcome {
         RunOutcome::Finished => console.push(

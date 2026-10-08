@@ -31,6 +31,7 @@ impl Plugin for PypelinePlugin {
                 engine::grid::GridPlugin,
                 engine::renderer::FactoryRenderPlugin,
                 engine::wires::WirePlugin,
+                engine::failures::FailurePlugin,
                 engine::ui::UiPlugin,
                 progression::saves::SavePlugin,
             ));
