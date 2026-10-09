@@ -80,7 +80,7 @@ Press **Run** and the factory matches your script. Change it and run again: the 
 - **Miners, belts, splitters, smelters, crafters, steam power and a cargo train**, all placed by your code. Crafters turn plates into gears, pipes and engines, with recipes you unlock through achievements. Brass wires pulse to show what powers what.
 - **`tick()` and events:** code that runs 20 times a second and reacts to train visits, with `sensors`, `stats` and `clock` to read the factory.
 - **Day, night and hot boilers:** big boilers overheat at noon unless your script eases off.
-- **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts and machines and bigger islands (up to 28 x 15).
+- **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts, splitters and machines and bigger islands (up to 28 x 15).
 
 **Made to be comfortable**
 - **Code windows in the world:** like *The Farmer Was Replaced*, every file's window is part of the world. It pans and zooms with the island and stays where you park it, even far off screen. Open as many as you like, and brass cables link the files that import each other.

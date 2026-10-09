@@ -475,8 +475,8 @@ fn upgrade_rows() -> Vec<(String, String)> {
 
 const SHOP_INTRO: &str = "The cargo train pays coins for everything in your stations. Spend \
      them in the Shop (F3) on faster parts and bigger islands. A faster part does nothing until \
-     your script asks for it with tier=, so you choose where the fast parts go. A bigger island \
-     gives room to build straight away.";
+     your script asks for it with tier=, so you choose where the fast parts go. Quick splitters \
+     and a bigger island work straight away.";
 const PRESTIGE: &str = "Start over with a fresh factory and keep a permanent bonus. Every \
      prestige switches your scripts to a different programming language, and the higher you \
      go, the trickier and fussier the language gets.";

@@ -360,12 +360,13 @@ A Debug Run uses its own copy of Python and never changes the factory, so press 
 
 ## The Shop and tiers
 
-The cargo train pays coins for everything in your stations. Spend them in the Shop (F3) on faster parts and bigger islands. A faster part does nothing until your script asks for it with tier=, so you choose where the fast parts go. A bigger island gives room to build straight away.
+The cargo train pays coins for everything in your stations. Spend them in the Shop (F3) on faster parts and bigger islands. A faster part does nothing until your script asks for it with tier=, so you choose where the fast parts go. Quick splitters and a bigger island work straight away.
 
 | Upgrade | What it does |
 |---|---|
 | `Fast belt (600 coins)` | Belts 2x as fast. Use tier=2 in conveyors.place. |
 | `Express belt (2500 coins)` | Belts 4x as fast. Use tier=3 in conveyors.place. |
+| `Quick splitters (2000 coins)` | Every splitter hands items out twice as fast, so one splitter keeps up with belts coming in from several sides. Works on the splitters you have, no change to your script. |
 | `Miner Mk2 (800 coins)` | Miners work 2x as fast. Use tier=2 in machines.place("miner", ...). |
 | `Miner Mk3 (3500 coins)` | Miners work 4x as fast. Use tier=3 in machines.place("miner", ...). |
 | `Smelter Mk2 (1200 coins)` | Smelters work 2x as fast. Use tier=2 in machines.place("smelter", ...). |

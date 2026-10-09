@@ -4,7 +4,7 @@
 //! `conveyors.place(x, y, dir="east", tier=2)`. Nothing changes until the
 //! script asks for it, so the player decides where the fast parts go.
 //! Unlocks live in the `Factory`, so they are saved with it and survive a
-//! Clean Run.
+//! Clean Run. Quick splitters and bigger islands work straight away.
 
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,8 @@ pub const MAX_TIER: u8 = 3;
 pub enum Upgrade {
     FastBelt,
     ExpressBelt,
+    /// Every splitter twice as fast.
+    QuickSplitter,
     MinerMk2,
     MinerMk3,
     SmelterMk2,
@@ -34,14 +36,16 @@ pub enum Upgrade {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unlocks {
     Belt { tier: u8 },
+    QuickSplitters,
     Machine { kind: MachineKind, tier: u8 },
     Island(PlotSize),
 }
 
 impl Upgrade {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::FastBelt,
         Self::ExpressBelt,
+        Self::QuickSplitter,
         Self::MinerMk2,
         Self::MinerMk3,
         Self::SmelterMk2,
@@ -55,6 +59,7 @@ impl Upgrade {
         match self {
             Self::FastBelt => "Fast belt",
             Self::ExpressBelt => "Express belt",
+            Self::QuickSplitter => "Quick splitters",
             Self::MinerMk2 => "Miner Mk2",
             Self::MinerMk3 => "Miner Mk3",
             Self::SmelterMk2 => "Smelter Mk2",
@@ -69,6 +74,7 @@ impl Upgrade {
         match self {
             Self::FastBelt => 600,
             Self::ExpressBelt => 2500,
+            Self::QuickSplitter => 2000,
             Self::MinerMk2 => 800,
             Self::MinerMk3 => 3500,
             Self::SmelterMk2 => 1200,
@@ -83,6 +89,7 @@ impl Upgrade {
         match self {
             Self::FastBelt => Unlocks::Belt { tier: 2 },
             Self::ExpressBelt => Unlocks::Belt { tier: 3 },
+            Self::QuickSplitter => Unlocks::QuickSplitters,
             Self::MinerMk2 => Unlocks::Machine {
                 kind: MachineKind::Miner,
                 tier: 2,
@@ -130,6 +137,11 @@ impl Upgrade {
                 "Belts {}x as fast. Use tier={tier} in conveyors.place.",
                 belt_speed(tier)
             ),
+            Unlocks::QuickSplitters => "Every splitter hands items out twice as fast, so one \
+                                        splitter keeps up with belts coming in from several \
+                                        sides. Works on the splitters you have, no change to \
+                                        your script."
+                .to_owned(),
             Unlocks::Machine { kind, tier } => format!(
                 "{}s work {}x as fast. Use tier={tier} in machines.place(\"{}\", ...).",
                 capitalize(kind.name()),
@@ -149,6 +161,7 @@ impl Upgrade {
         match self {
             Self::FastBelt => "conveyors.place(x=1, y=0, dir=\"east\", tier=2)",
             Self::ExpressBelt => "conveyors.place(x=1, y=0, dir=\"east\", tier=3)",
+            Self::QuickSplitter => "splitters.place(x=2, y=0, dir1=\"north\", dir2=\"east\")",
             Self::MinerMk2 => {
                 "machines.place(\"miner\", name=\"miner_1\", x=0, y=0, ore=\"iron\", tier=2)"
             }
@@ -179,6 +192,13 @@ pub fn belt_speed(tier: u8) -> u8 {
         2 => 2,
         _ => 4,
     }
+}
+
+/// Pixels a belt item moves per tick on this belt: its tier's speed, twice
+/// that on a splitter once Quick splitters are bought.
+pub fn speed_on(belt: &super::conveyors::Conveyor, unlocked: &BTreeSet<Upgrade>) -> u8 {
+    let quick = belt.split.is_some() && unlocked.contains(&Upgrade::QuickSplitter);
+    belt_speed(belt.tier) * if quick { 2 } else { 1 }
 }
 
 /// How many times faster a machine of this tier works.
@@ -294,6 +314,22 @@ mod tests {
         assert_eq!((biggest.width, biggest.height), (28, 15));
         assert!(biggest.contains(crate::factory::Pos::new(27, 14)));
         assert!(!biggest.contains(crate::factory::Pos::new(28, 0)));
+    }
+
+    #[test]
+    fn quick_splitters_double_only_splitters() {
+        use crate::factory::Dir;
+        use crate::factory::conveyors::{Conveyor, Split};
+        let belt = Conveyor::new(Dir::East);
+        let mut splitter = Conveyor::new(Dir::North);
+        splitter.split = Some(Split::new(Dir::North, Dir::South));
+        let none = BTreeSet::new();
+        let quick = BTreeSet::from([Upgrade::QuickSplitter]);
+        assert_eq!(speed_on(&splitter, &none), 1);
+        assert_eq!(speed_on(&splitter, &quick), 2);
+        assert_eq!(speed_on(&belt, &quick), 1);
+        splitter.tier = 3;
+        assert_eq!(speed_on(&splitter, &quick), 8);
     }
 
     #[test]

@@ -246,7 +246,8 @@ impl Factory {
 
     fn move_belt(&mut self, pos: Pos) {
         let belt = self.conveyors.get_mut(&pos).expect("pos came from the map");
-        if !belt.advance() {
+        let speed = shop::speed_on(belt, &self.unlocked);
+        if !belt.advance_at(speed) {
             return;
         }
         let item = belt.items[0].kind;

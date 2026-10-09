@@ -111,3 +111,44 @@ fn a_splitter_needs_two_different_directions() {
         report.outcome
     );
 }
+
+#[test]
+fn quick_splitters_keep_up_with_two_belts_coming_in() {
+    use pypeline::factory::shop::Upgrade;
+    // Belts from the west and the south both run into the splitter, which
+    // sends items north and east into stations.
+    let items_through = |quick: bool| {
+        let mut factory = Factory::default();
+        if quick {
+            factory.unlocked.insert(Upgrade::QuickSplitter);
+        }
+        factory.conveyors.insert(FEED, Conveyor::new(Dir::East));
+        factory.conveyors.insert(SOUTH, Conveyor::new(Dir::North));
+        let mut splitter = Conveyor::new(Dir::North);
+        splitter.split = Some(Split::new(Dir::North, Dir::East));
+        factory.conveyors.insert(SPLITTER, splitter);
+        for (name, pos) in [("north", NORTH), ("east", Pos::new(3, 5))] {
+            factory.machines.insert(
+                name.to_owned(),
+                Machine::new(MachineKind::Station, pos, Dir::East, None),
+            );
+        }
+        factory.rebuild_index();
+        // Short enough that neither station fills up (50 items each).
+        for _ in 0..320 {
+            for feed in [FEED, SOUTH] {
+                let belt = factory.conveyors.get_mut(&feed).unwrap();
+                if belt.can_accept() {
+                    belt.push_back(ItemKind::IronOre);
+                }
+            }
+            factory.step();
+        }
+        held(&factory, "north") + held(&factory, "east")
+    };
+    let (plain, quick) = (items_through(false), items_through(true));
+    assert!(
+        quick * 2 >= plain * 3,
+        "plain splitter passed {plain}, quick one {quick}"
+    );
+}

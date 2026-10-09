@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Crafters:** a machine with three input sides and one output that turns plates into iron gears and pipes, and gears, pipes and plates into engines. Click a crafter on the island to pick its recipe, or use `recipe="iron_gear"` in `machines.place`. Gears, pipes and engines sell for more than what goes into them.
 - **Achievements** (🏆 in the top bar): goals like "Make 25 iron plates" or "Build a splitter". Three of them unlock the crafter recipes.
 - Dragging a code window keeps up with the mouse at every zoom (it used to lag behind when zoomed out).
+- **Quick splitters** in the Shop (2000 coins): every splitter hands items out twice as fast, so one splitter keeps up with belts coming in from several sides. No change to scripts needed.
 - **Splitters:** `splitters.place(x, y, dir1, dir2)` takes items from any side and sends them out in turn, half toward `dir1` and half toward `dir2`. If one side is full, the other gets everything until there is room again.
 - Code windows are part of the world, like in The Farmer Was Replaced: they pan and zoom with the island and stay where you park them, even far off screen. The view can be dragged as far as you like (Home comes back).
 - **+ Window** in the top bar makes a new file in its own code window, where you are looking. Brass cables link each file to the files it imports.

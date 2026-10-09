@@ -118,10 +118,15 @@ impl Conveyor {
         self.items.push(BeltItem { kind, progress: 0 });
     }
 
-    /// Move items forward, keeping them spaced out and stopping at the front
-    /// edge. Returns true if the front item is waiting to leave the tile.
+    /// Move items forward at the belt's tier speed, keeping them spaced out
+    /// and stopping at the front edge. Returns true if the front item is
+    /// waiting to leave the tile.
     pub fn advance(&mut self) -> bool {
-        let speed = super::shop::belt_speed(self.tier);
+        self.advance_at(super::shop::belt_speed(self.tier))
+    }
+
+    /// `advance`, moving `speed` pixels per tick.
+    pub fn advance_at(&mut self, speed: u8) -> bool {
         let mut limit = TILE_PROGRESS;
         for item in &mut self.items {
             item.progress = (item.progress + speed).min(limit);
