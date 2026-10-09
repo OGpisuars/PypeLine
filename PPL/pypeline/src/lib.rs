@@ -44,6 +44,7 @@ impl Plugin for PypelinePlugin {
                 engine::floating_plot::FloatingPlotPlugin,
                 engine::grid::GridPlugin,
                 engine::renderer::FactoryRenderPlugin,
+                engine::terminals::TerminalPlugin,
                 engine::wires::WirePlugin,
                 engine::failures::FailurePlugin,
                 engine::wildlife::WildlifePlugin,

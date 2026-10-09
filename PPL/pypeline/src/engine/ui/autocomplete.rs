@@ -37,8 +37,10 @@ fn members(module: &str) -> Vec<Suggestion> {
         "auto" => vec![
             item("conveyors", "belts"),
             item("machines", "miners, smelters..."),
+            item("splitters", "one belt into two"),
         ],
         "conveyors" => vec![item("place(", "x, y, dir, tier=1")],
+        "splitters" => vec![item("place(", "x, y, dir1, dir2, tier=1")],
         "machines" => vec![
             item("place(", "kind, name, x, y, dir=\"east\", ore=..., tier=1"),
             item("enable(", "name  (in tick)"),
@@ -94,7 +96,10 @@ pub fn suggest(line_before_cursor: &str) -> Option<Suggestions> {
             .next()
             .unwrap_or("");
         members(module)
-    } else if before.ends_with("dir=\"") || before.ends_with("dir='") {
+    } else if ["dir=\"", "dir='", "dir1=\"", "dir1='", "dir2=\"", "dir2='"]
+        .iter()
+        .any(|end| before.ends_with(end))
+    {
         let names = Dir::ALL.iter().map(|d| format!("{d:?}").to_lowercase());
         words(names, "direction")
     } else if before.ends_with("machines.place(\"") || before.ends_with("machines.place('") {
@@ -164,6 +169,11 @@ mod tests {
     #[test]
     fn completes_string_arguments() {
         assert_eq!(inserts("conveyors.place(x=1, y=0, dir=\"e"), vec!["east"]);
+        assert_eq!(inserts("splitters.place(x=1, y=0, dir1=\"n"), vec!["north"]);
+        assert_eq!(
+            inserts("splitters.place(x=1, y=0, dir1=\"north\", dir2=\"s"),
+            vec!["south"]
+        );
         assert_eq!(
             inserts("machines.place(\"s"),
             vec!["smelter", "steam_generator", "station"]
@@ -178,7 +188,10 @@ mod tests {
 
     #[test]
     fn completes_imports() {
-        assert_eq!(inserts("from auto import "), vec!["conveyors", "machines"]);
+        assert_eq!(
+            inserts("from auto import "),
+            vec!["conveyors", "machines", "splitters"]
+        );
         assert_eq!(inserts("import p"), vec!["power"]);
         assert_eq!(inserts("import st"), vec!["stats"]);
     }

@@ -8,6 +8,7 @@ const KNOWN_NAMES: &[&str] = &[
     "auto",
     "conveyors",
     "machines",
+    "splitters",
     "power",
     "place",
     "connect",

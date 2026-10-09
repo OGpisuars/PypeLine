@@ -17,6 +17,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - macOS (one app for Apple Silicon and Intel) and Linux downloads next to the Windows one, built on every push.
 
 ### Playing
+- **Splitters:** `splitters.place(x, y, dir1, dir2)` takes items from any side and sends them out in turn, half toward `dir1` and half toward `dir2`. If one side is full, the other gets everything until there is room again.
+- Code windows are part of the world, like in The Farmer Was Replaced: they pan and zoom with the island and stay where you park them, even far off screen. The view can be dragged as far as you like (Home comes back).
+- **+ Window** in the top bar makes a new file in its own code window, where you are looking. Brass cables link each file to the files it imports.
 - Pause menu (Esc, or ☰ Menu in the top bar): Resume, Settings, Title screen and Quit. The factory pauses while it is open.
 - A new HUD card: coins with the last train's pay, ore and plates made, the contract's progress bar, and a PAUSED / HALTED / speed badge.
 - Shop prices are about four times higher, so upgrades are goals to save up for.

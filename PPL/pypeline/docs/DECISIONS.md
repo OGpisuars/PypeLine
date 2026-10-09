@@ -6,6 +6,27 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-09: Splitters
+
+- `splitters.place(x, y, dir1, dir2, tier=1)`, in its own `auto.splitters` module so it reads like the rest of the build API. Splitters sit on a tile like belts, so they have no name.
+- A splitter is a belt tile with `split: Some(Split)`: the same item movement, tiers and hot-reload as a belt, and it accepts items from any side because anything that faces it hands items to it like to a belt.
+- It alternates: the output whose turn it is gets the item and the turn passes. If that output cannot take it, the other output gets it and the turn stays, so with both sides free the split is exactly even (tested), and a full side never jams the line (Factorio-style overflow) instead of stopping everything.
+- A splitter never hands an item back onto a belt that runs into it, or items would loop.
+- `Conveyor` prints its `split` only when it has one (a hand-written `Debug`), and saves skip it when empty, so existing factories hash and save exactly as before and the golden determinism hash did not change.
+- Re-running a script keeps a splitter's turn; changing its outputs resets it.
+
+## 2026-10-09: Code windows float in the world
+
+- Like The Farmer Was Replaced, each file's code window has a spot in world space (`engine/terminals.rs`): canvas pixels from the canvas's top-left corner, with no limits. Each window's egui layer gets a transform (`set_transform_layer`) that maps the world onto the screen the same way the camera does, so windows pan and zoom with the island exactly. Inside the layer a window is laid out at `NATURAL_ZOOM` (2x): normal size at 2x, twice as big at 4x. The window is placed on its spot with `current_pos` and `constrain_to(WORLD_BOUNDS)` (egui clips a window to its constrain rectangle, and the default, the screen, is in the wrong place inside the transform, which cut windows down to thin strips); egui adds title-bar drags on top (its drag deltas are already in layer units), and the new corner is read back into world space.
+- A first version stood each file on a terminal block snapped to sky tiles. Players found tile-snapping choppy and the canvas edge too limiting, so the blocks were dropped.
+- A second version kept windows the same size on screen at every zoom; that made them look like they slid over the world when zooming, so windows now scale with it. The autocomplete list is drawn outside the transform, under the cursor, so it stays readable.
+- **+ Window** makes a file whose window opens in the middle of the view. A brass cable (a Bezier curve on a background layer, under the windows) links each window to the windows of files it imports, found with a rough line-by-line read of `import` and `from` lines.
+- Cables pass behind the island, like they hang below it: they are painted into four clip rectangles around the island's outline (`grid::island_canvas_rect`, following its bob), so everything except the island shows them. The world is one image under all of egui, so a real draw order behind the island is not possible from egui.
+- The view is no longer held near the island (the old pan clamp kept 64 px of canvas on screen), or a window parked far away could never be reached. Home and View > Center the island come back. Outside the 480x320 canvas is plain sky, tinted with the day like the canvas.
+- Spots are saved in `terminals.ron` next to `settings.ron` (at most once a second while dragging, and on exit), not in the factory save, because Clean Run must not move them. View > Reset windows puts them back.
+- The console stays a normal floating window on screen: it is output, not a file.
+- The top bar's layer moved to the foreground (registered with `move_to_top` so egui orders and hit-tests it), so code windows slide under it rather than over it. The pause menu moved to the tooltip order to stay above the bar.
+
 ## 2026-10-09: Downloads for every OS, and the web demo moves up
 
 - The release workflow builds Windows, macOS and Linux on every push and publishes all three to the `latest` pre-release together (nothing is published unless all three build). macOS is one universal `PypeLine.app` (Apple Silicon and Intel joined with `lipo`) with an `.icns` made from `assets/icon/pypeline.png`; it is signed ad hoc until notarization (Phase 4), so the first launch needs right-click > Open. Linux is built on Ubuntu 22.04 so it runs on older distros. Everything the game needs is built into the binary, so each download is the program plus license files.

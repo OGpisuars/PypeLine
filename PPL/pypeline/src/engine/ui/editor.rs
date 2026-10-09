@@ -1,9 +1,12 @@
-//! The player's script files, each in its own floating code window, plus
-//! the console window.
+//! The player's script files, each in its own code window floating in the
+//! world, plus the console window.
 //!
 //! main.py is always there and is what Run starts. Other files are modules
-//! main.py can import (`PPL.py` -> `import PPL`). Windows can be moved,
-//! resized and closed; the Files menu in the top bar brings them back.
+//! main.py can import (`PPL.py` -> `import PPL`). Code windows have a spot
+//! in the world (`engine/terminals.rs`), so they move with the island when
+//! the view is dragged or zoomed and can be left far off screen. They can
+//! be dragged, resized and closed; the Files menu brings them back. The
+//! console stays put on screen.
 
 use std::collections::BTreeMap;
 
@@ -300,8 +303,13 @@ pub fn code_windows(
     settings: Res<Settings>,
     area: Res<crate::engine::camera::GameArea>,
     debugger: Res<super::debugger::Debugger>,
+    canvas: Res<crate::engine::camera::CanvasRect>,
+    mut spots: ResMut<crate::engine::terminals::TerminalSpots>,
+    island: Option<Res<crate::engine::floating_plot::Island>>,
     mut followed: Local<Option<(String, usize)>>,
+    mut seen_layout: Local<Option<u32>>,
 ) -> Result {
+    use crate::engine::terminals::{self, TerminalSpots};
     let ctx = contexts.ctx_mut()?.clone();
     let top = area.0.map_or(40.0, |a| a.min.y) + 8.0;
     let screen = ctx.viewport_rect();
@@ -322,7 +330,23 @@ pub fn code_windows(
     }
     followed.clone_from(&here);
 
+    // View > Reset windows also puts every code window back where it started.
+    if seen_layout.is_some_and(|seen| seen != layout) {
+        spots.0.clear();
+    }
+    *seen_layout = Some(layout);
+
+    // Code windows are drawn through a transform that follows the camera,
+    // so they pan and zoom with the world (see `engine/terminals.rs`).
+    let to_screen = terminals::layer_transform(&canvas);
+    // A window that has no spot yet opens where the player is looking.
+    let view_center = area.0.map_or(Vec2::new(400.0, 300.0), |a| a.center());
+    let new_spot = canvas.to_canvas(view_center)
+        - Vec2::new(CODE_SIZE.x, CODE_SIZE.y) / (2.0 * terminals::NATURAL_ZOOM);
+
     let mut delete = None;
+    // Where each open code window is on screen, for the import cables.
+    let mut placed = Vec::new();
     for (index, file) in workspace.files.iter_mut().enumerate() {
         if !file.open {
             continue;
@@ -333,16 +357,25 @@ pub fn code_windows(
         } else {
             file.name.clone()
         };
-        // Files cascade down and to the right of main.py.
-        let offset = 28.0 * index as f32;
-        egui::Window::new(title)
-            .id(egui::Id::new(("code_window", &file.name, layout)))
+        let id = egui::Id::new(("code_window", &file.name, layout));
+        ctx.set_transform_layer(egui::LayerId::new(egui::Order::Middle, id), to_screen);
+        let window = egui::Window::new(title)
+            .id(id)
             .open(&mut open)
-            .default_pos(egui::pos2(8.0 + offset, top + offset))
             .default_size(CODE_SIZE)
             .min_size(egui::vec2(240.0, 140.0))
             .resizable(true)
-            .collapsible(true)
+            .collapsible(true);
+        // Placed on its spot in the world every frame; egui adds any drag of
+        // the title on top, and where it ends up is read back below.
+        let spot = spots.0.get(&file.name).copied().unwrap_or(if index == 0 {
+            TerminalSpots::first(0)
+        } else {
+            new_spot + terminals::CASCADE * (index % 5) as f32
+        });
+        let shown = window
+            .current_pos(terminals::to_layer(spot))
+            .constrain_to(terminals::WORLD_BOUNDS)
             .show(&ctx, |ui| {
                 let marked = match &error_line.0 {
                     Some((name, line)) if *name == file.name => Some(*line),
@@ -383,8 +416,31 @@ pub fn code_windows(
                 });
                 code_editor(ui, file, &marks, &syntax);
             });
+        if let Some(shown) = shown {
+            let rect = shown.response.rect;
+            if let Some(spot) = spots.moved(&file.name, rect.min) {
+                spots.0.insert(file.name.clone(), spot);
+            }
+            placed.push((index, to_screen * rect));
+        }
         file.open = open;
     }
+    // Where the island is on screen (it bobs up and down by a pixel), so
+    // cables pass behind it.
+    let island_rect = {
+        let outline = crate::engine::grid::island_canvas_rect();
+        let lift = Vec2::new(0.0, island.as_ref().map_or(0.0, |i| i.bob));
+        let min = canvas.to_screen(outline.min - lift);
+        let max = canvas.to_screen(outline.max - lift);
+        egui::Rect::from_min_max(egui::pos2(min.x, min.y), egui::pos2(max.x, max.y))
+    };
+    draw_import_cables(
+        &ctx,
+        &workspace.files,
+        &placed,
+        to_screen.scaling,
+        island_rect,
+    );
     if let Some(name) = delete {
         workspace.confirm_delete = Some(name);
     }
@@ -441,6 +497,102 @@ fn code_editor(
                 completion_popup(ui, id, at, &suggestions, file);
             }
         });
+}
+
+/// The files a script imports, by module name (`import a, b as c` and
+/// `from a import x`). A rough line-by-line read is enough for the cables.
+pub fn imported_modules(source: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    for line in source.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        let names: Vec<&str> = if let Some(rest) = line.strip_prefix("import ") {
+            rest.split(',').collect()
+        } else if let Some(rest) = line.strip_prefix("from ") {
+            rest.split(" import").take(1).collect()
+        } else {
+            continue;
+        };
+        for name in names {
+            let name = name.split_whitespace().next().unwrap_or("");
+            let module = name.split('.').next().unwrap_or("");
+            if !module.is_empty() && !found.iter().any(|f| f == module) {
+                found.push(module.to_owned());
+            }
+        }
+    }
+    found
+}
+
+/// The screen split into four pieces around `hole`: above, below, left
+/// and right of it. Painting into each piece paints everywhere but the hole.
+fn around(hole: egui::Rect) -> [egui::Rect; 4] {
+    let far = 1.0e6;
+    let rect = |x0, y0, x1, y1| egui::Rect::from_min_max(egui::pos2(x0, y0), egui::pos2(x1, y1));
+    [
+        rect(-far, -far, far, hole.min.y),
+        rect(-far, hole.max.y, far, far),
+        rect(-far, hole.min.y, hole.min.x, hole.max.y),
+        rect(hole.max.x, hole.min.y, far, hole.max.y),
+    ]
+}
+
+/// A brass cable from each code window to every window it imports, like
+/// the power wires on the island, so linked files read as linked. Cables
+/// pass behind the island: they are painted everywhere except over it.
+fn draw_import_cables(
+    ctx: &egui::Context,
+    files: &[ScriptFile],
+    placed: &[(usize, egui::Rect)],
+    scale: f32,
+    island: egui::Rect,
+) {
+    // Behind every window, in front of the sky.
+    let layer = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("import_cables"),
+    ));
+    let pieces = around(island).map(|piece| layer.with_clip_rect(piece));
+    let brass = egui::Color32::from_rgb(224, 168, 56);
+    let outline = egui::Color32::from_rgb(40, 32, 48);
+    let width = (3.0 * scale).max(1.5);
+    for &(from, from_rect) in placed {
+        for module in imported_modules(&files[from].source) {
+            let Some(&(_, to_rect)) = placed
+                .iter()
+                .find(|(i, _)| *i != from && files[*i].module_name() == module)
+            else {
+                continue;
+            };
+            // From the importer's side that faces the imported file.
+            let rightwards = to_rect.center().x >= from_rect.center().x;
+            let (start, end) = if rightwards {
+                (from_rect.right_center(), to_rect.left_center())
+            } else {
+                (from_rect.left_center(), to_rect.right_center())
+            };
+            let reach = ((end.x - start.x).abs() / 2.0).max(40.0 * scale);
+            let bend = if rightwards { reach } else { -reach };
+            let points = [
+                start,
+                start + egui::vec2(bend, 0.0),
+                end - egui::vec2(bend, 0.0),
+                end,
+            ];
+            for painter in &pieces {
+                for (stroke_width, color) in [(width + 2.0, outline), (width, brass)] {
+                    painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
+                        points,
+                        false,
+                        egui::Color32::TRANSPARENT,
+                        egui::Stroke::new(stroke_width, color),
+                    ));
+                }
+                for plug in [start, end] {
+                    painter.circle(plug, width * 1.6, brass, egui::Stroke::new(1.0, outline));
+                }
+            }
+        }
+    }
 }
 
 fn new_file_dialog(
@@ -658,6 +810,11 @@ fn completion_popup(
 ) {
     let ctx = ui.ctx().clone();
     let mut clicked = None;
+    // The code window is drawn through the world's transform; the list is
+    // not, so it stays readable at any zoom. Put it under the cursor.
+    let at = ctx
+        .layer_transform_to_global(ui.layer_id())
+        .map_or(at, |to_screen| to_screen * at);
     egui::Area::new(id.with("autocomplete"))
         .order(egui::Order::Foreground)
         .fixed_pos(at + egui::vec2(0.0, 2.0))
@@ -715,6 +872,15 @@ mod tests {
         }
         let workspace = Workspace::default();
         assert!(workspace.check_new_name("MAIN").is_err());
+    }
+
+    #[test]
+    fn imports_are_found_for_the_cables() {
+        let source = "import PPL\nimport auto, lines as l  # comment\nfrom helpers.sub import go\n# import nope\nx = 1\n";
+        assert_eq!(
+            imported_modules(source),
+            ["PPL", "auto", "lines", "helpers"]
+        );
     }
 
     #[test]

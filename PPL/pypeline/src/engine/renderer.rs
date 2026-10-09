@@ -123,6 +123,19 @@ fn sync_layout(
     }
 
     for (&pos, belt) in &factory.conveyors {
+        // A splitter has its own sprite, with arrows to both outputs.
+        if let Some(split) = belt.split {
+            let mut sprite = Sprite::from_image(sheet.splitter(split.outputs));
+            sprite.color = belt_tint(belt.tier);
+            commands.spawn((
+                sprite,
+                Transform::from_translation(plot_tile_center(pos, Z_BELT)),
+                LayoutSprite,
+                WORLD_LAYER,
+                ChildOf(island.root),
+            ));
+            continue;
+        }
         let mut sprite = Sprite::from_image(sheet.belt(belt.dir, 0));
         sprite.color = belt_tint(belt.tier);
         commands.spawn((
@@ -224,7 +237,8 @@ fn sync_items(
         .conveyors
         .iter()
         .flat_map(|(&pos, belt)| {
-            let (dx, dy) = belt.dir.offset();
+            // On a splitter, toward the output whose turn it is.
+            let (dx, dy) = belt.heading().offset();
             belt.items.iter().map(move |item| {
                 // From the back edge (progress 0) to the front edge (16).
                 let along = item.progress as f32 - half_tile;

@@ -27,7 +27,7 @@ Directions: "north" is up, "east" is right, "south" is down, "west" is left.
 Put these at the top of `main.py` to use every command:
 
 ```python
-from auto import conveyors, machines
+from auto import conveyors, machines, splitters
 import power
 import console
 import sensors
@@ -38,6 +38,7 @@ import clock
 | Module | What it is for |
 |---|---|
 | `auto.conveyors` | place belts |
+| `auto.splitters` | split one belt into two |
 | `auto.machines` | place machines; switch them on and off; read their status |
 | `power` | connect machines to steam generators |
 | `console` | colors and clearing for print() |
@@ -99,6 +100,23 @@ tier=2 and tier=3 are faster belts from the Shop.
 ```python
 for x in range(1, 5):
     conveyors.place(x=x, y=0, dir="east")
+```
+
+### `splitters.place(x, y, dir1, dir2, tier=1)`
+
+Puts a splitter on tile (x, y). Items can come in from any side.
+
+It hands them out in turn: one toward dir1, the next toward dir2, so each side gets half.
+
+If one side is full, the other side gets the items until there is room again, so the line never jams.
+
+tier=2 and tier=3 are faster, like belts.
+
+```python
+conveyors.place(x=3, y=5, dir="east")
+splitters.place(x=4, y=5, dir1="north", dir2="south")
+conveyors.place(x=4, y=6, dir="north")
+conveyors.place(x=4, y=4, dir="south")
 ```
 
 ### `machines.place(kind, name, x, y, dir="east", ore=..., tier=1)`
@@ -261,7 +279,7 @@ A name must start with a letter and use only letters, digits and _, because main
 
 Run always starts main.py. Other files are modules: write import PPL in main.py, then call PPL.some_function(). Files can import each other too.
 
-Each file has its own window. Errors name the file and the line.
+Each file has its own code window in the world (+ Window makes one where you are looking). A brass cable links each file to the files it imports. Errors name the file and the line.
 
 ## The debugger
 

@@ -12,6 +12,7 @@ pub mod renderer;
 pub mod screens;
 pub mod splash;
 pub mod sprites;
+pub mod terminals;
 pub mod themes;
 pub mod ui;
 pub mod wildlife;

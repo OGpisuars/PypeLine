@@ -76,13 +76,13 @@ Press **Run** and the factory matches your script. Change it and run again: the 
 - **Line debugger (F6):** record a run and step through it forwards and backwards, with your variables shown.
 
 **Run a real factory**
-- **Miners, belts, smelters, steam power and a cargo train**, all placed by your code. Brass wires pulse to show what powers what.
+- **Miners, belts, splitters, smelters, steam power and a cargo train**, all placed by your code. Brass wires pulse to show what powers what.
 - **`tick()` and events:** code that runs 20 times a second and reacts to train visits, with `sensors`, `stats` and `clock` to read the factory.
 - **Day, night and hot boilers:** big boilers overheat at noon unless your script eases off.
 - **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts and machines.
 
 **Made to be comfortable**
-- **Your own workspace:** floating windows for every file, many files with `import`, and a world you can drag and zoom.
+- **Code windows in the world:** like *The Farmer Was Replaced*, every file's window is part of the world. It pans and zooms with the island and stays where you park it, even far off screen. Open as many as you like, and brass cables link the files that import each other.
 - **Code has a cost:** scripts run on a steam budget, so an infinite loop can never freeze the game.
 - **Never lose work:** autosave, rolling backups and crash-safe writes.
 - **Six themes, four fonts**, a matching mouse pointer, and your choice of music.

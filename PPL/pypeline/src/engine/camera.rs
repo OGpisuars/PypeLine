@@ -37,6 +37,37 @@ pub struct PixelScale(pub u32);
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct GameArea(pub Option<Rect>);
 
+/// Where the 480x320 canvas is on screen: its top-left corner in logical
+/// pixels (y down, egui's coordinates) and the zoom. Things pinned to the
+/// world, like the code terminals, use it to follow the view.
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct CanvasRect {
+    pub top_left: Vec2,
+    pub zoom: f32,
+}
+
+impl Default for CanvasRect {
+    fn default() -> Self {
+        Self {
+            top_left: Vec2::ZERO,
+            zoom: 1.0,
+        }
+    }
+}
+
+impl CanvasRect {
+    /// Screen position of a canvas pixel, counted from the canvas's
+    /// top-left corner.
+    pub fn to_screen(&self, canvas_px: Vec2) -> Vec2 {
+        self.top_left + canvas_px * self.zoom
+    }
+
+    /// The canvas pixel (from the top-left corner) at a screen position.
+    pub fn to_canvas(&self, screen: Vec2) -> Vec2 {
+        (screen - self.top_left) / self.zoom
+    }
+}
+
 /// How the player moved the view.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq)]
 pub struct ViewState {
@@ -51,8 +82,6 @@ pub struct ViewState {
 pub const MAX_ZOOM: u32 = 8;
 /// Wheel distance (in pixels, for touchpads) that counts as one notch.
 const PIXELS_PER_NOTCH: f32 = 60.0;
-/// How much of the canvas must stay on screen, in logical pixels.
-const KEEP_VISIBLE: f32 = 64.0;
 
 /// A drag in progress: the cursor position last frame.
 #[derive(Default)]
@@ -81,6 +110,7 @@ impl Plugin for PixelCameraPlugin {
             .init_resource::<HoveredTile>()
             .init_resource::<GameArea>()
             .init_resource::<ViewState>()
+            .init_resource::<CanvasRect>()
             .add_systems(Startup, setup_cameras)
             .add_systems(Update, fit_canvas)
             // These run in the egui pass so they can ask whether the mouse is
@@ -147,17 +177,6 @@ fn fitting_zoom(area: Rect) -> u32 {
     (fit_w.min(fit_h).floor() as u32).max(1)
 }
 
-/// Keep at least a corner of the canvas on screen.
-fn clamp_pan(pan: Vec2, area: Rect, zoom: u32) -> Vec2 {
-    let f = zoom as f32;
-    let max = Vec2::new(
-        (area.width() + RES_WIDTH as f32 * f) / 2.0 - KEEP_VISIBLE,
-        (area.height() + RES_HEIGHT as f32 * f) / 2.0 - KEEP_VISIBLE,
-    )
-    .max(Vec2::ZERO);
-    pan.clamp(-max, max)
-}
-
 /// Scale the canvas by the chosen whole number (or the largest that fits),
 /// place it where the player dragged it, with its edges on whole pixels.
 fn fit_canvas(
@@ -167,6 +186,7 @@ fn fit_canvas(
     mut projection: Single<&mut Projection, With<ScreenCamera>>,
     mut canvas: Single<&mut Transform, With<CanvasSprite>>,
     mut scale: ResMut<PixelScale>,
+    mut placed: ResMut<CanvasRect>,
 ) {
     let (w, h) = (window.width(), window.height());
     let area = area.0.unwrap_or(Rect::new(0.0, 0.0, w, h));
@@ -177,7 +197,9 @@ fn fit_canvas(
     {
         ortho.scale = 1.0 / f;
     }
-    let middle = area.center() + clamp_pan(view.pan, area, factor);
+    // The view is not held near the island: code windows can be parked
+    // anywhere in the world, and Home comes back.
+    let middle = area.center() + view.pan;
     // Top-left corner of the canvas on screen, on a whole logical pixel.
     let left = (middle.x - RES_WIDTH as f32 * f / 2.0).round();
     let top = (middle.y - RES_HEIGHT as f32 * f / 2.0).round();
@@ -193,6 +215,13 @@ fn fit_canvas(
     }
     if scale.0 != factor {
         scale.0 = factor;
+    }
+    let now = CanvasRect {
+        top_left: Vec2::new(left, top),
+        zoom: f,
+    };
+    if *placed != now {
+        *placed = now;
     }
 }
 
@@ -231,7 +260,7 @@ fn move_view(
     }
     if let (Some(last), Some(now)) = (drag.last, cursor) {
         if now != last {
-            let pan = clamp_pan(view.pan + (now - last), area_rect, scale.0);
+            let pan = view.pan + (now - last);
             if view.pan != pan {
                 view.pan = pan;
             }
@@ -258,12 +287,12 @@ fn move_view(
         let new = (old as i32 + steps as i32).clamp(1, MAX_ZOOM.max(old) as i32) as u32;
         if new != old {
             // Keep the spot under the cursor where it is.
-            let middle = area_rect.center() + clamp_pan(view.pan, area_rect, old);
+            let middle = area_rect.center() + view.pan;
             let anchor = cursor.unwrap_or(middle);
             let spot = (anchor - middle) / old as f32;
             let new_middle = anchor - spot * new as f32;
             view.zoom = Some(new);
-            view.pan = clamp_pan(new_middle - area_rect.center(), area_rect, new);
+            view.pan = new_middle - area_rect.center();
         }
     }
     Ok(())

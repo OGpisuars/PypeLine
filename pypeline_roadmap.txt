@@ -641,6 +641,8 @@ PHASE 3C - WORKSPACE, SHOP AND SETTINGS (player feedback)
 Goal: room to code, a reason to spend coins, and a game that
 looks the way the player likes. Added October 2026.
   [x] Floating, movable, resizable code windows + console
+      (code windows now float in world space and move with
+      the view; the console stays put on screen)
   [x] Top bar: Run/Stop/Clean Run, Files, Console, Snippets,
       Help, Manual, Shop, Settings, View, Time Dials
   [x] World fills the window: drag to pan, wheel to zoom

@@ -188,6 +188,47 @@ fn belt_grid(phase: usize) -> Grid {
         .collect()
 }
 
+/// A splitter: a dark box with a hub in the middle and a yellow arrow
+/// toward each of its two outputs.
+fn splitter_grid(outputs: [Dir; 2]) -> Grid {
+    let mut g: Grid = (0..16)
+        .map(|r| {
+            (0..16)
+                .map(|c| match (r, c) {
+                    (0 | 15, _) | (_, 0 | 15) => 'k',
+                    (6..=9, 6..=9) => 'm',
+                    _ => 'd',
+                })
+                .collect()
+        })
+        .collect();
+    // An arrow pointing east from the hub, turned to face each output.
+    let east: Grid = (0..16)
+        .map(|r: usize| {
+            (0..16)
+                .map(|c: usize| {
+                    let shaft = (7..=8).contains(&r) && (10..=12).contains(&c);
+                    // The head narrows by one row on each side per column.
+                    let head =
+                        (12..=14).contains(&c) && r.abs_diff(7) + r.abs_diff(8) <= 2 * (15 - c) - 1;
+                    if shaft || head { 'y' } else { '.' }
+                })
+                .collect()
+        })
+        .collect();
+    for dir in outputs {
+        let arrow = facing(&east, dir);
+        for (row, arrow_row) in g.iter_mut().zip(&arrow) {
+            for (px, &a) in row.iter_mut().zip(arrow_row) {
+                if a != '.' {
+                    *px = a;
+                }
+            }
+        }
+    }
+    g
+}
+
 /// Turn an east-facing grid to face `dir`.
 fn facing(g: &Grid, dir: Dir) -> Grid {
     let n = g.len();
@@ -235,6 +276,8 @@ pub struct SpriteSheet {
     pub cargo_car: Handle<Image>,
     ore: Handle<Image>,
     plate: Handle<Image>,
+    /// `splitters[dir_index(first) * 4 + dir_index(second)]`.
+    splitters: Vec<Handle<Image>>,
 }
 
 fn dir_index(dir: Dir) -> usize {
@@ -256,6 +299,10 @@ impl SpriteSheet {
             MachineKind::SteamGenerator => self.generator.clone(),
             MachineKind::Station => self.station.clone(),
         }
+    }
+
+    pub fn splitter(&self, outputs: [Dir; 2]) -> Handle<Image> {
+        self.splitters[dir_index(outputs[0]) * 4 + dir_index(outputs[1])].clone()
     }
 
     pub fn item(&self, item: ItemKind) -> Handle<Image> {
@@ -285,6 +332,11 @@ pub fn build_sprite_sheet(mut commands: Commands, mut images: ResMut<Assets<Imag
         cargo_car: images.add(to_image(&grid(&CARGO_CAR))),
         ore: images.add(to_image(&grid(&ORE))),
         plate: images.add(to_image(&grid(&PLATE))),
+        splitters: Dir::ALL
+            .iter()
+            .flat_map(|&first| Dir::ALL.iter().map(move |&second| [first, second]))
+            .map(|outputs| images.add(to_image(&splitter_grid(outputs))))
+            .collect(),
     });
 }
 
@@ -328,6 +380,17 @@ mod tests {
                 color_of(c);
             });
         }
+    }
+
+    #[test]
+    fn splitters_point_both_ways() {
+        let g = splitter_grid([Dir::North, Dir::South]);
+        assert_eq!(g.len(), 16);
+        // Arrows reach toward the top and bottom edges, not the sides.
+        assert_eq!(g[2][7], 'y');
+        assert_eq!(g[13][7], 'y');
+        assert_ne!(g[7][2], 'y');
+        assert_ne!(g[7][13], 'y');
     }
 
     #[test]

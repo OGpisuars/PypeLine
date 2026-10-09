@@ -37,11 +37,14 @@ const BASICS: &[&str] = &[
 
 const MOVING: &[&str] = &[
     "Drag empty space with the left mouse button to move the world. The middle and \
-     right buttons drag from anywhere outside a window.",
+     right buttons drag from anywhere outside a window. You can go as far as you like; \
+     Home comes back.",
     "The mouse wheel zooms in and out around the pointer. Home (or View > Center the \
      island) puts the island back in the middle.",
-    "Every window can be moved by its title and resized from its edges and corners. \
-     Close one with its x; the top bar brings it back (Files, Console, Help...).",
+    "Code windows are part of the world: they move with the island when you drag, grow and \
+     shrink when you zoom, and stay where you left them when you look away, even off \
+     screen. Drag a window by its title to park it anywhere. Resize any window from its edges and corners, and close it \
+     with its x; the top bar brings it back (Files, Console, Help...).",
     "View > Reset windows puts the code windows and console back where they started.",
     "Untick View > Island bobs up and down (also in Settings) to keep the island still.",
 ];
@@ -67,7 +70,7 @@ const GRID: &[&str] = &[
     "Directions: \"north\" is up, \"east\" is right, \"south\" is down, \"west\" is left.",
 ];
 
-const IMPORTS: &str = "from auto import conveyors, machines\n\
+const IMPORTS: &str = "from auto import conveyors, machines, splitters\n\
                        import power\n\
                        import console\n\
                        import sensors\n\
@@ -76,6 +79,7 @@ const IMPORTS: &str = "from auto import conveyors, machines\n\
 
 const MODULES: &[(&str, &str)] = &[
     ("auto.conveyors", "place belts"),
+    ("auto.splitters", "split one belt into two"),
     (
         "auto.machines",
         "place machines; switch them on and off; read their status",
@@ -98,6 +102,21 @@ const BUILD: &[Command] = &[
             "tier=2 and tier=3 are faster belts from the Shop.",
         ],
         example: "for x in range(1, 5):\n    conveyors.place(x=x, y=0, dir=\"east\")\n",
+    },
+    Command {
+        signature: "splitters.place(x, y, dir1, dir2, tier=1)",
+        about: &[
+            "Puts a splitter on tile (x, y). Items can come in from any side.",
+            "It hands them out in turn: one toward dir1, the next toward dir2, so each side \
+             gets half.",
+            "If one side is full, the other side gets the items until there is room again, so \
+             the line never jams.",
+            "tier=2 and tier=3 are faster, like belts.",
+        ],
+        example: "conveyors.place(x=3, y=5, dir=\"east\")\n\
+                  splitters.place(x=4, y=5, dir1=\"north\", dir2=\"south\")\n\
+                  conveyors.place(x=4, y=6, dir=\"north\")\n\
+                  conveyors.place(x=4, y=4, dir=\"south\")\n",
     },
     Command {
         signature: "machines.place(kind, name, x, y, dir=\"east\", ore=..., tier=1)",
@@ -236,7 +255,9 @@ const FILES: &[&str] = &[
      uses it in an import.",
     "Run always starts main.py. Other files are modules: write import PPL in main.py, \
      then call PPL.some_function(). Files can import each other too.",
-    "Each file has its own window. Errors name the file and the line.",
+    "Each file has its own code window in the world (+ Window makes one where you are \
+     looking). A brass cable links each file to the files it imports. Errors name the file \
+     and the line.",
 ];
 
 const TROUBLESHOOTING: &[(&str, &str)] = &[

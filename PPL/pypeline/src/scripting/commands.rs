@@ -25,11 +25,32 @@ pub struct PlannedMachine {
 pub struct PlannedBelt {
     pub dir: Dir,
     pub tier: u8,
+    /// A splitter's two outputs (`dir` is the first).
+    pub split: Option<[Dir; 2]>,
 }
 
 impl PlannedBelt {
     pub fn new(dir: Dir) -> Self {
-        Self { dir, tier: 1 }
+        Self {
+            dir,
+            tier: 1,
+            split: None,
+        }
+    }
+
+    /// A splitter that sends items to `first` and `second` in turn.
+    pub fn splitter(first: Dir, second: Dir) -> Result<Self, String> {
+        if first == second {
+            return Err(
+                "a splitter needs two different directions, like dir1=\"north\", dir2=\"south\""
+                    .into(),
+            );
+        }
+        Ok(Self {
+            dir: first,
+            tier: 1,
+            split: Some([first, second]),
+        })
     }
 }
 
@@ -90,7 +111,12 @@ pub struct BuildPlan {
 
 impl BuildPlan {
     pub fn place_conveyor(&mut self, pos: Pos, belt: PlannedBelt) -> Result<(), String> {
-        self.claim(pos, "a conveyor".into())?;
+        let what = if belt.split.is_some() {
+            "a splitter"
+        } else {
+            "a conveyor"
+        };
+        self.claim(pos, what.into())?;
         self.conveyors.insert(pos, belt);
         Ok(())
     }
@@ -211,6 +237,18 @@ mod tests {
             .unwrap();
         let err = plan.place_machine("m", miner(1, 0)).unwrap_err();
         assert!(err.contains("already has a conveyor"), "{err}");
+    }
+
+    #[test]
+    fn splitters_need_two_directions() {
+        assert!(PlannedBelt::splitter(Dir::North, Dir::North).is_err());
+        let split = PlannedBelt::splitter(Dir::North, Dir::South).unwrap();
+        let mut plan = BuildPlan::default();
+        plan.place_conveyor(Pos::new(3, 3), split).unwrap();
+        let err = plan
+            .place_conveyor(Pos::new(3, 3), PlannedBelt::new(Dir::East))
+            .unwrap_err();
+        assert!(err.contains("already has a splitter"), "{err}");
     }
 
     #[test]

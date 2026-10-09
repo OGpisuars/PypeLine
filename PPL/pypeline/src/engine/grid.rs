@@ -27,6 +27,21 @@ pub fn canvas_tile_center(x: i32, y: i32, z: f32) -> Vec3 {
     )
 }
 
+/// The island's outline (grass, its edges and the dirt underneath) in
+/// canvas pixels from the canvas's top-left corner, y down, before bobbing.
+/// The same tiles `spawn_plot` covers.
+pub fn island_canvas_rect() -> Rect {
+    let tile = TILE as f32;
+    let (left, right) = (BUILD_ORIGIN.x - 1, BUILD_ORIGIN.x + PLOT_WIDTH + 1);
+    let (bottom, top) = (BUILD_ORIGIN.y - 2, BUILD_ORIGIN.y + PLOT_HEIGHT + 1);
+    Rect::new(
+        left as f32 * tile,
+        RES_HEIGHT as f32 - top as f32 * tile,
+        right as f32 * tile,
+        RES_HEIGHT as f32 - bottom as f32 * tile,
+    )
+}
+
 /// The plot tile under a world-space point, if it is on the plot.
 pub fn world_to_plot(world: Vec2) -> Option<Pos> {
     let x = ((world.x + RES_WIDTH as f32 / 2.0) / TILE as f32).floor() as i32;
@@ -84,6 +99,22 @@ fn spawn_plot(island: Res<Island>, mut commands: Commands) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn island_outline_matches_the_plot() {
+        let island = island_canvas_rect();
+        // 16 + 2 edge tiles wide; 10 + 1 top edge + 2 dirt tiles tall.
+        assert_eq!(island.width(), 18.0 * TILE as f32);
+        assert_eq!(island.height(), 13.0 * TILE as f32);
+        // Plot tile (0, 0)'s center is inside it, near the bottom.
+        let center = plot_tile_center(Pos::new(0, 0), 0.0).truncate();
+        let from_top_left = Vec2::new(
+            center.x + RES_WIDTH as f32 / 2.0,
+            RES_HEIGHT as f32 / 2.0 - center.y,
+        );
+        assert!(island.contains(from_top_left));
+        assert!(island.max.y - from_top_left.y < 3.0 * TILE as f32);
+    }
 
     #[test]
     fn plot_tiles_round_trip() {

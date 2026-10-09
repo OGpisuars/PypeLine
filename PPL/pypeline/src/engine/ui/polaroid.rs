@@ -77,22 +77,35 @@ pub fn polaroid(
         Some((name.clone(), image, lines, progress))
     } else {
         factory.conveyors.get(&pos).map(|belt| {
-            let image = sheet.belt(belt.dir, 0);
-            let mut lines = vec![
-                format!("moving {}", dir_name(belt.dir)),
-                format!("items on it: {}", belt.items.len()),
-            ];
+            let (image, mut lines, kind) = match belt.split {
+                Some(split) => (
+                    sheet.splitter(split.outputs),
+                    vec![
+                        format!(
+                            "splits {} / {}",
+                            dir_name(split.outputs[0]),
+                            dir_name(split.outputs[1])
+                        ),
+                        format!("next item goes {}", dir_name(split.current())),
+                        format!("items on it: {}", belt.items.len()),
+                    ],
+                    "splitter",
+                ),
+                None => (
+                    sheet.belt(belt.dir, 0),
+                    vec![
+                        format!("moving {}", dir_name(belt.dir)),
+                        format!("items on it: {}", belt.items.len()),
+                    ],
+                    "conveyor",
+                ),
+            };
             match belt.tier {
                 2 => lines.push("fast belt (tier 2)".into()),
                 3 => lines.push("express belt (tier 3)".into()),
                 _ => {}
             }
-            (
-                format!("conveyor ({}, {})", pos.x, pos.y),
-                image,
-                lines,
-                None,
-            )
+            (format!("{kind} ({}, {})", pos.x, pos.y), image, lines, None)
         })
     };
     let Some((title, image, lines, progress)) = card else {

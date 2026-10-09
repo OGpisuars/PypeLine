@@ -57,6 +57,7 @@ const BUILTINS: &[&str] = &[
     "auto",
     "conveyors",
     "machines",
+    "splitters",
     "power",
     "console",
     "sensors",

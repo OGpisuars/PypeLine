@@ -1,4 +1,5 @@
-//! The game modules Python scripts can import: `auto` and `power`.
+//! The game modules Python scripts can import: `auto` (conveyors, splitters,
+//! machines), `power`, `console`, `sensors`, `stats` and `clock`.
 //!
 //! Each call checks its arguments right away and records into the run's
 //! `BuildPlan`, so a mistake raises a Python error on the exact line.
@@ -37,6 +38,20 @@ struct ConveyorArgs {
     y: i64,
     #[pyarg(any)]
     dir: PyStrRef,
+    #[pyarg(any, optional)]
+    tier: Option<i64>,
+}
+
+#[derive(FromArgs)]
+struct SplitterArgs {
+    #[pyarg(any)]
+    x: i64,
+    #[pyarg(any)]
+    y: i64,
+    #[pyarg(any)]
+    dir1: PyStrRef,
+    #[pyarg(any)]
+    dir2: PyStrRef,
     #[pyarg(any, optional)]
     tier: Option<i64>,
 }
@@ -98,13 +113,38 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                     return Err(vm.new_value_error(BUILD_ONLY));
                 }
                 let pos = pos(args.x, args.y, vm)?;
+                let facing = dir(&args.dir, vm)?;
                 let belt = PlannedBelt {
-                    dir: dir(&args.dir, vm)?,
                     tier: commands::belt_tier(args.tier.unwrap_or(1), &world.borrow().unlocked)
                         .map_err(|msg| vm.new_value_error(msg))?,
+                    ..PlannedBelt::new(facing)
                 };
                 plan.borrow_mut()
                     .place_conveyor(pos, belt)
+                    .map_err(|msg| vm.new_value_error(msg))
+            },
+        )
+    };
+
+    let place_splitter = {
+        let plan = plan.clone();
+        let mode = ctx.mode.clone();
+        let world = ctx.world.clone();
+        vm.new_function(
+            "place",
+            move |args: SplitterArgs, vm: &VirtualMachine| -> PyResult<()> {
+                if mode.get() != ApiMode::Build {
+                    return Err(vm.new_value_error(BUILD_ONLY));
+                }
+                let pos = pos(args.x, args.y, vm)?;
+                let mut splitter =
+                    PlannedBelt::splitter(dir(&args.dir1, vm)?, dir(&args.dir2, vm)?)
+                        .map_err(|msg| vm.new_value_error(msg))?;
+                splitter.tier =
+                    commands::belt_tier(args.tier.unwrap_or(1), &world.borrow().unlocked)
+                        .map_err(|msg| vm.new_value_error(msg))?;
+                plan.borrow_mut()
+                    .place_conveyor(pos, splitter)
                     .map_err(|msg| vm.new_value_error(msg))
             },
         )
@@ -184,6 +224,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     };
 
     let conveyors = new_module(vm, "auto.conveyors", &[("place", place_conveyor.into())])?;
+    let splitters = new_module(vm, "auto.splitters", &[("place", place_splitter.into())])?;
     let operate = operate_functions(vm, ctx);
     let machines = new_module(
         vm,
@@ -201,6 +242,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
         &[
             ("conveyors", conveyors.clone()),
             ("machines", machines.clone()),
+            ("splitters", splitters.clone()),
         ],
     )?;
     let power = new_module(vm, "power", &[("connect", connect.into())])?;
@@ -239,6 +281,7 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
     Ok(BTreeMap::from([
         ("auto".to_owned(), auto),
         ("auto.conveyors".to_owned(), conveyors),
+        ("auto.splitters".to_owned(), splitters),
         ("auto.machines".to_owned(), machines),
         ("power".to_owned(), power),
         ("console".to_owned(), console),

@@ -4,9 +4,9 @@
 //! buffers, and anything that disappeared from the script is removed with its
 //! items returned to the station inventory (roadmap: HOT-RELOAD ON RUN).
 
-use crate::factory::Factory;
-use crate::factory::conveyors::Conveyor;
+use crate::factory::conveyors::{Conveyor, Split};
 use crate::factory::machines::Machine;
+use crate::factory::{Dir, Factory};
 
 use super::commands::BuildPlan;
 
@@ -29,6 +29,11 @@ impl ReconcileReport {
     }
 }
 
+/// A splitter's outputs (None for a plain belt), to compare with the plan.
+fn outputs(belt: &Conveyor) -> Option<[Dir; 2]> {
+    belt.split.map(|split| split.outputs)
+}
+
 pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
     let mut report = ReconcileReport::default();
 
@@ -47,18 +52,26 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
         factory.stash(belt.items.into_iter().map(|i| i.kind));
         report.removed += 1;
     }
-    // New, turned and upgraded belts. A changed belt keeps its items.
+    // New, turned and upgraded belts and splitters. A changed belt keeps
+    // its items, and a splitter that did not change keeps whose turn it is.
     for (&pos, planned) in &plan.conveyors {
         match factory.conveyors.get_mut(&pos) {
-            Some(belt) if belt.dir == planned.dir && belt.tier == planned.tier => {}
+            Some(belt)
+                if belt.dir == planned.dir
+                    && belt.tier == planned.tier
+                    && outputs(belt) == planned.split => {}
             Some(belt) => {
                 belt.dir = planned.dir;
                 belt.tier = planned.tier;
+                if outputs(belt) != planned.split {
+                    belt.split = planned.split.map(|[a, b]| Split::new(a, b));
+                }
                 report.changed += 1;
             }
             None => {
                 let mut belt = Conveyor::new(planned.dir);
                 belt.tier = planned.tier;
+                belt.split = planned.split.map(|[a, b]| Split::new(a, b));
                 factory.conveyors.insert(pos, belt);
                 report.created += 1;
             }

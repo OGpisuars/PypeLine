@@ -53,12 +53,15 @@ pub fn top_bar(
 ) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     let screen = ctx.viewport_rect();
+    // In front of the code screens, which slide under the bar when the
+    // world is dragged. Moving it to the top also registers the layer, so
+    // egui orders and hit-tests it like any window.
+    let bar_layer = egui::LayerId::new(egui::Order::Foreground, egui::Id::new("top_bar"));
+    ctx.move_to_top(bar_layer);
     let mut root = egui::Ui::new(
         ctx.clone(),
         "root".into(),
-        egui::UiBuilder::new()
-            .layer_id(egui::LayerId::background())
-            .max_rect(screen),
+        egui::UiBuilder::new().layer_id(bar_layer).max_rect(screen),
     );
 
     // Ctrl+Enter or F5 runs from anywhere, even while typing.
@@ -105,6 +108,16 @@ pub fn top_bar(
             ui.separator();
 
             files_menu(ui, &mut workspace);
+            if ui
+                .button("＋ Window")
+                .on_hover_text(
+                    "A new file in its own code window, where you are looking. \
+                     Use it from main.py with import, and a cable links them.",
+                )
+                .clicked()
+            {
+                workspace.open_new_file_dialog();
+            }
             if ui
                 .selectable_label(workspace.console_open, "Console")
                 .clicked()

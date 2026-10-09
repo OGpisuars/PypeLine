@@ -72,7 +72,8 @@ pub fn pause_menu(
     let screen_rect = ctx.viewport_rect();
     let mut choice = None;
     egui::Area::new(egui::Id::new("pause_menu"))
-        .order(egui::Order::Foreground)
+        // Above the top bar, which is in the foreground itself.
+        .order(egui::Order::Tooltip)
         .fixed_pos(screen_rect.min)
         .show(ctx, |ui| {
             // Dim the game, and keep clicks from reaching it.

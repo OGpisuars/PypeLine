@@ -215,14 +215,49 @@ impl Factory {
             return;
         }
         let item = belt.items[0].kind;
-        let target = pos.step(belt.dir);
-        if self.give(target, item, pos) {
-            self.conveyors
-                .get_mut(&pos)
-                .expect("pos came from the map")
-                .items
-                .remove(0);
+        let Some(split) = belt.split else {
+            let target = pos.step(belt.dir);
+            if self.give(target, item, pos) {
+                self.take_front(pos);
+            }
+            return;
+        };
+        // A splitter: the output whose turn it is, else the other one, so
+        // a blocked line never jams it. Only a hand-off on its turn moves
+        // the turn on, so with both outputs free each gets every other item.
+        let turn = split.current();
+        let sent = if self.split_gives(pos, turn, item) {
+            Some(true)
+        } else if self.split_gives(pos, split.other(), item) {
+            Some(false)
+        } else {
+            None
+        };
+        if let Some(on_turn) = sent {
+            let belt = self.take_front(pos);
+            if on_turn && let Some(split) = belt.split.as_mut() {
+                split.take_turn();
+            }
         }
+    }
+
+    /// Remove the front item of the belt at `pos`, which has just left it.
+    fn take_front(&mut self, pos: Pos) -> &mut Conveyor {
+        let belt = self.conveyors.get_mut(&pos).expect("pos came from the map");
+        belt.items.remove(0);
+        belt
+    }
+
+    /// A splitter at `pos` hands `item` out through `dir`. Never back onto
+    /// a belt that runs into the splitter, or items would go round in a
+    /// loop: that is where they came from.
+    fn split_gives(&mut self, pos: Pos, dir: Dir, item: ItemKind) -> bool {
+        let target = pos.step(dir);
+        let runs_back = self
+            .conveyors
+            .get(&target)
+            .is_some_and(|b| b.split.is_none() && target.step(b.dir) == pos);
+        !runs_back && self.give(target, item, pos)
     }
 
     /// Try to hand `item` to whatever is on tile `target`. `from` is the tile
