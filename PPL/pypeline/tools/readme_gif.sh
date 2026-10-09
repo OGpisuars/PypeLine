@@ -26,8 +26,8 @@ env XDG_DATA_HOME="$data" PYPELINE_SCREEN=play PYPELINE_OPEN=-manual \
     "$game" > /dev/null 2>&1
 
 # Landscape crop from the top (tiling window managers can make the window
-# tall), 800 px wide, with a palette made for these frames.
-filters="crop=iw:'min(ih,iw*0.72)':0:0,scale=800:-1:flags=neighbor"
+# tall), 960 px wide, with a palette made for these frames.
+filters="crop=iw:'min(ih,iw*0.72)':0:0,scale=960:-1:flags=lanczos"
 ffmpeg -loglevel error -y -framerate 12 -i "$frames/frame_%05d.png" \
     -vf "$filters,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=none" \
     -loop 0 "$out"

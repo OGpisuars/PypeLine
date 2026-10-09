@@ -17,7 +17,7 @@ A cozy 16-bit, GBA-style automation game where your factory runs on Python you w
 
 [**⬇ Download**](https://github.com/OGpisuars/PypeLine/releases/tag/latest) for Windows, macOS and Linux · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Roadmap](#-roadmap)
 
-<img src="PPL/pypeline/docs/images/factory.png" alt="A PypeLine factory: three production lines built by a for loop, with the code window open" width="860">
+<img src="PPL/pypeline/docs/images/demo.gif" alt="Pressing Run: a Python for loop builds three production lines on an empty island, and the belts start moving" width="860">
 
 </div>
 
