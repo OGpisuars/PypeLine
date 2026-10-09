@@ -1,7 +1,9 @@
-//! Machines: miners dig ore, smelters turn ore into plates, steam generators
-//! power the machines connected to them.
+//! Machines: miners dig ore, smelters turn ore into plates, crafters make
+//! gears, pipes and engines, steam generators power the machines connected
+//! to them, and stations hold items for the train.
 
 use super::items::{self, ItemKind};
+use super::recipes::Recipe;
 use super::{Dir, Pos};
 
 /// Ticks a tier 1 miner needs per ore (2 seconds).
@@ -22,6 +24,8 @@ pub enum MachineKind {
     SteamGenerator,
     /// Holds items for the cargo train to buy.
     Station,
+    /// Makes things from up to three inputs, by a recipe (`recipes.rs`).
+    Crafter,
 }
 
 impl MachineKind {
@@ -32,6 +36,7 @@ impl MachineKind {
             "smelter" => Some(Self::Smelter),
             "steam_generator" => Some(Self::SteamGenerator),
             "station" => Some(Self::Station),
+            "crafter" => Some(Self::Crafter),
             _ => None,
         }
     }
@@ -42,28 +47,30 @@ impl MachineKind {
             Self::Smelter => "smelter",
             Self::SteamGenerator => "steam_generator",
             Self::Station => "station",
+            Self::Crafter => "crafter",
         }
     }
 
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Miner,
         Self::Smelter,
+        Self::Crafter,
         Self::SteamGenerator,
         Self::Station,
     ];
 
     /// Does this machine need steam power to work?
     pub fn needs_power(self) -> bool {
-        matches!(self, Self::Miner | Self::Smelter)
+        matches!(self, Self::Miner | Self::Smelter | Self::Crafter)
     }
 
     /// Does this machine send items out of its `dir` side?
     pub fn has_output(self) -> bool {
-        matches!(self, Self::Miner | Self::Smelter)
+        matches!(self, Self::Miner | Self::Smelter | Self::Crafter)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Machine {
     pub kind: MachineKind,
     pub pos: Pos,
@@ -87,6 +94,33 @@ pub struct Machine {
     /// Steam generators only: too hot to power anything until it cools.
     #[serde(default)]
     pub overheated: bool,
+    /// Crafters only: what it makes. None until one is picked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipe: Option<Recipe>,
+}
+
+// Written by hand so machines without a recipe print exactly as they did
+// before crafters existed: the factory's state hash is taken from this
+// text, and the determinism tests compare it with a fixed value.
+impl std::fmt::Debug for Machine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = f.debug_struct("Machine");
+        out.field("kind", &self.kind)
+            .field("pos", &self.pos)
+            .field("dir", &self.dir)
+            .field("ore", &self.ore)
+            .field("input", &self.input)
+            .field("output", &self.output)
+            .field("progress", &self.progress)
+            .field("enabled", &self.enabled)
+            .field("tier", &self.tier)
+            .field("heat", &self.heat)
+            .field("overheated", &self.overheated);
+        if let Some(recipe) = &self.recipe {
+            out.field("recipe", recipe);
+        }
+        out.finish()
+    }
 }
 
 fn room_temperature() -> u32 {
@@ -111,7 +145,27 @@ impl Machine {
             tier: 1,
             heat: room_temperature(),
             overheated: false,
+            recipe: None,
         }
+    }
+
+    /// Switch a crafter to another recipe. What it was holding for the old
+    /// one is returned so it can go to the station inventory.
+    pub fn set_recipe(&mut self, recipe: Option<Recipe>) -> Vec<ItemKind> {
+        if self.recipe == recipe {
+            return Vec::new();
+        }
+        self.recipe = recipe;
+        self.progress = 0;
+        std::mem::take(&mut self.input)
+    }
+
+    /// Does a crafter hold everything its recipe needs for one craft?
+    fn has_ingredients(&self, recipe: Recipe) -> bool {
+        recipe
+            .inputs()
+            .iter()
+            .all(|&(item, count)| self.input.iter().filter(|&&i| i == item).count() >= count)
     }
 
     /// Ticks one job takes (one ore mined, one plate smelted).
@@ -119,6 +173,7 @@ impl Machine {
         let base = match self.kind {
             MachineKind::Miner => MINE_TICKS,
             MachineKind::Smelter => SMELT_TICKS,
+            MachineKind::Crafter => return self.recipe.map_or(0, Recipe::ticks),
             MachineKind::SteamGenerator | MachineKind::Station => return 0,
         };
         base / super::shop::speedup(self.tier)
@@ -129,6 +184,12 @@ impl Machine {
         match self.kind {
             MachineKind::Smelter => items::smelt(item).is_some() && self.input.len() < BUFFER_CAP,
             MachineKind::Station => self.input.len() < STATION_CAP,
+            // Up to two crafts' worth of each ingredient, so one input line
+            // cannot fill it up while another ingredient is missing.
+            MachineKind::Crafter => self.recipe.is_some_and(|recipe| {
+                let held = self.input.iter().filter(|&&i| i == item).count();
+                held < 2 * recipe.needs(item)
+            }),
             MachineKind::Miner | MachineKind::SteamGenerator => false,
         }
     }
@@ -142,6 +203,13 @@ impl Machine {
         let made = match self.kind {
             MachineKind::Miner => self.ore?,
             MachineKind::Smelter => items::smelt(*self.input.first()?)?,
+            MachineKind::Crafter => {
+                let recipe = self.recipe?;
+                if !self.has_ingredients(recipe) {
+                    return None;
+                }
+                recipe.output()
+            }
             MachineKind::SteamGenerator | MachineKind::Station => return None,
         };
         self.progress += 1;
@@ -152,7 +220,57 @@ impl Machine {
         if self.kind == MachineKind::Smelter {
             self.input.remove(0);
         }
+        if let (MachineKind::Crafter, Some(recipe)) = (self.kind, self.recipe) {
+            for &(item, count) in recipe.inputs() {
+                for _ in 0..count {
+                    let at = self
+                        .input
+                        .iter()
+                        .position(|&i| i == item)
+                        .expect("checked by has_ingredients");
+                    self.input.remove(at);
+                }
+            }
+        }
         self.output.push(made);
         Some(made)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crafters_follow_their_recipe() {
+        let mut crafter = Machine::new(MachineKind::Crafter, Pos::new(0, 0), Dir::East, None);
+        assert!(!crafter.accepts(ItemKind::IronPlate), "no recipe yet");
+        crafter.set_recipe(Some(Recipe::IronGear));
+        assert!(crafter.accepts(ItemKind::IronPlate));
+        assert!(!crafter.accepts(ItemKind::IronOre));
+
+        // One plate is not enough for a gear.
+        crafter.input.push(ItemKind::IronPlate);
+        assert!((0..200).all(|_| crafter.work(true).is_none()));
+        crafter.input.push(ItemKind::IronPlate);
+        let made: Vec<ItemKind> = (0..Recipe::IronGear.ticks())
+            .filter_map(|_| crafter.work(true))
+            .collect();
+        assert_eq!(made, [ItemKind::IronGear]);
+        assert!(crafter.input.is_empty());
+
+        // It holds at most two crafts' worth of an ingredient.
+        crafter.input.extend([ItemKind::IronPlate; 4]);
+        assert!(!crafter.accepts(ItemKind::IronPlate));
+        // Switching recipes hands back what it was holding.
+        assert_eq!(crafter.set_recipe(Some(Recipe::IronPipe)).len(), 4);
+    }
+
+    #[test]
+    fn machines_without_a_recipe_print_as_before() {
+        let miner = Machine::new(MachineKind::Miner, Pos::new(0, 0), Dir::East, None);
+        let text = format!("{miner:?}");
+        assert!(!text.contains("recipe"), "{text}");
+        assert!(text.ends_with("heat: 15, overheated: false }"), "{text}");
     }
 }

@@ -37,8 +37,9 @@ pub fn shop_window(
         .show(contexts.ctx_mut()?, |ui| {
             ui.heading(format!("🪙 {} coins", factory.coins));
             ui.label(
-                "The cargo train pays for what reaches your stations. Upgrades unlock a \
-                 higher tier= in your script; nothing changes until you use it.",
+                "The cargo train pays for what reaches your stations. Faster parts unlock a \
+                 higher tier= in your script (nothing changes until you use it). A bigger \
+                 island gives room to build right away.",
             );
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {

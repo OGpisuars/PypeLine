@@ -17,6 +17,11 @@ pub struct Island {
     pub root: Entity,
     /// Current bob offset in whole pixels (-1, 0 or 1).
     pub bob: f32,
+    /// How far the root is moved left, in whole pixels, so a bigger island
+    /// (which grows east) stays in the middle of the world.
+    pub shift: f32,
+    /// The plot it shows (see `grid::sync_plot`).
+    pub size: crate::factory::PlotSize,
 }
 
 #[derive(Component)]
@@ -41,7 +46,12 @@ fn spawn_island_root(mut commands: Commands) {
     let root = commands
         .spawn((Transform::default(), Visibility::default(), WORLD_LAYER))
         .id();
-    commands.insert_resource(Island { root, bob: 0.0 });
+    commands.insert_resource(Island {
+        root,
+        bob: 0.0,
+        shift: 0.0,
+        size: crate::factory::PlotSize::START,
+    });
 }
 
 fn bob_island(

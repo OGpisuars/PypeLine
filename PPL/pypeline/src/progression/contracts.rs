@@ -46,6 +46,8 @@ pub struct Progress {
     pub best: BTreeMap<String, Score>,
     /// How many hints the player has opened, per contract.
     pub hints_seen: BTreeMap<String, usize>,
+    /// Achievements earned, by id (see `achievements.rs`).
+    pub achievements: BTreeSet<String>,
 }
 
 impl Progress {

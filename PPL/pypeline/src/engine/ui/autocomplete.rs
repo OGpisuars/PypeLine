@@ -42,7 +42,10 @@ fn members(module: &str) -> Vec<Suggestion> {
         "conveyors" => vec![item("place(", "x, y, dir, tier=1")],
         "splitters" => vec![item("place(", "x, y, dir1, dir2, tier=1")],
         "machines" => vec![
-            item("place(", "kind, name, x, y, dir=\"east\", ore=..., tier=1"),
+            item(
+                "place(",
+                "kind, name, x, y, dir=\"east\", ore=..., tier=1, recipe=...",
+            ),
             item("enable(", "name  (in tick)"),
             item("disable(", "name  (in tick)"),
             item("status(", "name -> dict"),
@@ -72,6 +75,33 @@ fn members(module: &str) -> Vec<Suggestion> {
         ],
         _ => Vec::new(),
     }
+}
+
+/// The game's modules besides `auto`, in the order the cheat sheet lists them.
+const OTHER_MODULES: [&str; 5] = ["power", "console", "sensors", "stats", "clock"];
+
+/// Everything that can be imported and what is inside each module, for the
+/// cheat sheet: (the import line, [(function, what it takes or does)]).
+/// Made from the same lists as autocomplete, so the two always agree.
+pub fn cheat_sheet() -> Vec<(String, Vec<(String, String)>)> {
+    let rows = |module: &str| -> Vec<(String, String)> {
+        members(module)
+            .into_iter()
+            .map(|m| {
+                let name = m.insert.trim_end_matches(['(', ')']);
+                (format!("{module}.{name}()"), m.detail)
+            })
+            .collect()
+    };
+    let parts: Vec<String> = members("auto").into_iter().map(|m| m.insert).collect();
+    let auto_rows = parts.iter().flat_map(|part| rows(part)).collect();
+    std::iter::once((format!("from auto import {}", parts.join(", ")), auto_rows))
+        .chain(
+            OTHER_MODULES
+                .iter()
+                .map(|module| (format!("import {module}"), rows(module))),
+        )
+        .collect()
 }
 
 fn words(list: impl IntoIterator<Item = String>, detail: &str) -> Vec<Suggestion> {
@@ -109,6 +139,13 @@ pub fn suggest(line_before_cursor: &str) -> Option<Suggestions> {
         )
     } else if before.ends_with("ore=\"") || before.ends_with("ore='") {
         words(["iron".to_owned()], "ore")
+    } else if before.ends_with("recipe=\"") || before.ends_with("recipe='") {
+        words(
+            crate::factory::recipes::Recipe::ALL
+                .iter()
+                .map(|r| r.id().to_owned()),
+            "recipe",
+        )
     } else if before.ends_with("console.color(\"") || before.ends_with("console.color('") {
         words(
             ConsoleColor::NAMES
@@ -127,7 +164,9 @@ pub fn suggest(line_before_cursor: &str) -> Option<Suggestions> {
                 .map(|i| i.id().to_owned()),
             "item",
         )
-    } else if before.trim_start() == "from auto import " {
+    } else if before.trim_start().starts_with("from auto import ")
+        && (before.ends_with("import ") || before.ends_with(", "))
+    {
         members("auto")
     } else if before.trim_start() == "import " {
         words(
@@ -183,7 +222,11 @@ mod tests {
             vec!["iron"]
         );
         assert!(inserts("console.color(\"").contains(&"green".to_owned()));
-        assert_eq!(inserts("stats.produced(\"iron_p"), vec!["iron_plate"]);
+        assert_eq!(inserts("stats.produced(\"iron_pl"), vec!["iron_plate"]);
+        assert_eq!(
+            inserts("machines.place(\"crafter\", name=\"c\", x=0, y=0, recipe=\"iron_"),
+            vec!["iron_gear", "iron_pipe"]
+        );
     }
 
     #[test]
@@ -192,6 +235,7 @@ mod tests {
             inserts("from auto import "),
             vec!["conveyors", "machines", "splitters"]
         );
+        assert_eq!(inserts("from auto import machines, sp"), vec!["splitters"]);
         assert_eq!(inserts("import p"), vec!["power"]);
         assert_eq!(inserts("import st"), vec!["stats"]);
     }

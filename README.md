@@ -72,14 +72,15 @@ Press **Run** and the factory matches your script. Change it and run again: the 
 **Learn by building**
 - **Real Python**, not a made-up language. Variables, f-strings, loops, functions, lists and dicts, modules, events, `tick()` and generators.
 - **Engineering Manual (F2):** ten chapters and 22 contracts that pay coins and unlock the next chapter. Experienced coders can take each chapter's test to skip ahead.
+- **Cheat sheet** with every import and function on one page, generated from the same lists as autocomplete so it is never out of date.
 - **Help when stuck:** friendly error messages ("did you mean `conveyors`?"), hints that open one at a time, autocomplete, and snippets that unlock as you learn.
 - **Line debugger (F6):** record a run and step through it forwards and backwards, with your variables shown.
 
 **Run a real factory**
-- **Miners, belts, splitters, smelters, steam power and a cargo train**, all placed by your code. Brass wires pulse to show what powers what.
+- **Miners, belts, splitters, smelters, crafters, steam power and a cargo train**, all placed by your code. Crafters turn plates into gears, pipes and engines, with recipes you unlock through achievements. Brass wires pulse to show what powers what.
 - **`tick()` and events:** code that runs 20 times a second and reacts to train visits, with `sensors`, `stats` and `clock` to read the factory.
 - **Day, night and hot boilers:** big boilers overheat at noon unless your script eases off.
-- **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts and machines.
+- **Stats (F4)** with bottlenecks that blink on the island, and a **Shop** for faster belts and machines and bigger islands (up to 28 x 15).
 
 **Made to be comfortable**
 - **Code windows in the world:** like *The Farmer Was Replaced*, every file's window is part of the world. It pans and zooms with the island and stays where you park it, even far off screen. Open as many as you like, and brass cables link the files that import each other.
@@ -109,6 +110,7 @@ Press **Run** and the factory matches your script. Change it and run again: the 
 | **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match |
 | **Esc** or **☰ Menu** | Pause menu: Resume, Settings, Title screen, Quit |
 | **F1** / **F2** / **F3** / **F4** | Help / Manual / Shop / Stats |
+| **📋 Cheat sheet** | Every import and everything inside each module |
 | **F6**, then **F7** / **F8** | Debug: record a run, then step back / forward |
 | **Files > + New file** | Add a file (type `PPL` and it becomes `PPL.py`); use it with `import PPL` |
 | Drag empty space / **mouse wheel** | Move / zoom the world (**Home** centers it again) |

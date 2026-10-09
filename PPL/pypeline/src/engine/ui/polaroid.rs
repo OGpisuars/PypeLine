@@ -48,6 +48,19 @@ pub fn polaroid(
             if machine.kind == MachineKind::Smelter {
                 lines.push(format!("input: {}/{BUFFER_CAP}", machine.input.len()));
             }
+            if machine.kind == MachineKind::Crafter {
+                match machine.recipe {
+                    Some(recipe) => {
+                        lines.push(format!("making: {}", recipe.output().name()));
+                        for &(item, count) in recipe.inputs() {
+                            let held = machine.input.iter().filter(|&&i| i == item).count();
+                            lines.push(format!("  {}: {held}/{count}", item.name()));
+                        }
+                    }
+                    None => lines.push("no recipe yet".into()),
+                }
+                lines.push("click it to pick a recipe".into());
+            }
             lines.push(format!("output: {}/{BUFFER_CAP}", machine.output.len()));
             lines.push(format!("faces: {}", dir_name(machine.dir)));
         } else if machine.kind == MachineKind::Station {

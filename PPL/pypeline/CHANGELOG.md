@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Startup
 - Animated KiloKilo Games logo, drawn in code, with its own jingle.
-- PypeLine loading screen with a LOADING bar and a retro startup chime.
+- PypeLine loading screen with a LOADING bar and a retro startup chime. It always plays in full (keys and clicks no longer skip it), and its starry sky fills the whole window at any size.
 - Title menu with Play, Settings and Quit. The factory waits until Play; View > Title screen goes back.
 - Game icon on the window and built into `PypeLine.exe`.
 - Background music, "Joystick Sunday", with track and volume in Settings.
@@ -17,6 +17,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - macOS (one app for Apple Silicon and Intel) and Linux downloads next to the Windows one, built on every push.
 
 ### Playing
+- **Bigger islands** in the Shop: 20 x 12 (1500 coins), 24 x 14 (4000) and 28 x 15 (9000), each after the last. The plot grows east and north, so (0, 0) stays the bottom-left tile and every script keeps working; the island stays centered in the sky.
+- **Cheat sheet** (📋 in the top bar): every import, like `from auto import conveyors, machines, splitters`, and everything inside each module on one page, with a button to insert the imports into `main.py`.
+- **Crafters:** a machine with three input sides and one output that turns plates into iron gears and pipes, and gears, pipes and plates into engines. Click a crafter on the island to pick its recipe, or use `recipe="iron_gear"` in `machines.place`. Gears, pipes and engines sell for more than what goes into them.
+- **Achievements** (🏆 in the top bar): goals like "Make 25 iron plates" or "Build a splitter". Three of them unlock the crafter recipes.
+- Dragging a code window keeps up with the mouse at every zoom (it used to lag behind when zoomed out).
 - **Splitters:** `splitters.place(x, y, dir1, dir2)` takes items from any side and sends them out in turn, half toward `dir1` and half toward `dir2`. If one side is full, the other gets everything until there is room again.
 - Code windows are part of the world, like in The Farmer Was Replaced: they pan and zoom with the island and stay where you park them, even far off screen. The view can be dragged as far as you like (Home comes back).
 - **+ Window** in the top bar makes a new file in its own code window, where you are looking. Brass cables link each file to the files it imports.

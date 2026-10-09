@@ -132,9 +132,35 @@ const CARGO_CAR: [&str; 16] = [
     "................",
 ];
 
+/// A copper crafter with a gear in its window.
+const CRAFTER: [&str; 16] = [
+    "................",
+    "..kkkkkkkkkkkk..",
+    "..kcccccccccCk..",
+    "..kckkkkkkkkCk..",
+    "..kckllllllkCk..",
+    "..kcklkmmklkCk..",
+    "..kckmmllmmkCk..",
+    "..kckmlkklmkCk..",
+    "..kckmlkklmkCk..",
+    "..kckmmllmmkCk..",
+    "..kcklkmmklkCk..",
+    "..kckllllllkCk..",
+    "..kckkkkkkkkCk..",
+    "..kCCCCCCCCCCk..",
+    "..kDk......kDk..",
+    "..kkk......kkk..",
+];
+
 const ORE: [&str; 6] = [".kkkk.", "kgbggk", "kggggk", "kgggbk", "kggggk", ".kkkk."];
 
 const PLATE: [&str; 6] = ["kkkkkk", "kwpppk", "kppppk", "kppppk", "kpppdk", "kkkkkk"];
+
+const GEAR: [&str; 6] = [".k..k.", "kmllmk", ".lkkl.", ".lkkl.", "kmllmk", ".k..k."];
+
+const PIPE: [&str; 6] = ["......", "kkkkkk", "lppppl", "mddddm", "kkkkkk", "......"];
+
+const ENGINE: [&str; 6] = [".kkkk.", "kyyyYk", "kykkYk", "kYooYk", "kYYYYk", ".kkkk."];
 
 fn color_of(key: char) -> [u8; 4] {
     let [r, g, b] = match key {
@@ -272,10 +298,14 @@ pub struct SpriteSheet {
     smelter: Handle<Image>,
     generator: Handle<Image>,
     station: Handle<Image>,
+    crafter: Handle<Image>,
     pub locomotive: Handle<Image>,
     pub cargo_car: Handle<Image>,
     ore: Handle<Image>,
     plate: Handle<Image>,
+    gear: Handle<Image>,
+    pipe: Handle<Image>,
+    engine: Handle<Image>,
     /// `splitters[dir_index(first) * 4 + dir_index(second)]`.
     splitters: Vec<Handle<Image>>,
 }
@@ -298,6 +328,7 @@ impl SpriteSheet {
             MachineKind::Smelter => self.smelter.clone(),
             MachineKind::SteamGenerator => self.generator.clone(),
             MachineKind::Station => self.station.clone(),
+            MachineKind::Crafter => self.crafter.clone(),
         }
     }
 
@@ -309,6 +340,9 @@ impl SpriteSheet {
         match item {
             ItemKind::IronOre => self.ore.clone(),
             ItemKind::IronPlate => self.plate.clone(),
+            ItemKind::IronGear => self.gear.clone(),
+            ItemKind::IronPipe => self.pipe.clone(),
+            ItemKind::Engine => self.engine.clone(),
         }
     }
 }
@@ -328,10 +362,14 @@ pub fn build_sprite_sheet(mut commands: Commands, mut images: ResMut<Assets<Imag
         smelter: images.add(to_image(&grid(&SMELTER))),
         generator: images.add(to_image(&grid(&GENERATOR))),
         station: images.add(to_image(&grid(&STATION))),
+        crafter: images.add(to_image(&grid(&CRAFTER))),
         locomotive: images.add(to_image(&grid(&LOCOMOTIVE))),
         cargo_car: images.add(to_image(&grid(&CARGO_CAR))),
         ore: images.add(to_image(&grid(&ORE))),
         plate: images.add(to_image(&grid(&PLATE))),
+        gear: images.add(to_image(&grid(&GEAR))),
+        pipe: images.add(to_image(&grid(&PIPE))),
+        engine: images.add(to_image(&grid(&ENGINE))),
         splitters: Dir::ALL
             .iter()
             .flat_map(|&first| Dir::ALL.iter().map(move |&second| [first, second]))
@@ -351,6 +389,7 @@ mod tests {
             ("smelter", &SMELTER),
             ("generator", &GENERATOR),
             ("station", &STATION),
+            ("crafter", &CRAFTER),
             ("locomotive", &LOCOMOTIVE),
             ("cargo car", &CARGO_CAR),
         ] {
@@ -362,7 +401,7 @@ mod tests {
                 );
             }
         }
-        for rows in [&ORE[..], &PLATE] {
+        for rows in [&ORE[..], &PLATE, &GEAR, &PIPE, &ENGINE] {
             assert!(rows.iter().all(|row| row.len() == 6));
         }
         // Every color key is known (color_of panics otherwise).
@@ -371,10 +410,14 @@ mod tests {
             &SMELTER,
             &GENERATOR,
             &STATION,
+            &CRAFTER,
             &LOCOMOTIVE,
             &CARGO_CAR,
             &ORE,
             &PLATE,
+            &GEAR,
+            &PIPE,
+            &ENGINE,
         ] {
             rows.iter().flat_map(|r| r.chars()).for_each(|c| {
                 color_of(c);

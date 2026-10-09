@@ -32,6 +32,7 @@ impl Plugin for PypelinePlugin {
                 scripting::ScriptingPlugin,
                 progression::saves::SavePlugin,
                 progression::contracts::ContractPlugin,
+                progression::achievements::AchievementPlugin,
                 audio::GameAudioPlugin,
                 dev::DevPlugin,
             ))

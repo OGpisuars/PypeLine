@@ -8,8 +8,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::Factory;
+use std::collections::BTreeSet;
+
 use super::machines::MachineKind;
+use super::{Factory, PlotSize};
 
 /// Highest tier of anything.
 pub const MAX_TIER: u8 = 3;
@@ -22,6 +24,10 @@ pub enum Upgrade {
     MinerMk3,
     SmelterMk2,
     SmelterMk3,
+    /// Bigger islands, each one after the last.
+    IslandL,
+    IslandXl,
+    IslandXxl,
 }
 
 /// What an upgrade unlocks.
@@ -29,16 +35,20 @@ pub enum Upgrade {
 pub enum Unlocks {
     Belt { tier: u8 },
     Machine { kind: MachineKind, tier: u8 },
+    Island(PlotSize),
 }
 
 impl Upgrade {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 9] = [
         Self::FastBelt,
         Self::ExpressBelt,
         Self::MinerMk2,
         Self::MinerMk3,
         Self::SmelterMk2,
         Self::SmelterMk3,
+        Self::IslandL,
+        Self::IslandXl,
+        Self::IslandXxl,
     ];
 
     pub fn title(self) -> &'static str {
@@ -49,6 +59,9 @@ impl Upgrade {
             Self::MinerMk3 => "Miner Mk3",
             Self::SmelterMk2 => "Smelter Mk2",
             Self::SmelterMk3 => "Smelter Mk3",
+            Self::IslandL => "Bigger island (20 x 12)",
+            Self::IslandXl => "Bigger island (24 x 14)",
+            Self::IslandXxl => "Biggest island (28 x 15)",
         }
     }
 
@@ -60,6 +73,9 @@ impl Upgrade {
             Self::MinerMk3 => 3500,
             Self::SmelterMk2 => 1200,
             Self::SmelterMk3 => 5000,
+            Self::IslandL => 1500,
+            Self::IslandXl => 4000,
+            Self::IslandXxl => 9000,
         }
     }
 
@@ -83,6 +99,15 @@ impl Upgrade {
                 kind: MachineKind::Smelter,
                 tier: 3,
             },
+            Self::IslandL => Unlocks::Island(PlotSize {
+                width: 20,
+                height: 12,
+            }),
+            Self::IslandXl => Unlocks::Island(PlotSize {
+                width: 24,
+                height: 14,
+            }),
+            Self::IslandXxl => Unlocks::Island(PlotSize::BIGGEST),
         }
     }
 
@@ -92,6 +117,8 @@ impl Upgrade {
             Self::ExpressBelt => Some(Self::FastBelt),
             Self::MinerMk3 => Some(Self::MinerMk2),
             Self::SmelterMk3 => Some(Self::SmelterMk2),
+            Self::IslandXl => Some(Self::IslandL),
+            Self::IslandXxl => Some(Self::IslandXl),
             _ => None,
         }
     }
@@ -109,6 +136,11 @@ impl Upgrade {
                 speedup(tier),
                 kind.name()
             ),
+            Unlocks::Island(size) => format!(
+                "More room to build: x can go up to {} and y up to {}.",
+                size.width - 1,
+                size.height - 1
+            ),
         }
     }
 
@@ -125,6 +157,9 @@ impl Upgrade {
             }
             Self::SmelterMk2 => "machines.place(\"smelter\", name=\"smelter_1\", x=5, y=0, tier=2)",
             Self::SmelterMk3 => "machines.place(\"smelter\", name=\"smelter_1\", x=5, y=0, tier=3)",
+            Self::IslandL => "conveyors.place(x=19, y=11, dir=\"east\")",
+            Self::IslandXl => "conveyors.place(x=23, y=13, dir=\"east\")",
+            Self::IslandXxl => "conveyors.place(x=27, y=14, dir=\"east\")",
         }
     }
 }
@@ -168,6 +203,18 @@ pub fn machine_upgrade(kind: MachineKind, tier: u8) -> Option<Upgrade> {
     Upgrade::ALL
         .into_iter()
         .find(|u| u.unlocks() == Unlocks::Machine { kind, tier })
+}
+
+/// How big the plot is with these upgrades bought: the biggest island.
+pub fn plot_size(unlocked: &BTreeSet<Upgrade>) -> PlotSize {
+    unlocked
+        .iter()
+        .filter_map(|u| match u.unlocks() {
+            Unlocks::Island(size) => Some(size),
+            _ => None,
+        })
+        .max_by_key(|size| size.width)
+        .unwrap_or(PlotSize::START)
 }
 
 /// Does this kind of machine come in faster tiers?
@@ -226,6 +273,27 @@ mod tests {
             cannot_buy(&factory, Upgrade::SmelterMk2).as_deref(),
             Some("needs 300 more coins")
         );
+    }
+
+    #[test]
+    fn bigger_islands_grow_the_plot_in_order() {
+        let mut factory = Factory {
+            coins: 20_000,
+            ..Default::default()
+        };
+        assert_eq!(factory.plot(), PlotSize::START);
+        assert!(
+            factory.buy(Upgrade::IslandXl).is_err(),
+            "needs the first one"
+        );
+        factory.buy(Upgrade::IslandL).unwrap();
+        assert_eq!(factory.plot().width, 20);
+        factory.buy(Upgrade::IslandXl).unwrap();
+        factory.buy(Upgrade::IslandXxl).unwrap();
+        let biggest = factory.plot();
+        assert_eq!((biggest.width, biggest.height), (28, 15));
+        assert!(biggest.contains(crate::factory::Pos::new(27, 14)));
+        assert!(!biggest.contains(crate::factory::Pos::new(28, 0)));
     }
 
     #[test]

@@ -6,6 +6,20 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-09: Bigger islands
+
+- Three Shop upgrades grow the plot: 16 x 10 -> 20 x 12 -> 24 x 14 -> 28 x 15, bought in order. 28 x 15 is the most the 480 x 320 world holds: with its grass edges the island is then 30 tiles wide, and its top edge reaches the top row, above the dirt and the rail.
+- The plot grows east and north only, so (0, 0) is always the bottom-left tile and no script breaks. To keep the island centered, the island root (everything on the plot hangs off it) moves left by half the extra width, in whole tiles; the mouse-to-tile lookup and the cable cut-out follow that shift.
+- The size is derived from `Factory::unlocked` (`shop::plot_size`), not stored as a new field, so saves and the determinism hash are unchanged. The build plan learns the size from the bought upgrades in `WorldView` on every placement; "off the plot" errors say how far x and y go and point at the Shop.
+
+## 2026-10-09: Crafters, recipes and achievements
+
+- A crafter is a machine that needs power, takes items from any side and sends what it makes out of its `dir` side, so it has three input sides and one output. Recipes (`factory/recipes.rs`) use what the factory already makes: 2 plates -> gear, 1 plate -> pipe, gear + 2 pipes + plate -> engine. Each sells for more than its inputs (tested). It holds up to two crafts' worth of each ingredient, so one busy line cannot fill it while another ingredient is missing.
+- The recipe can be picked by clicking the crafter (a click is a press and release within 5 px, so it never fights dragging the world) or set with `recipe=` in `machines.place`. The script is still the source of truth: a `recipe=` wins on every Run, and without one a crafter keeps the recipe picked in the game. Changing recipe returns what it held to the station inventory.
+- Achievements (`progression/achievements.rs`) are checked once per game second and kept in `Progress`, saved with the factory. Three unlock the recipes; locked recipes fail `recipe=` with a message pointing at Achievements, and are greyed out in the picker with the achievement to earn. Because unlocks live in progress rather than the factory, the script runner copies them into `WorldView::recipes`.
+- `Machine` prints its recipe only when it has one (hand-written `Debug`) and saves skip it when empty, so existing factories hash and save exactly as before.
+- Code windows now use egui's drag-from-anywhere mode: its title-bar mode adds the raw mouse movement, which is too little when the window is drawn smaller (zoomed out). Widgets inside, like the code editor, still take their own drags.
+
 ## 2026-10-09: Splitters
 
 - `splitters.place(x, y, dir1, dir2, tier=1)`, in its own `auto.splitters` module so it reads like the rest of the build API. Splitters sit on a tile like belts, so they have no name.
@@ -38,6 +52,7 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 - A `Screen` state (`engine/screens.rs`) runs Logo → Boot → Menu → Playing. The factory's four `SimSet`s only run while Playing, so nothing ticks behind the menu; the game's windows and keys are gated the same way. Settings opens on the menu too. View > Title screen goes back.
 - The KiloKilo Games logo is drawn with egui's painter (vector shapes at window resolution), not as pixel sprites: it is the company mark, not game art, and has to stay crisp at any window size. Fades use colors mixed toward the paper instead of alpha, because the K's parts overlap and alpha would darken the overlaps.
 - The logo and loading screens count at most 1/20 s per frame, so a slow first frame (window creation, shader compiles) cannot skip the animation.
+- The loading screen is drawn on the screen camera, not the 480x320 canvas: the canvas only grows in whole steps, which left a band of sky around it on windows that are not a multiple of 480x320 (common on Linux). It uses the canvas's pixel scale, so it stays crisp, and its sky is big enough for any window. It cannot be skipped: it is under 3 seconds and the logo before it already can be.
 - Icon: `assets/icon/pypeline.png` (the team's art, with the white outside its rounded frame made transparent). `build.rs` resizes it to `$OUT_DIR/icon.rgba` for the window icon (set through `bevy::winit::WINIT_WINDOWS`, which needs a direct `winit` dependency matching the lockfile) and, when building for Windows, writes a .ico and builds it into the .exe with `embed-resource`. The build script watches the folder, not the file, so a missing file does not rerun it every build; without the file it falls back to the pixel icon drawn in `engine/icon_art.rs`. Wayland ignores window icons; the window's app id is `pypeline` for a future .desktop file.
 - Music: Joystick Sunday is an .ogg (converted from the team's mp3) built into the binary with `include_bytes!`, because the release zip ships only the .exe. Vorbis decoding was already compiled in, so no new crates. Settings picks the track (Joystick Sunday, the old chiptune loop, or off) and volume; it fades in over 2 s on the menu, and the logo and loading screens play only their own jingles.
 - New jingles: "ki-lo ki-lo!" for the logo and a brighter "pa-ling!" boot chime with an echo. Still original tunes, not any console's startup sound (roadmap BOOT SPLASH).

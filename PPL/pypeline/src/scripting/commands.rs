@@ -9,8 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
+use crate::factory::recipes::Recipe;
 use crate::factory::shop::{self, MAX_TIER, Upgrade};
-use crate::factory::{Dir, PLOT_HEIGHT, PLOT_WIDTH, Pos};
+use crate::factory::{Dir, PlotSize, Pos};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedMachine {
@@ -19,6 +20,27 @@ pub struct PlannedMachine {
     pub dir: Dir,
     pub ore: Option<ItemKind>,
     pub tier: u8,
+    /// Crafters: the recipe from `recipe=`. None keeps the one picked in
+    /// the game.
+    pub recipe: Option<Recipe>,
+}
+
+/// Check a `recipe=` against the recipes the player's achievements unlocked.
+pub fn recipe(id: &str, unlocked: &BTreeSet<Recipe>) -> Result<Recipe, String> {
+    let recipe = Recipe::by_id(id).ok_or_else(|| {
+        let known: Vec<String> = Recipe::ALL
+            .iter()
+            .map(|r| format!("\"{}\"", r.id()))
+            .collect();
+        format!("unknown recipe \"{id}\" (try {})", known.join(", "))
+    })?;
+    if !unlocked.contains(&recipe) {
+        return Err(format!(
+            "the {} recipe is locked: unlock it with an achievement (see Achievements in the top bar)",
+            recipe.output().name()
+        ));
+    }
+    Ok(recipe)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +127,8 @@ pub struct BuildPlan {
     pub machines: BTreeMap<String, PlannedMachine>,
     /// Machine name -> generator name.
     pub power: BTreeMap<String, String>,
+    /// How big the plot is (bigger islands come from the Shop).
+    pub size: PlotSize,
     /// What is on each tile, for clear "already taken" messages.
     taken: BTreeMap<Pos, String>,
 }
@@ -134,6 +158,12 @@ impl BuildPlan {
         if machine.kind != MachineKind::Miner && machine.ore.is_some() {
             return Err(format!(
                 "only miners take ore=, not a {}",
+                machine.kind.name()
+            ));
+        }
+        if machine.kind != MachineKind::Crafter && machine.recipe.is_some() {
+            return Err(format!(
+                "only crafters take recipe=, not a {}",
                 machine.kind.name()
             ));
         }
@@ -185,13 +215,18 @@ impl BuildPlan {
     }
 
     fn claim(&mut self, pos: Pos, what: String) -> Result<(), String> {
-        if !pos.in_plot() {
+        if !self.size.contains(pos) {
+            let more = if self.size != PlotSize::BIGGEST {
+                " (a bigger island in the Shop gives more room)"
+            } else {
+                ""
+            };
             return Err(format!(
-                "({}, {}) is off the plot: x must be 0-{} and y must be 0-{}",
+                "({}, {}) is off the plot: x must be 0-{} and y must be 0-{}{more}",
                 pos.x,
                 pos.y,
-                PLOT_WIDTH - 1,
-                PLOT_HEIGHT - 1
+                self.size.width - 1,
+                self.size.height - 1
             ));
         }
         if let Some(existing) = self.taken.get(&pos) {
@@ -213,7 +248,26 @@ mod tests {
             dir: Dir::East,
             ore: Some(ItemKind::IronOre),
             tier: 1,
+            recipe: None,
         }
+    }
+
+    #[test]
+    fn recipes_must_be_unlocked() {
+        let none = BTreeSet::new();
+        let err = recipe("iron_gear", &none).unwrap_err();
+        assert!(err.contains("locked"), "{err}");
+        assert!(
+            recipe("cake", &none)
+                .unwrap_err()
+                .contains("unknown recipe")
+        );
+        let unlocked = BTreeSet::from([Recipe::IronGear]);
+        assert_eq!(recipe("iron_gear", &unlocked), Ok(Recipe::IronGear));
+        let mut plan = BuildPlan::default();
+        let mut not_a_crafter = miner(0, 0);
+        not_a_crafter.recipe = Some(Recipe::IronGear);
+        assert!(plan.place_machine("m", not_a_crafter).is_err());
     }
 
     #[test]
@@ -256,7 +310,10 @@ mod tests {
         let mut plan = BuildPlan::default();
         let belt = PlannedBelt::new(Dir::East);
         assert!(plan.place_conveyor(Pos::new(-1, 0), belt).is_err());
-        assert!(plan.place_conveyor(Pos::new(PLOT_WIDTH, 0), belt).is_err());
+        assert!(
+            plan.place_conveyor(Pos::new(crate::factory::PLOT_WIDTH, 0), belt)
+                .is_err()
+        );
     }
 
     #[test]

@@ -70,14 +70,14 @@ pub fn state_of(
         MachineKind::SteamGenerator => MachineState::Working,
         MachineKind::Station if input >= STATION_CAP => MachineState::Blocked,
         MachineKind::Station => MachineState::Working,
-        MachineKind::Miner | MachineKind::Smelter => {
+        MachineKind::Miner | MachineKind::Smelter | MachineKind::Crafter => {
             if !enabled {
                 MachineState::Off
             } else if !powered {
                 MachineState::NoPower
             } else if output >= BUFFER_CAP {
                 MachineState::Blocked
-            } else if kind == MachineKind::Smelter && input == 0 {
+            } else if matches!(kind, MachineKind::Smelter | MachineKind::Crafter) && input == 0 {
                 MachineState::Starved
             } else {
                 MachineState::Working

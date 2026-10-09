@@ -5,8 +5,11 @@
 //! comes from the theme and font picked in Settings (see `themes.rs` and
 //! ASSET_LICENSES.md).
 
+pub mod achievements;
 pub mod autocomplete;
+pub mod cheat_sheet;
 pub mod console;
+pub mod crafter;
 pub mod debugger;
 pub mod editor;
 pub mod help;
@@ -41,6 +44,9 @@ impl Plugin for UiPlugin {
             .init_resource::<settings::SettingsWindow>()
             .init_resource::<shop::ShopWindow>()
             .init_resource::<pause_menu::PauseMenu>()
+            .init_resource::<achievements::AchievementsWindow>()
+            .init_resource::<crafter::RecipePicker>()
+            .init_resource::<cheat_sheet::CheatSheetWindow>()
             .init_resource::<stats_panel::StatsWindow>()
             .init_resource::<debugger::Debugger>()
             .insert_non_send(debugger::DebugRuntime(
@@ -87,6 +93,9 @@ impl Plugin for UiPlugin {
                     time_dials::time_dial_keys,
                     polaroid::polaroid,
                     hud::hud,
+                    crafter::recipe_picker,
+                    achievements::achievements_window,
+                    cheat_sheet::cheat_sheet_window,
                     pause_menu::pause_menu,
                 )
                     .chain()

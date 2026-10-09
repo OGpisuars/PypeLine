@@ -33,6 +33,8 @@ pub struct Toggles<'w> {
     prefs: ResMut<'w, super::settings::Settings>,
     screen: ResMut<'w, NextState<crate::engine::screens::Screen>>,
     pause: ResMut<'w, super::pause_menu::PauseMenu>,
+    achievements: ResMut<'w, super::achievements::AchievementsWindow>,
+    cheat_sheet: ResMut<'w, super::cheat_sheet::CheatSheetWindow>,
 }
 
 #[allow(clippy::too_many_arguments)] // A Bevy system: each argument is one resource or query.
@@ -133,6 +135,13 @@ pub fn top_bar(
                 toggles.help.open = !toggles.help.open;
             }
             if ui
+                .selectable_label(toggles.cheat_sheet.open, "📋 Cheat sheet")
+                .on_hover_text("Every import and everything inside each module")
+                .clicked()
+            {
+                toggles.cheat_sheet.open = !toggles.cheat_sheet.open;
+            }
+            if ui
                 .selectable_label(toggles.manual.open, "Manual (F2)")
                 .clicked()
             {
@@ -149,6 +158,13 @@ pub fn top_bar(
                 .clicked()
             {
                 toggles.stats.open = !toggles.stats.open;
+            }
+            if ui
+                .selectable_label(toggles.achievements.open, "🏆 Achievements")
+                .on_hover_text("Goals to reach; some unlock crafter recipes")
+                .clicked()
+            {
+                toggles.achievements.open = !toggles.achievements.open;
             }
             if ui
                 .button("☰ Menu")

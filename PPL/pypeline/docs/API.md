@@ -14,9 +14,9 @@ If the script has an error, nothing in the factory changes and the belts stop un
 
 ## The grid
 
-The plot is 16 tiles wide and 10 tiles tall.
+The plot starts 16 tiles wide and 10 tiles tall. Bigger islands from the Shop (F3) add room to the east and north, up to 28 by 15.
 
-x goes from 0 (left) to 15 (right). y goes from 0 (bottom) to 9 (top).
+x goes from 0 (left) to 15 (right) and y from 0 (bottom) to 9 (top); a bigger island lets them go higher. (0, 0) is always the bottom-left tile, so scripts keep working.
 
 Point at the island with the mouse to see a tile's x and y in the top-right corner.
 
@@ -46,6 +46,61 @@ import clock
 | `stats` | items made, items per minute, coins |
 | `clock` | the current tick and second |
 
+## Cheat sheet
+
+Everything inside each module, at a glance.
+
+### `from auto import conveyors, machines, splitters`
+
+| Name | What it is |
+|---|---|
+| `conveyors.place()` | x, y, dir, tier=1 |
+| `machines.place()` | kind, name, x, y, dir="east", ore=..., tier=1, recipe=... |
+| `machines.enable()` | name  (in tick) |
+| `machines.disable()` | name  (in tick) |
+| `machines.status()` | name -> dict |
+| `splitters.place()` | x, y, dir1, dir2, tier=1 |
+
+### `import power`
+
+| Name | What it is |
+|---|---|
+| `power.connect()` | generator, to=[names] |
+
+### `import console`
+
+| Name | What it is |
+|---|---|
+| `console.color()` | "green", "red", ... or "default" |
+| `console.clear()` | wipe the console |
+
+### `import sensors`
+
+| Name | What it is |
+|---|---|
+| `sensors.count()` | x, y -> items on that belt |
+| `sensors.temperature()` | generator -> degrees |
+
+### `import stats`
+
+| Name | What it is |
+|---|---|
+| `stats.produced()` | "iron_plate" -> total made |
+| `stats.per_minute()` | "iron_plate" -> made in the last minute |
+| `stats.coins()` | your coins |
+| `stats.bottlenecks()` | machines whose output is full |
+| `stats.steam()` | steam used so far |
+| `stats.steam_limit()` | steam available |
+
+### `import clock`
+
+| Name | What it is |
+|---|---|
+| `clock.tick()` | ticks so far |
+| `clock.seconds()` | seconds so far |
+| `clock.time_of_day()` | hour, 0-23 |
+| `clock.is_day()` | True from 6:00 to 18:00 |
+
 ## Names you can use
 
 ### Machine kinds: `machines.place("...")`
@@ -54,6 +109,7 @@ import clock
 |---|---|
 | `"miner"` | digs one ore every 2 s; needs ore="iron" and power |
 | `"smelter"` | turns ore into a plate every 3 s; needs power |
+| `"crafter"` | makes gears, pipes and engines from up to three inputs by a recipe; needs power |
 | `"steam_generator"` | powers machines you connect to it |
 | `"station"` | holds items; the train buys them every 30 s |
 
@@ -63,12 +119,23 @@ import clock
 |---|---|
 | `"iron_ore"` | iron ore: dug by miners; the train pays 1 |
 | `"iron_plate"` | iron plate: made by smelters from iron ore; the train pays 4 |
+| `"iron_gear"` | iron gear: made by crafters (recipe "iron_gear"); the train pays 12 |
+| `"iron_pipe"` | iron pipe: made by crafters (recipe "iron_pipe"); the train pays 6 |
+| `"engine"` | engine: made by crafters (recipe "engine"); the train pays 60 |
 
 ### Ores: `ore="..."`
 
 | Name | What it does |
 |---|---|
 | `"iron"` | digs iron ore |
+
+### Recipes: `recipe="..."`
+
+| Name | What it makes |
+|---|---|
+| `"iron_gear"` | 2 iron plates -> 1 iron gear (3 s); unlocked by the achievement "Hot Metal" |
+| `"iron_pipe"` | 1 iron plate -> 1 iron pipe (2 s); unlocked by the achievement "Fork in the Road" |
+| `"engine"` | 1 iron gear + 2 iron pipes + 1 iron plate -> 1 engine (6 s); unlocked by the achievement "Gear Head" |
 
 ### Directions: `dir="..."`
 
@@ -119,7 +186,7 @@ conveyors.place(x=4, y=6, dir="north")
 conveyors.place(x=4, y=4, dir="south")
 ```
 
-### `machines.place(kind, name, x, y, dir="east", ore=..., tier=1)`
+### `machines.place(kind, name, x, y, dir="east", ore=..., tier=1, recipe=...)`
 
 Builds a machine on tile (x, y). See "Names you can use" for the kinds.
 
@@ -128,6 +195,8 @@ name must be different for every machine. It is how power.connect and machines.e
 dir is the side items come out of (the small brass mark). Leave it out for east.
 
 Miners need ore="iron". tier=2 and tier=3 are faster machines from the Shop.
+
+Crafters take recipe="iron_gear" (see "Names you can use"), or click one on the island to pick its recipe. Recipes are unlocked by achievements.
 
 ```python
 machines.place("miner", name="miner_1", x=0, y=0, ore="iron")
@@ -291,7 +360,7 @@ A Debug Run uses its own copy of Python and never changes the factory, so press 
 
 ## The Shop and tiers
 
-The cargo train pays coins for everything in your stations. Spend them in the Shop (F3) on faster parts. A bought upgrade does nothing until your script asks for it with tier=, so you choose where the fast parts go.
+The cargo train pays coins for everything in your stations. Spend them in the Shop (F3) on faster parts and bigger islands. A faster part does nothing until your script asks for it with tier=, so you choose where the fast parts go. A bigger island gives room to build straight away.
 
 | Upgrade | What it does |
 |---|---|
@@ -301,6 +370,9 @@ The cargo train pays coins for everything in your stations. Spend them in the Sh
 | `Miner Mk3 (3500 coins)` | Miners work 4x as fast. Use tier=3 in machines.place("miner", ...). |
 | `Smelter Mk2 (1200 coins)` | Smelters work 2x as fast. Use tier=2 in machines.place("smelter", ...). |
 | `Smelter Mk3 (5000 coins)` | Smelters work 4x as fast. Use tier=3 in machines.place("smelter", ...). |
+| `Bigger island (20 x 12) (1500 coins)` | More room to build: x can go up to 19 and y up to 11. |
+| `Bigger island (24 x 14) (4000 coins)` | More room to build: x can go up to 23 and y up to 13. |
+| `Biggest island (28 x 15) (9000 coins)` | More room to build: x can go up to 27 and y up to 14. |
 
 Changing a tier keeps the machine's items. Tier 3 is the highest for now.
 

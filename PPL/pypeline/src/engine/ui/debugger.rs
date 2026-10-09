@@ -84,13 +84,17 @@ pub fn run_debugger(
     workspace: Res<Workspace>,
     factory: Res<Factory>,
     history: Res<ProductionHistory>,
+    progress: Res<crate::progression::contracts::Progress>,
     runtime: NonSend<DebugRuntime>,
 ) {
     if !std::mem::take(&mut debugger.requested) {
         return;
     }
     let runtime = &runtime.0;
-    runtime.set_world(WorldView::of(&factory, history.per_minute(&factory)));
+    runtime.set_world(WorldView {
+        recipes: progress.recipes(),
+        ..WorldView::of(&factory, history.per_minute(&factory))
+    });
     let (report, steps, truncated) = runtime.debug_program(&workspace.program(), DEPLOY_BUDGET);
     debugger.recording = Some(Recording {
         steps,

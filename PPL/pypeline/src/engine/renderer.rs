@@ -191,6 +191,17 @@ fn sync_layout(
             ));
         }
 
+        // A crafter shows what it makes in its window.
+        if let Some(recipe) = machine.recipe {
+            commands.spawn((
+                Sprite::from_image(sheet.item(recipe.output())),
+                Transform::from_translation(center + Vec3::new(0.0, 0.0, 0.3)),
+                LayoutSprite,
+                WORLD_LAYER,
+                ChildOf(island.root),
+            ));
+        }
+
         // A small brass port on the side items come out of.
         if machine.kind.has_output() {
             let (dx, dy) = machine.dir.offset();

@@ -11,8 +11,10 @@ use super::editor::Workspace;
 use crate::factory::Dir;
 use crate::factory::items::{self, ItemKind};
 use crate::factory::machines::{MINE_TICKS, MachineKind, SMELT_TICKS};
+use crate::factory::recipes::Recipe;
 use crate::factory::shop::{self, Upgrade};
 use crate::factory::train;
+use crate::progression::achievements;
 use crate::scripting::console_api::ConsoleColor;
 
 #[derive(Resource, Default)]
@@ -64,13 +66,15 @@ const KEYS: &[(&str, &str)] = &[
 ];
 
 const GRID: &[&str] = &[
-    "The plot is 16 tiles wide and 10 tiles tall.",
-    "x goes from 0 (left) to 15 (right). y goes from 0 (bottom) to 9 (top).",
+    "The plot starts 16 tiles wide and 10 tiles tall. Bigger islands from the Shop (F3) add \
+     room to the east and north, up to 28 by 15.",
+    "x goes from 0 (left) to 15 (right) and y from 0 (bottom) to 9 (top); a bigger island \
+     lets them go higher. (0, 0) is always the bottom-left tile, so scripts keep working.",
     "Point at the island with the mouse to see a tile's x and y in the top-right corner.",
     "Directions: \"north\" is up, \"east\" is right, \"south\" is down, \"west\" is left.",
 ];
 
-const IMPORTS: &str = "from auto import conveyors, machines, splitters\n\
+pub(super) const IMPORTS: &str = "from auto import conveyors, machines, splitters\n\
                        import power\n\
                        import console\n\
                        import sensors\n\
@@ -119,13 +123,15 @@ const BUILD: &[Command] = &[
                   conveyors.place(x=4, y=4, dir=\"south\")\n",
     },
     Command {
-        signature: "machines.place(kind, name, x, y, dir=\"east\", ore=..., tier=1)",
+        signature: "machines.place(kind, name, x, y, dir=\"east\", ore=..., tier=1, recipe=...)",
         about: &[
             "Builds a machine on tile (x, y). See \"Names you can use\" for the kinds.",
             "name must be different for every machine. It is how power.connect and \
              machines.enable find it.",
             "dir is the side items come out of (the small brass mark). Leave it out for east.",
             "Miners need ore=\"iron\". tier=2 and tier=3 are faster machines from the Shop.",
+            "Crafters take recipe=\"iron_gear\" (see \"Names you can use\"), or click one on \
+             the island to pick its recipe. Recipes are unlocked by achievements.",
         ],
         example: "machines.place(\"miner\", name=\"miner_1\", x=0, y=0, ore=\"iron\")\n\
                   machines.place(\"smelter\", name=\"smelter_1\", x=5, y=0)\n\
@@ -376,6 +382,9 @@ fn machine_rows() -> Vec<(String, String)> {
                     "turns ore into a plate every {} s; needs power",
                     SMELT_TICKS / 20
                 ),
+                MachineKind::Crafter => "makes gears, pipes and engines from up to three inputs \
+                                         by a recipe; needs power"
+                    .to_owned(),
                 MachineKind::SteamGenerator => "powers machines you connect to it".to_owned(),
                 MachineKind::Station => format!(
                     "holds items; the train buys them every {} s",
@@ -394,6 +403,9 @@ fn item_rows() -> Vec<(String, String)> {
             let made = match item {
                 ItemKind::IronOre => "dug by miners",
                 ItemKind::IronPlate => "made by smelters from iron ore",
+                ItemKind::IronGear => "made by crafters (recipe \"iron_gear\")",
+                ItemKind::IronPipe => "made by crafters (recipe \"iron_pipe\")",
+                ItemKind::Engine => "made by crafters (recipe \"engine\")",
             };
             (
                 format!("\"{}\"", item.id()),
@@ -402,6 +414,21 @@ fn item_rows() -> Vec<(String, String)> {
                     item.name(),
                     train::price(item)
                 ),
+            )
+        })
+        .collect()
+}
+
+fn recipe_rows() -> Vec<(String, String)> {
+    Recipe::ALL
+        .iter()
+        .map(|&recipe| {
+            let unlock = achievements::unlocked_by(recipe)
+                .map(|a| format!("; unlocked by the achievement \"{}\"", a.title))
+                .unwrap_or_default();
+            (
+                format!("\"{}\"", recipe.id()),
+                format!("{}{unlock}", recipe.describe()),
             )
         })
         .collect()
@@ -447,8 +474,9 @@ fn upgrade_rows() -> Vec<(String, String)> {
 }
 
 const SHOP_INTRO: &str = "The cargo train pays coins for everything in your stations. Spend \
-     them in the Shop (F3) on faster parts. A bought upgrade does nothing until your script \
-     asks for it with tier=, so you choose where the fast parts go.";
+     them in the Shop (F3) on faster parts and bigger islands. A faster part does nothing until \
+     your script asks for it with tier=, so you choose where the fast parts go. A bigger island \
+     gives room to build straight away.";
 const PRESTIGE: &str = "Start over with a fresh factory and keep a permanent bonus. Every \
      prestige switches your scripts to a different programming language, and the higher you \
      go, the trickier and fussier the language gets.";
@@ -462,6 +490,9 @@ fn names(ui: &mut egui::Ui) {
     ui.add_space(6.0);
     ui.label(egui::RichText::new("Ores: ore=\"...\"").strong());
     table(ui, "ore_names", ore_rows().into_iter());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new("Recipes: recipe=\"...\"").strong());
+    table(ui, "recipe_names", recipe_rows().into_iter());
     ui.add_space(6.0);
     ui.label(egui::RichText::new("Directions: dir=\"...\"").strong());
     table(ui, "dir_names", dir_rows().into_iter());
@@ -524,12 +555,19 @@ pub fn api_markdown() -> String {
         .map(|(m, v)| (m.to_string(), v.to_string()))
         .collect();
     table(&mut md, ("Module", "What it is for"), &modules);
+    md.push_str("## Cheat sheet\n\nEverything inside each module, at a glance.\n\n");
+    for (heading, rows) in super::autocomplete::cheat_sheet() {
+        let _ = writeln!(md, "### `{heading}`\n");
+        table(&mut md, ("Name", "What it is"), &rows);
+    }
     md.push_str("## Names you can use\n\n### Machine kinds: `machines.place(\"...\")`\n\n");
     table(&mut md, ("Name", "What it does"), &machine_rows());
     md.push_str("### Items: `stats.produced(\"...\")`\n\n");
     table(&mut md, ("Name", "What it is"), &item_rows());
     md.push_str("### Ores: `ore=\"...\"`\n\n");
     table(&mut md, ("Name", "What it does"), &ore_rows());
+    md.push_str("### Recipes: `recipe=\"...\"`\n\n");
+    table(&mut md, ("Name", "What it makes"), &recipe_rows());
     md.push_str("### Directions: `dir=\"...\"`\n\n");
     table(&mut md, ("Name", "Which way"), &dir_rows());
     let _ = writeln!(
@@ -596,7 +634,7 @@ fn paragraphs(ui: &mut egui::Ui, lines: &[&str]) {
     }
 }
 
-fn table(ui: &mut egui::Ui, id: &str, rows: impl Iterator<Item = (String, String)>) {
+pub(super) fn table(ui: &mut egui::Ui, id: &str, rows: impl Iterator<Item = (String, String)>) {
     egui::Grid::new(id)
         .num_columns(2)
         .spacing([12.0, 4.0])
@@ -611,7 +649,7 @@ fn table(ui: &mut egui::Ui, id: &str, rows: impl Iterator<Item = (String, String
 }
 
 /// Shows example code with a button that appends it to main.py.
-fn example(ui: &mut egui::Ui, workspace: &mut Workspace, code: &str) {
+pub(super) fn example(ui: &mut egui::Ui, workspace: &mut Workspace, code: &str) {
     egui::Frame::new()
         .fill(ui.visuals().code_bg_color)
         .stroke(egui::Stroke::new(1.0, ui.visuals().window_stroke.color))
@@ -634,6 +672,19 @@ mod tests {
     use crate::scripting::operate::WorldView;
     use crate::scripting::reconcile;
     use crate::scripting::runtime::{EventArg, HookOutcome, RunOutcome, ScriptRuntime};
+
+    /// Everything on the cheat sheet really is in the game's modules.
+    #[test]
+    fn cheat_sheet_names_exist() {
+        let mut script = IMPORTS.to_owned();
+        for (_, rows) in super::super::autocomplete::cheat_sheet() {
+            for (name, _) in rows {
+                script.push_str(&format!("_ = {}\n", name.trim_end_matches("()")));
+            }
+        }
+        let report = ScriptRuntime::new().run(&script, DEPLOY_BUDGET);
+        assert_eq!(report.outcome, RunOutcome::Finished, "{script}");
+    }
 
     /// Every example in the Help window must run (roadmap Part 4 E). Inserted
     /// in order after the imports, they form one working script, and its

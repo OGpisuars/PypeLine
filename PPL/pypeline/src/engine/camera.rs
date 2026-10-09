@@ -314,10 +314,16 @@ fn track_hovered_tile(
         .cursor_position()
         .filter(|_| !over_ui)
         .and_then(|cursor| camera.viewport_to_world_2d(transform, cursor).ok())
-        // From screen-camera space to canvas space; the plot also bobs.
+        // From screen-camera space to canvas space, then to the island's
+        // own space: it bobs, and a bigger island is moved left to stay
+        // centered.
         .map(|world| world - canvas.translation.truncate())
-        .map(|world| world - Vec2::new(0.0, island.as_ref().map_or(0.0, |i| i.bob)))
-        .and_then(world_to_plot);
+        .and_then(|world| match &island {
+            Some(island) => {
+                world_to_plot(world - Vec2::new(-island.shift, island.bob), island.size)
+            }
+            None => world_to_plot(world, crate::factory::PlotSize::START),
+        });
     if hovered.0 != tile {
         hovered.0 = tile;
     }

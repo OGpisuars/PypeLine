@@ -1,12 +1,13 @@
 //! The loading screen: gold PYPELINE lettering over a starry sky with the
 //! boot chime and a filling LOADING bar (roadmap Part 1 BOOT SPLASH). Comes
 //! after the KiloKilo Games logo and leads to the title menu. Under 3
-//! seconds, skippable with any key or click. Original design: no logo drop,
-//! no console startup sound.
+//! seconds and not skippable. It is drawn on the screen camera, not the
+//! 480x320 canvas, so the sky fills the whole window. Original design: no
+//! logo drop, no console startup sound.
 
 use bevy::prelude::*;
 
-use super::camera::{RES_HEIGHT, RES_WIDTH, WORLD_LAYER};
+use super::camera::{RES_HEIGHT, RES_WIDTH, SCREEN_LAYER};
 use super::screens::Screen;
 use super::sprites::{grid, to_image};
 use crate::audio::SoundCue;
@@ -20,6 +21,11 @@ const TITLE_SCALE: f32 = 4.0;
 const BAR_WIDTH: f32 = 96.0;
 const BAR_HEIGHT: f32 = 4.0;
 const BAR_Y: f32 = -44.0;
+/// The starry sky reaches this far from the middle, in canvas pixels: past
+/// the edges of any window, at any zoom the canvas can have.
+const SKY_HALF: Vec2 = Vec2::new(1200.0, 800.0);
+/// Stars per canvas-sized piece of sky.
+const STARS_PER_CANVAS: u32 = 48;
 
 /// 5x7 pixel letters for the title.
 pub fn letter(c: char) -> [&'static str; 7] {
@@ -130,23 +136,22 @@ fn show_splash(
             sprite,
             Transform::from_translation(at),
             SplashPart { alpha },
-            WORLD_LAYER,
+            SCREEN_LAYER,
         ));
     };
     part(
-        Sprite::from_color(
-            Color::srgb_u8(24, 24, 56),
-            Vec2::new(RES_WIDTH as f32, RES_HEIGHT as f32),
-        ),
+        Sprite::from_color(Color::srgb_u8(24, 24, 56), SKY_HALF * 2.0),
         Vec3::new(0.0, 0.0, Z_SPLASH),
     );
     // Stars at fixed spots from a tiny generator, so they never change.
+    let (sky_w, sky_h) = ((SKY_HALF.x * 2.0) as u32, (SKY_HALF.y * 2.0) as u32);
+    let stars = STARS_PER_CANVAS * sky_w * sky_h / (RES_WIDTH * RES_HEIGHT);
     let mut seed: u32 = 7;
-    for _ in 0..48 {
+    for _ in 0..stars {
         seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-        let x = (seed >> 8) % RES_WIDTH;
+        let x = (seed >> 8) % sky_w;
         seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-        let y = (seed >> 8) % RES_HEIGHT;
+        let y = (seed >> 8) % sky_h;
         let bright = (seed >> 4).is_multiple_of(3);
         let size = if bright { 2.0 } else { 1.0 };
         let color = if bright {
@@ -158,8 +163,8 @@ fn show_splash(
         part(
             Sprite::from_color(color, Vec2::splat(size)),
             Vec3::new(
-                x as f32 - RES_WIDTH as f32 / 2.0 + half,
-                y as f32 - RES_HEIGHT as f32 / 2.0 + half,
+                x as f32 - SKY_HALF.x + half,
+                y as f32 - SKY_HALF.y + half,
                 Z_SPLASH + 0.1,
             ),
         );
@@ -222,7 +227,7 @@ fn show_splash(
         Transform::from_xyz(-BAR_WIDTH / 2.0, BAR_Y, Z_SPLASH + 0.4),
         SplashPart { alpha: 1.0 },
         BarFill,
-        WORLD_LAYER,
+        SCREEN_LAYER,
     ));
 }
 
@@ -242,17 +247,13 @@ fn hide_splash(mut commands: Commands, parts: Query<Entity, With<SplashPart>>) {
 
 fn run_splash(
     time: Res<Time<Real>>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
     mut splash: ResMut<Splash>,
     mut parts: Query<(&SplashPart, &mut Sprite, &mut Transform, Has<BarFill>)>,
     mut next: ResMut<NextState<Screen>>,
 ) {
     // Capped like the logo's clock, so a slow first frame cannot skip it.
     splash.remaining -= time.delta_secs().min(0.05);
-    let skipped =
-        keys.get_just_pressed().next().is_some() || mouse.get_just_pressed().next().is_some();
-    if splash.remaining <= 0.0 || skipped {
+    if splash.remaining <= 0.0 {
         next.set(Screen::Menu);
         return;
     }

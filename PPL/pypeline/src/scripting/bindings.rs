@@ -21,6 +21,7 @@ use super::operate::{ApiMode, Op, WorldView};
 use crate::factory::items;
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
+use crate::factory::shop;
 use crate::factory::{Dir, Pos};
 
 /// The game's own top-level modules. Anything else a script imports is one
@@ -72,6 +73,8 @@ struct MachineArgs {
     ore: Option<PyStrRef>,
     #[pyarg(any, optional)]
     tier: Option<i64>,
+    #[pyarg(any, optional)]
+    recipe: Option<PyStrRef>,
 }
 
 #[derive(FromArgs)]
@@ -119,8 +122,10 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                         .map_err(|msg| vm.new_value_error(msg))?,
                     ..PlannedBelt::new(facing)
                 };
-                plan.borrow_mut()
-                    .place_conveyor(pos, belt)
+                let mut plan = plan.borrow_mut();
+                // As big as the island bought in the Shop.
+                plan.size = shop::plot_size(&world.borrow().unlocked);
+                plan.place_conveyor(pos, belt)
                     .map_err(|msg| vm.new_value_error(msg))
             },
         )
@@ -143,8 +148,10 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                 splitter.tier =
                     commands::belt_tier(args.tier.unwrap_or(1), &world.borrow().unlocked)
                         .map_err(|msg| vm.new_value_error(msg))?;
-                plan.borrow_mut()
-                    .place_conveyor(pos, splitter)
+                let mut plan = plan.borrow_mut();
+                // As big as the island bought in the Shop.
+                plan.size = shop::plot_size(&world.borrow().unlocked);
+                plan.place_conveyor(pos, splitter)
                     .map_err(|msg| vm.new_value_error(msg))
             },
         )
@@ -183,6 +190,13 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                 let tier =
                     commands::machine_tier(kind, args.tier.unwrap_or(1), &world.borrow().unlocked)
                         .map_err(|msg| vm.new_value_error(msg))?;
+                let recipe = match &args.recipe {
+                    Some(id) => Some(
+                        commands::recipe(&text(id, vm)?, &world.borrow().recipes)
+                            .map_err(|msg| vm.new_value_error(msg))?,
+                    ),
+                    None => None,
+                };
                 let machine = PlannedMachine {
                     kind,
                     pos: pos(args.x, args.y, vm)?,
@@ -192,9 +206,12 @@ pub fn build_modules(vm: &VirtualMachine, ctx: &ScriptContext) -> PyResult<Modul
                     },
                     ore,
                     tier,
+                    recipe,
                 };
-                plan.borrow_mut()
-                    .place_machine(&text(&args.name, vm)?, machine)
+                let mut plan = plan.borrow_mut();
+                // As big as the island bought in the Shop.
+                plan.size = shop::plot_size(&world.borrow().unlocked);
+                plan.place_machine(&text(&args.name, vm)?, machine)
                     .map_err(|msg| vm.new_value_error(msg))
             },
         )

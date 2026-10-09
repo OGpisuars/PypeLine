@@ -8,16 +8,29 @@
 pub enum ItemKind {
     IronOre,
     IronPlate,
+    /// Crafted from plates (see `recipes.rs`).
+    IronGear,
+    IronPipe,
+    Engine,
 }
 
 impl ItemKind {
-    pub const ALL: [Self; 2] = [Self::IronOre, Self::IronPlate];
+    pub const ALL: [Self; 5] = [
+        Self::IronOre,
+        Self::IronPlate,
+        Self::IronGear,
+        Self::IronPipe,
+        Self::Engine,
+    ];
 
     /// The name used in Python: `stats.produced("iron_plate")`.
     pub fn id(self) -> &'static str {
         match self {
             Self::IronOre => "iron_ore",
             Self::IronPlate => "iron_plate",
+            Self::IronGear => "iron_gear",
+            Self::IronPipe => "iron_pipe",
+            Self::Engine => "engine",
         }
     }
 
@@ -29,6 +42,9 @@ impl ItemKind {
         match self {
             Self::IronOre => "iron ore",
             Self::IronPlate => "iron plate",
+            Self::IronGear => "iron gear",
+            Self::IronPipe => "iron pipe",
+            Self::Engine => "engine",
         }
     }
 }
@@ -45,6 +61,6 @@ pub fn ore_by_name(name: &str) -> Option<ItemKind> {
 pub fn smelt(input: ItemKind) -> Option<ItemKind> {
     match input {
         ItemKind::IronOre => Some(ItemKind::IronPlate),
-        ItemKind::IronPlate => None,
+        _ => None,
     }
 }

@@ -48,7 +48,7 @@ fn locked_tiers_fail_on_their_line() {
 fn bought_tiers_make_more() {
     let plates_after_a_minute = |tier: u8| {
         let mut factory = Factory {
-            coins: 20_000,
+            coins: 50_000,
             ..Default::default()
         };
         for upgrade in Upgrade::ALL {
@@ -87,4 +87,18 @@ fn upgrading_keeps_items_and_upgrades_survive_a_clean_run() {
     factory.clean_reset();
     assert!(factory.unlocked.contains(&Upgrade::FastBelt));
     assert_eq!(factory.coins, 400);
+}
+
+#[test]
+fn a_bigger_island_has_room_to_build() {
+    let far_corner = "from auto import conveyors\nconveyors.place(x=19, y=11, dir=\"east\")\n";
+    let mut factory = Factory {
+        coins: 2000,
+        ..Default::default()
+    };
+    let err = build(&mut factory, far_corner).unwrap_err();
+    assert!(err.contains("off the plot"), "{err}");
+    factory.buy(Upgrade::IslandL).unwrap();
+    build(&mut factory, far_corner).unwrap();
+    assert_eq!(factory.conveyors.len(), 1);
 }

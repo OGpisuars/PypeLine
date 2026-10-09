@@ -104,6 +104,13 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
                     m.tier = planned.tier;
                     report.changed += 1;
                 }
+                // A crafter's recipe= wins; without one it keeps the recipe
+                // picked in the game. A new recipe returns what it held.
+                if planned.recipe.is_some() && m.recipe != planned.recipe {
+                    let held = m.set_recipe(planned.recipe);
+                    factory.stash(held);
+                    report.changed += 1;
+                }
             }
             existing => {
                 // Moved or a different kind: rebuild it, keeping its items.
@@ -116,6 +123,7 @@ pub fn apply(factory: &mut Factory, plan: &BuildPlan) -> ReconcileReport {
                 }
                 let mut machine = Machine::new(planned.kind, planned.pos, planned.dir, planned.ore);
                 machine.tier = planned.tier;
+                machine.recipe = planned.recipe;
                 factory.machines.insert(name.clone(), machine);
             }
         }

@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::factory::items::ItemKind;
 use crate::factory::machines::MachineKind;
+use crate::factory::recipes::Recipe;
 use crate::factory::shop::Upgrade;
 use crate::factory::stats::{self, MachineState};
 use crate::factory::{Factory, Pos};
@@ -51,6 +52,10 @@ pub struct WorldView {
     pub belts: BTreeMap<Pos, usize>,
     /// Shop upgrades bought, which decide the `tier=` main.py may use.
     pub unlocked: BTreeSet<Upgrade>,
+    /// Recipes unlocked by achievements, which decide the `recipe=` it may
+    /// use. Achievements live in the player's progress, not the factory, so
+    /// whoever runs the script fills this in.
+    pub recipes: BTreeSet<Recipe>,
 }
 
 impl WorldView {
@@ -86,6 +91,7 @@ impl WorldView {
                 .map(|(&pos, belt)| (pos, belt.items.len()))
                 .collect(),
             unlocked: factory.unlocked.clone(),
+            recipes: BTreeSet::new(),
         }
     }
 }

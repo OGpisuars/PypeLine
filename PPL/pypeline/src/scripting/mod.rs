@@ -203,6 +203,7 @@ fn run_pending_script(
     mut handlers: ResMut<DefinedHandlers>,
     history: Res<crate::factory::ProductionHistory>,
     tick: Res<SimTick>,
+    progress: Res<crate::progression::contracts::Progress>,
 ) {
     if std::mem::take(&mut requests.stop) {
         factory.halted = true;
@@ -213,10 +214,11 @@ fn run_pending_script(
         return;
     };
     let clean = std::mem::take(&mut requests.clean);
-    runtime.set_world(operate::WorldView::of(
-        &factory,
-        history.per_minute(&factory),
-    ));
+    runtime.set_world(operate::WorldView {
+        // The recipe= main.py may use: unlocked by achievements.
+        recipes: progress.recipes(),
+        ..operate::WorldView::of(&factory, history.per_minute(&factory))
+    });
 
     console.push(ConsoleKind::Info, format!("> Run (tick {})", tick.0));
     let report = runtime.run_program(&program, DEPLOY_BUDGET);

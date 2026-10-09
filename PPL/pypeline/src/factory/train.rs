@@ -19,6 +19,10 @@ pub fn price(item: ItemKind) -> u64 {
     match item {
         ItemKind::IronOre => 1,
         ItemKind::IronPlate => 4,
+        // Worth more than what goes into them, so crafting pays.
+        ItemKind::IronGear => 12,
+        ItemKind::IronPipe => 6,
+        ItemKind::Engine => 60,
     }
 }
 

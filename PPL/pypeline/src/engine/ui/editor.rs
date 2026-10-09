@@ -376,6 +376,12 @@ pub fn code_windows(
         let shown = window
             .current_pos(terminals::to_layer(spot))
             .constrain_to(terminals::WORLD_BOUNDS)
+            // egui's title-bar drag adds the raw mouse movement, which is
+            // too slow when zoomed out (the window is drawn smaller). Its
+            // drag-from-anywhere mode scales the movement to the window, so
+            // the window keeps up with the mouse. Widgets inside, like the
+            // code editor, still take their own drags first.
+            .drag_area(egui::WindowDrag::Anywhere)
             .show(&ctx, |ui| {
                 let marked = match &error_line.0 {
                     Some((name, line)) if *name == file.name => Some(*line),
@@ -428,8 +434,13 @@ pub fn code_windows(
     // Where the island is on screen (it bobs up and down by a pixel), so
     // cables pass behind it.
     let island_rect = {
-        let outline = crate::engine::grid::island_canvas_rect();
-        let lift = Vec2::new(0.0, island.as_ref().map_or(0.0, |i| i.bob));
+        let size = island.as_ref().map_or_else(Default::default, |i| i.size);
+        let outline = crate::engine::grid::island_canvas_rect(size);
+        // Canvas y grows down: bobbing up lifts it; a bigger island is
+        // moved left to stay centered.
+        let lift = island
+            .as_ref()
+            .map_or(Vec2::ZERO, |i| Vec2::new(i.shift, i.bob));
         let min = canvas.to_screen(outline.min - lift);
         let max = canvas.to_screen(outline.max - lift);
         egui::Rect::from_min_max(egui::pos2(min.x, min.y), egui::pos2(max.x, max.y))

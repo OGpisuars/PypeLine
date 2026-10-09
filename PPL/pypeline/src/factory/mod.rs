@@ -8,6 +8,7 @@ pub mod conveyors;
 pub mod daynight;
 pub mod items;
 pub mod machines;
+pub mod recipes;
 pub mod shop;
 pub mod stats;
 pub mod thermal;
@@ -25,9 +26,42 @@ use conveyors::Conveyor;
 use items::ItemKind;
 use machines::{Machine, MachineKind};
 
-/// Buildable area of the plot, in tiles.
+/// Buildable area of the plot at the start, in tiles. Bigger islands are
+/// bought in the Shop (`shop::plot_size`).
 pub const PLOT_WIDTH: i32 = 16;
 pub const PLOT_HEIGHT: i32 = 10;
+
+/// The size of the buildable plot, in tiles. It grows to the east and the
+/// north, so (0, 0) is always the bottom-left tile and scripts keep working.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlotSize {
+    pub width: i32,
+    pub height: i32,
+}
+
+impl PlotSize {
+    pub const START: Self = Self {
+        width: PLOT_WIDTH,
+        height: PLOT_HEIGHT,
+    };
+
+    /// The biggest island the Shop sells: with its grass edges it spans
+    /// the whole 30-tile-wide world.
+    pub const BIGGEST: Self = Self {
+        width: 28,
+        height: 15,
+    };
+
+    pub fn contains(self, pos: Pos) -> bool {
+        (0..self.width).contains(&pos.x) && (0..self.height).contains(&pos.y)
+    }
+}
+
+impl Default for PlotSize {
+    fn default() -> Self {
+        Self::START
+    }
+}
 
 /// A tile on the plot. (0, 0) is the bottom-left buildable tile; x grows to
 /// the east, y grows to the north.
@@ -45,10 +79,6 @@ impl Pos {
     pub fn step(self, dir: Dir) -> Self {
         let (dx, dy) = dir.offset();
         Self::new(self.x + dx, self.y + dy)
-    }
-
-    pub fn in_plot(self) -> bool {
-        (0..PLOT_WIDTH).contains(&self.x) && (0..PLOT_HEIGHT).contains(&self.y)
     }
 }
 
@@ -120,6 +150,11 @@ impl Factory {
             .get(machine)
             .and_then(|generator| self.machines.get(generator))
             .is_some_and(|g| g.kind == MachineKind::SteamGenerator && !g.overheated)
+    }
+
+    /// The buildable plot, as big as the island bought in the Shop.
+    pub fn plot(&self) -> PlotSize {
+        shop::plot_size(&self.unlocked)
     }
 
     pub fn produced(&self, item: ItemKind) -> u64 {
