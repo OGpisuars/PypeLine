@@ -186,16 +186,15 @@ fn show_block(ui: &mut egui::Ui, block: &Block, workspace: &mut Workspace) {
     }
 }
 
-/// A line of manual text: `code` in monospace and **bold** in bold.
+/// A line of manual text: `code` in monospace and **bold** in bold. Code
+/// sits on the theme's button color, which every theme keeps readable
+/// under its text color.
 fn inline(ui: &mut egui::Ui, line: &str) {
     ui.spacing_mut().item_spacing.x = 0.0;
+    let chip = ui.visuals().widgets.inactive.bg_fill;
     for (i, part) in line.split('`').enumerate() {
         if i % 2 == 1 {
-            ui.label(
-                egui::RichText::new(part)
-                    .monospace()
-                    .background_color(egui::Color32::from_rgb(236, 228, 204)),
-            );
+            ui.label(egui::RichText::new(part).monospace().background_color(chip));
         } else {
             for (j, piece) in part.split("**").enumerate() {
                 let text = egui::RichText::new(piece);
@@ -227,7 +226,7 @@ fn show_contract(
                 ui.weak("★ chapter test");
             }
             if done {
-                ui.colored_label(egui::Color32::from_rgb(48, 136, 56), "✓ done");
+                ui.colored_label(super::done_green(ui), "✓ done");
             }
         });
         ui.label(&contract.brief);

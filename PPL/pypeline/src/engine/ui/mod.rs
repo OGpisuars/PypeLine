@@ -129,3 +129,12 @@ fn announce_sales(
         }
     }
 }
+
+/// Green for "✓ done" marks, readable on light and dark themes alike.
+pub(crate) fn done_green(ui: &bevy_egui::egui::Ui) -> bevy_egui::egui::Color32 {
+    if ui.visuals().dark_mode {
+        bevy_egui::egui::Color32::from_rgb(120, 216, 120)
+    } else {
+        bevy_egui::egui::Color32::from_rgb(48, 136, 56)
+    }
+}

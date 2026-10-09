@@ -22,6 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Crafters:** a machine with three input sides and one output that turns plates into iron gears and pipes, and gears, pipes and plates into engines. Click a crafter on the island to pick its recipe, or use `recipe="iron_gear"` in `machines.place`. Gears, pipes and engines sell for more than what goes into them.
 - **Achievements** (🏆 in the top bar): goals like "Make 25 iron plates" or "Build a splitter". Three of them unlock the crafter recipes.
 - Dragging a code window keeps up with the mouse at every zoom (it used to lag behind when zoomed out).
+- **Line numbers** down the left of every code window, so the line an error points at is easy to find. A long line that wraps keeps one number, and the line with the cursor is brighter.
+- Code words in the Manual (like `x += 1`) are readable in every theme: they used to sit on a fixed cream patch that hid light text in the dark themes. The green "✓ done" and "✓ earned" marks are brighter on dark themes too.
 - Pressing **Tab** in a code window indents with 4 spaces, and pasted tabs turn into spaces too, so a script never mixes tabs and spaces (which Python refuses). If a mix still happens, the error explains it.
 - **Quick splitters** in the Shop (2000 coins): every splitter hands items out twice as fast, so one splitter keeps up with belts coming in from several sides. No change to scripts needed.
 - **Splitters:** `splitters.place(x, y, dir1, dir2)` takes items from any side and sends them out in turn, half toward `dir1` and half toward `dir2`. If one side is full, the other gets everything until there is room again.

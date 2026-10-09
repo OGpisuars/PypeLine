@@ -40,7 +40,7 @@ pub fn achievements_window(
                             ui.label(if done { "🏆" } else { "🔒" });
                             ui.label(egui::RichText::new(achievement.title).strong());
                             if done {
-                                ui.colored_label(egui::Color32::from_rgb(48, 136, 56), "✓ earned");
+                                ui.colored_label(super::done_green(ui), "✓ earned");
                             }
                         });
                         ui.label(achievement.goal);

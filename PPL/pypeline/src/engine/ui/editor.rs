@@ -494,26 +494,93 @@ fn code_editor(
         .id_salt(("editor_scroll", &file.name))
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            let output = egui::TextEdit::multiline(&mut file.source)
-                .id(id)
-                .code_editor()
-                .layouter(&mut layouter)
-                .desired_width(f32::INFINITY)
-                .min_size(ui.available_size())
-                .show(ui);
-            if file.source.contains('\t') {
-                spaces_for_tabs(ui.ctx(), id, file, output.cursor_range);
-            }
-            if let (Some(suggestions), Some(range)) = (suggestions, output.cursor_range) {
-                let at = output.galley_pos
-                    + output
-                        .galley
-                        .pos_from_cursor(range.primary)
-                        .left_bottom()
-                        .to_vec2();
-                completion_popup(ui, id, at, &suggestions, file);
-            }
+            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.horizontal_top(|ui| {
+                // A column for line numbers, wide enough for the biggest one.
+                let digits = line_count(&file.source).to_string().len().max(2);
+                let number_width = ui
+                    .fonts_mut(|f| {
+                        f.layout_no_wrap("0".repeat(digits), font.clone(), egui::Color32::WHITE)
+                    })
+                    .size()
+                    .x;
+                let (gutter, _) = ui.allocate_exact_size(
+                    egui::vec2(number_width + GUTTER_PAD * 2.0, 1.0),
+                    egui::Sense::hover(),
+                );
+                let output = egui::TextEdit::multiline(&mut file.source)
+                    .id(id)
+                    .code_editor()
+                    .layouter(&mut layouter)
+                    .desired_width(f32::INFINITY)
+                    .min_size(ui.available_size())
+                    .show(ui);
+                if file.source.contains('\t') {
+                    spaces_for_tabs(ui.ctx(), id, file, output.cursor_range);
+                }
+                let cursor_line = output.cursor_range.map(|range| {
+                    1 + file
+                        .source
+                        .chars()
+                        .take(range.primary.index.0)
+                        .filter(|&c| c == '\n')
+                        .count()
+                });
+                line_numbers(ui, gutter.right() - GUTTER_PAD, &output, &font, cursor_line);
+                if let (Some(suggestions), Some(range)) = (suggestions, output.cursor_range) {
+                    let at = output.galley_pos
+                        + output
+                            .galley
+                            .pos_from_cursor(range.primary)
+                            .left_bottom()
+                            .to_vec2();
+                    completion_popup(ui, id, at, &suggestions, file);
+                }
+            });
         });
+}
+
+/// Space on each side of the line numbers.
+const GUTTER_PAD: f32 = 6.0;
+
+/// How many lines `source` has (an empty file has one).
+fn line_count(source: &str) -> usize {
+    source.split('\n').count()
+}
+
+/// Number each line of the code at its first row, right-aligned at `right`.
+/// A long line that wraps gets one number, and the cursor's line is
+/// brighter so it is easy to find.
+fn line_numbers(
+    ui: &egui::Ui,
+    right: f32,
+    output: &egui::text_edit::TextEditOutput,
+    font: &egui::FontId,
+    cursor_line: Option<usize>,
+) {
+    let painter = ui.painter();
+    let (dim, bright) = (ui.visuals().weak_text_color(), ui.visuals().text_color());
+    let mut line = 1;
+    let mut starts_line = true;
+    for row in &output.galley.rows {
+        if starts_line {
+            let top = output.galley_pos.y + row.pos.y;
+            let color = if cursor_line == Some(line) {
+                bright
+            } else {
+                dim
+            };
+            painter.text(
+                egui::pos2(right, top),
+                egui::Align2::RIGHT_TOP,
+                line.to_string(),
+                font.clone(),
+                color,
+            );
+            line += 1;
+        }
+        starts_line = row.ends_with_newline;
+    }
 }
 
 /// The text box types a tab character for Tab, and pasted code can hold
@@ -926,6 +993,14 @@ mod tests {
         let new_cursor = apply_completion(&mut source, cursor, 2, "connect(");
         assert_eq!(source, "# é\npower.connect(");
         assert_eq!(new_cursor, source.chars().count());
+    }
+
+    #[test]
+    fn line_counts() {
+        assert_eq!(line_count(""), 1);
+        assert_eq!(line_count("a"), 1);
+        assert_eq!(line_count("a\nb"), 2);
+        assert_eq!(line_count("a\nb\n"), 3);
     }
 
     #[test]
