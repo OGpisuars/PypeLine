@@ -121,7 +121,7 @@ pub fn top_bar(
                 workspace.open_new_file_dialog();
             }
             if ui
-                .selectable_label(workspace.console_open, "Console")
+                .add(egui::Button::new("Console").selected(workspace.console_open))
                 .clicked()
             {
                 workspace.console_open = !workspace.console_open;
@@ -129,38 +129,38 @@ pub fn top_bar(
             snippets_menu(ui, &mut workspace, &progress);
             ui.separator();
             if ui
-                .selectable_label(toggles.help.open, "Help (F1)")
+                .add(egui::Button::new("Help (F1)").selected(toggles.help.open))
                 .clicked()
             {
                 toggles.help.open = !toggles.help.open;
             }
             if ui
-                .selectable_label(toggles.cheat_sheet.open, "📋 Cheat sheet")
+                .add(egui::Button::new("📋 Cheat sheet").selected(toggles.cheat_sheet.open))
                 .on_hover_text("Every import and everything inside each module")
                 .clicked()
             {
                 toggles.cheat_sheet.open = !toggles.cheat_sheet.open;
             }
             if ui
-                .selectable_label(toggles.manual.open, "Manual (F2)")
+                .add(egui::Button::new("Manual (F2)").selected(toggles.manual.open))
                 .clicked()
             {
                 toggles.manual.open = !toggles.manual.open;
             }
             if ui
-                .selectable_label(toggles.shop.open, "Shop (F3)")
+                .add(egui::Button::new("Shop (F3)").selected(toggles.shop.open))
                 .clicked()
             {
                 toggles.shop.open = !toggles.shop.open;
             }
             if ui
-                .selectable_label(toggles.stats.open, "Stats (F4)")
+                .add(egui::Button::new("Stats (F4)").selected(toggles.stats.open))
                 .clicked()
             {
                 toggles.stats.open = !toggles.stats.open;
             }
             if ui
-                .selectable_label(toggles.achievements.open, "🏆 Achievements")
+                .add(egui::Button::new("🏆 Achievements").selected(toggles.achievements.open))
                 .on_hover_text("Goals to reach; some unlock crafter recipes")
                 .clicked()
             {
@@ -174,7 +174,7 @@ pub fn top_bar(
                 toggles.pause.open = true;
             }
             if ui
-                .selectable_label(toggles.settings.open, "⚙ Settings")
+                .add(egui::Button::new("⚙ Settings").selected(toggles.settings.open))
                 .clicked()
             {
                 toggles.settings.open = !toggles.settings.open;

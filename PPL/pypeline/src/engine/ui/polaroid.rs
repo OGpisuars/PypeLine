@@ -148,6 +148,9 @@ pub fn polaroid(
                     bottom: 14,
                 })
                 .show(ui, |ui| {
+                    // The card is always cream photo paper, so its text is
+                    // always dark ink, whatever the window theme.
+                    ui.visuals_mut().override_text_color = Some(INK);
                     ui.set_width(PHOTO + 72.0);
                     egui::Frame::new()
                         .fill(egui::Color32::from_rgb(120, 192, 248))
@@ -157,7 +160,9 @@ pub fn polaroid(
                             });
                         });
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new(title).strong());
+                    // Strong text takes its color from the theme, not the
+                    // override above, so give the title its ink directly.
+                    ui.label(egui::RichText::new(title).strong().color(INK));
                     for line in lines {
                         ui.label(egui::RichText::new(line).small());
                     }
@@ -168,6 +173,9 @@ pub fn polaroid(
         });
     Ok(())
 }
+
+/// Text on the cream card: the Classic theme's ink.
+const INK: egui::Color32 = egui::Color32::from_rgb(40, 32, 48);
 
 fn dir_name(dir: Dir) -> &'static str {
     match dir {

@@ -22,6 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Crafters:** a machine with three input sides and one output that turns plates into iron gears and pipes, and gears, pipes and plates into engines. Click a crafter on the island to pick its recipe, or use `recipe="iron_gear"` in `machines.place`. Gears, pipes and engines sell for more than what goes into them.
 - **Achievements** (🏆 in the top bar): goals like "Make 25 iron plates" or "Build a splitter". Three of them unlock the crafter recipes.
 - Dragging a code window keeps up with the mouse at every zoom (it used to lag behind when zoomed out).
+- Every top-bar button has a border now, including Help, Cheat sheet, Shop, Stats, Achievements and Settings; a button whose window is open is highlighted. The speed buttons keep a border only on the active speed.
+- The card that shows a machine or belt under the mouse has readable dark text in every theme (dark themes used to put white text on its cream paper).
 - **Line numbers** down the left of every code window, so the line an error points at is easy to find. A long line that wraps keeps one number, and the line with the cursor is brighter.
 - Code words in the Manual (like `x += 1`) are readable in every theme: they used to sit on a fixed cream patch that hid light text in the dark themes. The green "✓ done" and "✓ earned" marks are brighter on dark themes too.
 - Pressing **Tab** in a code window indents with 4 spaces, and pasted tabs turn into spaces too, so a script never mixes tabs and spaces (which Python refuses). If a mix still happens, the error explains it.
