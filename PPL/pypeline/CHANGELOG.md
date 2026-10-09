@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PypeLine. The game is pre-alpha: every push to `main` builds a new [Windows download](https://github.com/OGpisuars/PypeLine/releases/tag/latest), and there are no numbered releases yet.
+All notable changes to PypeLine. The game is pre-alpha: every push to `main` builds new [downloads for Windows, macOS and Linux](https://github.com/OGpisuars/PypeLine/releases/tag/latest), and there are no numbered releases yet.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Title menu with Play, Settings and Quit. The factory waits until Play; View > Title screen goes back.
 - Game icon on the window and built into `PypeLine.exe`.
 - Background music, "Joystick Sunday", with track and volume in Settings.
+
+### Downloads
+- macOS (one app for Apple Silicon and Intel) and Linux downloads next to the Windows one, built on every push.
 
 ### Playing
 - Pause menu (Esc, or ☰ Menu in the top bar): Resume, Settings, Title screen and Quit. The factory pauses while it is open.

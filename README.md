@@ -9,13 +9,13 @@
 A cozy 16-bit, GBA-style automation game where your factory runs on Python you write yourself.
 
 [![CI](https://github.com/OGpisuars/PypeLine/actions/workflows/ci.yml/badge.svg)](https://github.com/OGpisuars/PypeLine/actions/workflows/ci.yml)
-[![Windows build](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml/badge.svg)](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml)
+[![Builds](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml/badge.svg)](https://github.com/OGpisuars/PypeLine/actions/workflows/release.yml)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
 ![Rust](https://img.shields.io/badge/Rust-1.99-b7410e?logo=rust)
 ![Bevy](https://img.shields.io/badge/Bevy-0.19-232326)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[**⬇ Download for Windows**](https://github.com/OGpisuars/PypeLine/releases/tag/latest) · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Roadmap](#-roadmap)
+[**⬇ Download**](https://github.com/OGpisuars/PypeLine/releases/tag/latest) for Windows, macOS and Linux · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Roadmap](#-roadmap)
 
 <img src="PPL/pypeline/docs/images/factory.png" alt="A PypeLine factory: three production lines built by a for loop, with the code window open" width="860">
 
@@ -129,9 +129,10 @@ Every window can be dragged, resized and closed; the top bar brings it back. Scr
 | **3A. Teaching loop** | Manual chapters 1–7, contracts, friendly errors, snippets | ✅ Done |
 | **3B. Beta tools** | Debugger, stats, day/night, chapters 8–10 | ✅ Code done, playtests next |
 | **3C. Workspace** | Floating windows, many files, drag and zoom, Shop, Settings | ✅ Done |
-| **4. 1.0** | Sandbox mode, blueprints, micro-chips, LED panels, real art, accessibility | 🔜 Next |
+| **3D. Web demo** | Play in the browser with nothing to install, made for classrooms | 🔜 Next |
+| **4. 1.0** | Sandbox mode, blueprints, micro-chips, LED panels, real art, accessibility | 📝 Planned |
 | **4B. Prestige** | Prestige resets with a bonus and a new language each time | 📝 Planned |
-| **5. Post-launch** | Workshop sharing, leaderboards, web demo, more chapters | 📝 Planned |
+| **5. Post-launch** | Workshop sharing, leaderboards, the full game in the browser, more chapters | 📝 Planned |
 
 The full plan, with the reasoning behind every decision, is in [`pypeline_roadmap.txt`](pypeline_roadmap.txt). What changed and when: [`CHANGELOG.md`](PPL/pypeline/CHANGELOG.md).
 
@@ -156,6 +157,8 @@ More: [Architecture](PPL/pypeline/docs/ARCHITECTURE.md) · [Scripting API](PPL/p
 ---
 
 ## 🚀 Build from source
+
+You only need this to change the game. To play, grab the [download](https://github.com/OGpisuars/PypeLine/releases/tag/latest) for your system.
 
 **Requirements:** [Rust](https://www.rust-lang.org/tools/install) (the exact version is pinned in `rust-toolchain.toml` and installed automatically) and a GPU with Vulkan, Metal or DirectX 12. On Linux, also install the audio and input headers (Debian/Ubuntu: `sudo apt install libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
 
@@ -189,14 +192,14 @@ PypeLine/
 │   ├── tests/             # Determinism, sandbox, contracts, modules
 │   └── docs/              # Architecture, API, sandbox, content guide, decisions
 ├── pypeline_roadmap.txt   # The full design and plan
-└── .github/               # CI, the Windows build, issue templates
+└── .github/               # CI, release builds for every OS, issue templates
 ```
 
 ---
 
 ## 🤝 Contributing
 
-Help is welcome, and you do not need to know Rust:
+Help is welcome, and you do not need to know Rust. New here? Start with an issue labeled [**good first issue**](https://github.com/OGpisuars/PypeLine/labels/good%20first%20issue).
 
 - **Playtest**, especially if you are new to Python. Notes go in [`PLAYTEST.md`](PPL/pypeline/PLAYTEST.md).
 - **Write Manual chapters and contracts:** they are Markdown and RON files. See the [content guide](PPL/pypeline/docs/CONTENT_GUIDE.md).

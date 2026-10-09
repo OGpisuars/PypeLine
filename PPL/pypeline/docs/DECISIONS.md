@@ -6,6 +6,12 @@ Add new entries at the top. Each entry says what was decided, why, and what it a
 
 ---
 
+## 2026-10-09: Downloads for every OS, and the web demo moves up
+
+- The release workflow builds Windows, macOS and Linux on every push and publishes all three to the `latest` pre-release together (nothing is published unless all three build). macOS is one universal `PypeLine.app` (Apple Silicon and Intel joined with `lipo`) with an `.icns` made from `assets/icon/pypeline.png`; it is signed ad hoc until notarization (Phase 4), so the first launch needs right-click > Open. Linux is built on Ubuntu 22.04 so it runs on older distros. Everything the game needs is built into the binary, so each download is the program plus license files.
+- The web (WASM) demo moves from post-launch to Phase 3D, before 1.0. The audience is beginners, teachers and classrooms; school machines often cannot install anything, and a link removes every barrier. Bevy and RustPython both target wasm32. The demo covers chapters 1-3 first.
+- The README leads with a GIF of a script running and the factory snapping into place (`tools/readme_gif.sh`, using the new `PYPELINE_RECORD` and `PYPELINE_AUTORUN_AFTER` dev hooks), because that moment explains the game faster than any screenshot.
+
 ## 2026-10-08: Startup: company logo, loading screen, title menu, icon, music
 
 - A `Screen` state (`engine/screens.rs`) runs Logo → Boot → Menu → Playing. The factory's four `SimSet`s only run while Playing, so nothing ticks behind the menu; the game's windows and keys are gated the same way. Settings opens on the menu too. View > Title screen goes back.

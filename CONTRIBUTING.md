@@ -200,7 +200,7 @@ Assets with unclear origins will be rejected.
 
 ## 🔀 Pull Request Process
 
-1. **Open or find an issue** and say you are working on it.
+1. **Open or find an issue** and say you are working on it. First time? Pick one labeled [`good first issue`](https://github.com/OGpisuars/PypeLine/labels/good%20first%20issue).
 2. **Fork** the repo and create a branch: `feature/short-name` or `fix/short-name`.
 3. **Keep it focused.** One change per pull request.
 4. **Write clear commits.** Short summary line, then details if needed.

@@ -70,4 +70,4 @@ PypeLine is a [Bevy](https://bevyengine.org) app. The factory is plain Rust data
 
 - `cargo test` runs unit tests in each module and the integration tests in `tests/`.
 - Content is tested too: every Manual example must run, every contract's `solution` must beat its contract, and every Help example must work. `docs/API.md` is generated from the in-game Help, and a test fails if it is out of date.
-- CI (`.github/workflows/ci.yml`) builds and tests on Windows, Linux and macOS, and runs `cargo fmt --check` and `cargo clippy -D warnings`. `release.yml` builds `PypeLine.exe` on every push to `main` and publishes it as the [latest build](https://github.com/OGpisuars/PypeLine/releases/tag/latest).
+- CI (`.github/workflows/ci.yml`) builds and tests on Windows, Linux and macOS, and runs `cargo fmt --check` and `cargo clippy -D warnings`. `release.yml` builds Windows, macOS and Linux downloads on every push to `main` and publishes them as the [latest build](https://github.com/OGpisuars/PypeLine/releases/tag/latest).

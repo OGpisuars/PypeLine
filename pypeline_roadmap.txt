@@ -443,8 +443,13 @@ CONTENT FORMAT     : Chapters, contracts, and recipes as data
 
 PLATFORMS          : Windows, Linux, macOS - all three at launch.
   - CI builds all three from Phase 0 so nothing drifts.
+  - Every push to main publishes downloads for all three
+    (Windows .exe, universal macOS .app, Linux x86-64).
   - macOS needs signing/notarization; budget time for it.
-  - Web (WASM) build stays a stretch goal.
+    Until then the .app is signed ad hoc (right-click > Open).
+  - Web (WASM) demo comes BEFORE 1.0 (Phase 3D): for beginners
+    and classrooms, "click a link and play" removes every
+    install, admin-rights and OS barrier.
 
 LICENSE            : MIT for code, separate license for assets.
 
@@ -548,7 +553,8 @@ Goal: it looks and feels like PypeLine.
   [ ] All UI text in string tables from here on (Part 4 H)
   [ ] Benchmark suite in CI + first profiling pass (Part 4 D)
   [~] Weekly playable build + PLAYTEST.md notes start
-      (Windows build on every push; PLAYTEST.md not started)
+      (Windows, macOS and Linux builds on every push;
+      PLAYTEST.md started)
 Exit test: a stranger can play 30 minutes and understand
 what is happening without being told. This is the vertical
 slice: if it is not fun yet, fix that before Phase 3.
@@ -656,6 +662,25 @@ console open next to the island, and buy and use a Fast belt
 without reading anything outside the game.
 
 --------------------------------------------------------------
+PHASE 3D - WEB DEMO (moved up from post-launch)
+--------------------------------------------------------------
+Goal: play in the browser with nothing to install, so teachers
+can hand out a link. Both Bevy and RustPython compile to
+wasm32, so this is a port, not a rewrite.
+  [ ] wasm32 build in CI (Bevy on WebGL2, WebGPU later)
+  [ ] Scripts, saves and settings in browser storage instead
+      of files (one trait, two backends)
+  [ ] Audio starts after the first click (browser rule)
+  [ ] Chapters 1-3 playable, ending with "get the full game"
+  [ ] Hosted on GitHub Pages, deployed from main; README
+      "Play in your browser" button
+  [ ] Budgets: download under 30 MB, playable within 10 s
+      on a school Chromebook
+Exit test: a student on a school Chromebook goes from the link
+to their first automated plate in under 5 minutes, with
+nothing to install.
+
+--------------------------------------------------------------
 PHASE 4 - 1.0: SANDBOX, SHARING, POLISH (Week 29-40)
 --------------------------------------------------------------
 Goal: shippable.
@@ -713,7 +738,7 @@ PHASE 5 - POST-LAUNCH
 --------------------------------------------------------------
   [ ] Steam Workshop integration for scripts/blueprints
   [ ] Leaderboards (deterministic replays make this fair)
-  [ ] Web (WASM) demo
+  [ ] Full game in the browser (the Phase 3D demo, all chapters)
   [ ] Extra chapters: classes, error handling, algorithms
   [ ] Mod support through the data-driven content folders
 
