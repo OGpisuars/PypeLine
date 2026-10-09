@@ -210,7 +210,7 @@ fn splitter_grid(outputs: [Dir; 2]) -> Grid {
                     let shaft = (7..=8).contains(&r) && (10..=12).contains(&c);
                     // The head narrows by one row on each side per column.
                     let head =
-                        (12..=14).contains(&c) && r.abs_diff(7) + r.abs_diff(8) <= 2 * (15 - c) - 1;
+                        (12..=14).contains(&c) && r.abs_diff(7) + r.abs_diff(8) < 2 * (15 - c);
                     if shaft || head { 'y' } else { '.' }
                 })
                 .collect()
