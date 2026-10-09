@@ -78,6 +78,9 @@ pub fn explain(message: &str, source: &str) -> Option<String> {
         {
             "A bracket was opened but never closed. Count your ( and ) on that line.".into()
         }
+        "TabError" => "This line is indented with a tab and the lines around it with spaces. \
+                       Python needs one or the other: indent with 4 spaces."
+            .into(),
         "IndentationError" if detail.starts_with("expected an indented block") => {
             "The lines inside a for, while, if or def must be indented by 4 more spaces than \
              the line with the colon."
@@ -191,6 +194,7 @@ mod tests {
             "SyntaxError: unterminated string literal (detected at line 1) (main.py, line 1)",
             "IndentationError: expected an indented block after 'if' statement on line 1",
             "IndentationError: unexpected indentation (main.py, line 2)",
+            "TabError: inconsistent use of tabs and spaces in indentation",
             "TypeError: place() missing required argument 'dir' (pos 3)",
             "TypeError: can only concatenate str (not \"int\") to str",
         ] {

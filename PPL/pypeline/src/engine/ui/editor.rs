@@ -27,6 +27,9 @@ const STARTER_SCRIPT: &str = crate::scripting::CANONICAL_SAMPLE;
 
 pub const MAIN_FILE: &str = "main.py";
 
+/// Columns one press of Tab indents by.
+const TAB_WIDTH: usize = 4;
+
 /// Seconds between autosaves while a file has unsaved changes.
 const AUTOSAVE_SECS: f32 = 5.0;
 
@@ -498,6 +501,9 @@ fn code_editor(
                 .desired_width(f32::INFINITY)
                 .min_size(ui.available_size())
                 .show(ui);
+            if file.source.contains('\t') {
+                spaces_for_tabs(ui.ctx(), id, file, output.cursor_range);
+            }
             if let (Some(suggestions), Some(range)) = (suggestions, output.cursor_range) {
                 let at = output.galley_pos
                     + output
@@ -508,6 +514,64 @@ fn code_editor(
                 completion_popup(ui, id, at, &suggestions, file);
             }
         });
+}
+
+/// The text box types a tab character for Tab, and pasted code can hold
+/// tabs too, but the rest of the script is indented with spaces and Python
+/// refuses a mix of the two. Turn every tab into spaces and keep the cursor
+/// (or selection) on the same text.
+fn spaces_for_tabs(
+    ctx: &egui::Context,
+    id: egui::Id,
+    file: &mut ScriptFile,
+    range: Option<egui::text::CCursorRange>,
+) {
+    let ends = range.map_or([0, 0], |r| [r.secondary.index.0, r.primary.index.0]);
+    let (source, [secondary, primary]) = expand_tabs(&file.source, ends);
+    file.source = source;
+    if range.is_some()
+        && let Some(mut edit) = egui::text_edit::TextEditState::load(ctx, id)
+    {
+        edit.cursor
+            .set_char_range(Some(egui::text::CCursorRange::two(
+                egui::text::CCursor::new(secondary),
+                egui::text::CCursor::new(primary),
+            )));
+        edit.store(ctx, id);
+    }
+}
+
+/// `source` with each tab replaced by spaces up to the next multiple of
+/// `TAB_WIDTH` columns, and where the character positions `at` moved to.
+fn expand_tabs(source: &str, at: [usize; 2]) -> (String, [usize; 2]) {
+    let mut out = String::with_capacity(source.len() + 16);
+    let mut moved = at;
+    let (mut column, mut written, mut read) = (0, 0, 0);
+    for c in source.chars() {
+        for (old, new) in at.iter().zip(&mut moved) {
+            if *old == read {
+                *new = written;
+            }
+        }
+        read += 1;
+        let width = match c {
+            '\t' => TAB_WIDTH - column % TAB_WIDTH,
+            _ => 1,
+        };
+        if c == '\t' {
+            out.extend(std::iter::repeat_n(' ', width));
+        } else {
+            out.push(c);
+        }
+        column = if c == '\n' { 0 } else { column + width };
+        written += width;
+    }
+    for (old, new) in at.iter().zip(&mut moved) {
+        if *old >= read {
+            *new = written;
+        }
+    }
+    (out, moved)
 }
 
 /// The files a script imports, by module name (`import a, b as c` and
@@ -862,6 +926,25 @@ mod tests {
         let new_cursor = apply_completion(&mut source, cursor, 2, "connect(");
         assert_eq!(source, "# é\npower.connect(");
         assert_eq!(new_cursor, source.chars().count());
+    }
+
+    #[test]
+    fn tabs_become_spaces_to_the_next_stop() {
+        // Tab pressed at the start of a line, the cursor just after it.
+        let (text, at) = expand_tabs("for x in y:\n\tpass", [13, 13]);
+        assert_eq!(text, "for x in y:\n    pass");
+        assert_eq!(at, [16, 16]);
+        // Mid-line tabs go to the next multiple of 4; a selection keeps
+        // both ends, and an end past the text stays at the end.
+        let (text, at) = expand_tabs("ab\tc\t", [0, 5]);
+        assert_eq!(text, "ab  c   ");
+        assert_eq!(at, [0, 8]);
+        // What the Tab key leaves behind now runs.
+        let report = ScriptRuntime::new().run(
+            &expand_tabs("for x in range(2):\n    a = x\n\tprint(a)\n", [0, 0]).0,
+            DEPLOY_BUDGET,
+        );
+        assert_eq!(report.outcome, RunOutcome::Finished, "{:?}", report.output);
     }
 
     #[test]
