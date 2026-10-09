@@ -192,7 +192,7 @@ jobs:
           | System | Download | How to start |
           |---|---|---|
           | Windows | `PypeLine-windows.zip` | Unzip, then run `PypeLine.exe`. If SmartScreen warns, click **More info > Run anyway**. |
-          | macOS (Apple Silicon and Intel) | `PypeLine-macos.zip` | Unzip and move `PypeLine.app` to Applications. The first time, right-click it and choose **Open** (it is not notarized yet). |
+          | macOS (Apple Silicon and Intel) | `PypeLine-macos.zip` | Unzip and move `PypeLine.app` to Applications. It is not notarized yet, so the first time: on macOS 15 and newer, open **System Settings > Privacy & Security** and click **Open Anyway**; on older versions, right-click it and choose **Open**. |
           | Linux (x86-64) | `PypeLine-linux.tar.gz` | Extract, then run `./pypeline`. Needs Vulkan and ALSA or PipeWire, which most desktops have. |
 
           Your scripts and saves are kept between versions.

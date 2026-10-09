@@ -15,7 +15,7 @@ A cozy 16-bit, GBA-style automation game where your factory runs on Python you w
 ![Bevy](https://img.shields.io/badge/Bevy-0.19-232326)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[**⬇ Download**](https://github.com/OGpisuars/PypeLine/releases/tag/latest) for Windows, macOS and Linux · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Roadmap](#-roadmap)
+[**⬇ Download**](#-download-and-play) for Windows, macOS and Linux · [Build from source](#-build-from-source) · [Scripting API](PPL/pypeline/docs/API.md) · [Wiki](https://github.com/OGpisuars/PypeLine/wiki) · [Roadmap](#-roadmap)
 
 <img src="PPL/pypeline/docs/images/demo.gif" alt="Pressing Run: a Python for loop builds three production lines on an empty island, and the belts start moving" width="860">
 
@@ -45,6 +45,57 @@ for n, y in enumerate([1, 4, 7]):
 Press **Run** and the factory matches your script. Change it and run again: the game adds, updates and removes only what changed, and a script with an error changes nothing.
 
 > **Status: pre-alpha.** Ten chapters are playable today. Features marked *planned* are designed but not built yet.
+
+---
+
+## 📥 Download and play
+
+No Rust or building needed: every change to the game builds a fresh copy for each system.
+
+| System | Download |
+|--------|----------|
+| 🪟 **Windows** 10 and 11 | [PypeLine-windows.zip](https://github.com/OGpisuars/PypeLine/releases/download/latest/PypeLine-windows.zip) |
+| 🍎 **macOS** 11 or newer (Apple Silicon and Intel) | [PypeLine-macos.zip](https://github.com/OGpisuars/PypeLine/releases/download/latest/PypeLine-macos.zip) |
+| 🐧 **Linux** (x86-64) | [PypeLine-linux.tar.gz](https://github.com/OGpisuars/PypeLine/releases/download/latest/PypeLine-linux.tar.gz) |
+
+<details>
+<summary><b>Windows:</b> how to start it</summary>
+
+1. Unzip `PypeLine-windows.zip`.
+2. Open the `PypeLine` folder and double-click `PypeLine.exe`.
+3. If Windows SmartScreen says it protected your PC, click **More info**, then **Run anyway**. The game is not signed yet, so Windows does not know it.
+
+</details>
+
+<details>
+<summary><b>macOS:</b> how to start it</summary>
+
+1. Unzip `PypeLine-macos.zip` (double-click it in Finder).
+2. Drag `PypeLine.app` into your **Applications** folder.
+3. Open it. The game is not notarized by Apple yet, so the first time macOS blocks it:
+   - **macOS 15 Sequoia and newer:** click **Done**, open **System Settings > Privacy & Security**, scroll down and click **Open Anyway** next to PypeLine, then confirm.
+   - **macOS 14 and older:** right-click (or Control-click) `PypeLine.app`, choose **Open**, then **Open** again.
+
+   Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/PypeLine.app`
+
+After the first time it opens normally.
+
+</details>
+
+<details>
+<summary><b>Linux:</b> how to start it</summary>
+
+```bash
+tar -xzf PypeLine-linux.tar.gz
+cd PypeLine
+./pypeline
+```
+
+It needs a GPU driver with Vulkan and sound through ALSA, PulseAudio or PipeWire, which most desktops already have. It runs on X11 and Wayland, on Ubuntu 22.04 or anything newer. If it does not start, install the Vulkan driver (Debian/Ubuntu: `sudo apt install mesa-vulkan-drivers`; Arch: `sudo pacman -S vulkan-icd-loader` plus your GPU's Vulkan driver).
+
+</details>
+
+Your scripts and factory are saved on your computer, so a new download keeps your progress. All downloads are also on the [releases page](https://github.com/OGpisuars/PypeLine/releases/tag/latest). Stuck? The [wiki](https://github.com/OGpisuars/PypeLine/wiki) has a [troubleshooting page](https://github.com/OGpisuars/PypeLine/wiki/Troubleshooting).
 
 ---
 
@@ -105,7 +156,7 @@ Press **Run** and the factory matches your script. Change it and run again: the 
 
 | Key or button | What it does |
 |---------------|--------------|
-| Any key or click | Skip the logo and loading screen |
+| Any key or click | Skip the logo |
 | **Enter** or **▶ Play** | Start from the title menu |
 | **▶ Run**, **Ctrl+Enter** or **F5** | Run `main.py` and update the factory to match |
 | **Esc** or **☰ Menu** | Pause menu: Resume, Settings, Title screen, Quit |
@@ -160,7 +211,7 @@ More: [Architecture](PPL/pypeline/docs/ARCHITECTURE.md) · [Scripting API](PPL/p
 
 ## 🚀 Build from source
 
-You only need this to change the game. To play, grab the [download](https://github.com/OGpisuars/PypeLine/releases/tag/latest) for your system.
+You only need this to change the game. To play, grab the [download](#-download-and-play) for your system.
 
 **Requirements:** [Rust](https://www.rust-lang.org/tools/install) (the exact version is pinned in `rust-toolchain.toml` and installed automatically) and a GPU with Vulkan, Metal or DirectX 12. On Linux, also install the audio and input headers (Debian/Ubuntu: `sudo apt install libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`).
 
